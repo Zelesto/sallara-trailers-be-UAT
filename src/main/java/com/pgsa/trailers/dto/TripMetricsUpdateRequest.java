@@ -18,6 +18,13 @@ public class TripMetricsUpdateRequest {
     private Integer tasksCompleted;     // matches entity
     private BigDecimal revenueAmount;   // matches entity
 
+    // New location-based metrics
+    private BigDecimal originCityTravelTimeHours;
+    private BigDecimal destinationCityTravelTimeHours;
+    private BigDecimal plannedVsActualDistanceVarianceKm;
+    private BigDecimal plannedVsActualDurationVarianceHours;
+    private BigDecimal geocodingConfidenceScore;
+
     // Optional: cargo weight or delays if needed
     private BigDecimal cargoWeight;     // if tracked elsewhere
     private BigDecimal delays;          // if tracked elsewhere
