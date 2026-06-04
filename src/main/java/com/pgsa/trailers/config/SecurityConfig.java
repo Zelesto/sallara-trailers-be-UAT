@@ -41,16 +41,10 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
 
             .authorizeHttpRequests(auth -> auth
-                // public endpoints
-                .requestMatchers(
-                        "/api/auth/**",
-                        "/error",
-                        "/actuator/**"
-                ).permitAll()
-
-                // everything else secured
-                .anyRequest().authenticated()
-            )
+    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+    .requestMatchers("/api/auth/**", "/error").permitAll()
+    .anyRequest().authenticated()
+)
 
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
@@ -66,35 +60,29 @@ public class SecurityConfig {
     // GLOBAL CORS CONFIG
     // =========================
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
+public CorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowCredentials(true);
+    config.setAllowCredentials(true);
 
-        config.setAllowedOrigins(List.of(
-                "https://trailers-1.onrender.com",
-                "http://localhost:5173",
-                "http://localhost:8081"
-        ));
+    config.setAllowedOrigins(List.of(
+            "https://trailers-1.onrender.com",
+            "http://localhost:5173"
+    ));
 
-        config.setAllowedMethods(List.of(
-                "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
-        ));
+    config.setAllowedMethods(List.of(
+            "GET","POST","PUT","DELETE","PATCH","OPTIONS"
+    ));
 
-        config.setAllowedHeaders(List.of("*"));
+    config.setAllowedHeaders(List.of("*"));
 
-        config.setExposedHeaders(List.of(
-                "Authorization",
-                "Content-Disposition"
-        ));
+    config.setExposedHeaders(List.of("Authorization"));
 
-        config.setMaxAge(3600L);
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", config);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-
-        return source;
-    }
+    return source;
+}
 
     // =========================
     // EXTRA SAFETY: CORS FILTER (IMPORTANT FOR RENDER)
