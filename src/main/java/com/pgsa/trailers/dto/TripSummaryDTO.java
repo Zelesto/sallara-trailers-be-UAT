@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -22,21 +23,15 @@ public class TripSummaryDTO {
     private String originLocation;
     private String destinationLocation;
     
-    // New detailed origin address fields
+    // New city fields for display in lists/tables
     private String originCity;
-    private String originZipCode;
-    private String originProvince;
-    
-    // New detailed destination address fields
     private String destinationCity;
+    
+    // Zip codes for reference
+    private String originZipCode;
     private String destinationZipCode;
-    private String destinationProvince;
     
-    // Optional: Add metrics summary for quick view
+    // Quick metrics for summary view
     private BigDecimal totalDistanceKm;
-    private BigDecimal totalDurationHours;
-    
-    // Optional: Add formatted addresses for display
-    private String originDisplayAddress;
-    private String destinationDisplayAddress;
+    private BigDecimal plannedDistanceKm;
 }
