@@ -1,5 +1,7 @@
 package com.pgsa.trailers.service.routing;
 
+import java.util.Map;
+
 public interface RoutingProvider {
 
     String name();
@@ -8,5 +10,6 @@ public interface RoutingProvider {
 
     RoutingResult calculate(Coordinates origin,
                             Coordinates destination,
-                            String vehicleType);
+                            String vehicleType,
+                            Map<String, Object> context);
 }
