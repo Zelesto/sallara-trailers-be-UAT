@@ -2,11 +2,12 @@ package com.pgsa.trailers.service.routing;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.annotation.Order;
+import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.stereotype.Service;
 
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -16,9 +17,6 @@ public class RoutingEngine {
     private final List<RoutingProvider> providers;
     private final GeocodingService geocodingService;
 
-    /**
-     * MAIN ROUTE CALCULATION (with geocoding + failover)
-     */
     public RoutingResult calculateRoute(String origin,
                                         String destination,
                                         String vehicleType) {
@@ -30,16 +28,13 @@ public class RoutingEngine {
             originCoords = geocodingService.geocode(origin);
             destCoords = geocodingService.geocode(destination);
         } catch (Exception e) {
-            log.error("Geocoding failed for origin/destination", e);
+            log.error("Geocoding failed for {} -> {}", origin, destination, e);
             throw new RuntimeException("Failed to geocode locations", e);
         }
 
         return executeWithFailover(originCoords, destCoords, vehicleType, origin, destination);
     }
 
-    /**
-     * DIRECT COORDINATE ROUTING (no geocoding)
-     */
     public RoutingResult calculateRouteDirect(double startLat,
                                               double startLng,
                                               double endLat,
@@ -52,9 +47,6 @@ public class RoutingEngine {
         return executeWithFailover(origin, dest, vehicleType, "direct", "direct");
     }
 
-    /**
-     * CORE FAILOVER ENGINE
-     */
     private RoutingResult executeWithFailover(Coordinates origin,
                                               Coordinates destination,
                                               String vehicleType,
@@ -63,13 +55,18 @@ public class RoutingEngine {
 
         Exception lastError = null;
 
-        // Sort providers for deterministic behavior
-        List<RoutingProvider> sortedProviders = providers.stream()
-                .sorted(Comparator.comparing(RoutingProvider::name))
-                .toList();
+        Map<String, Object> context = new HashMap<>();
+        context.put("originLabel", originLabel);
+        context.put("destLabel", destLabel);
 
         log.info("Routing request: {} -> {} | vehicle={}",
                 originLabel, destLabel, vehicleType);
+
+        // Spring already respects @Order
+        List<RoutingProvider> sortedProviders =
+                providers.stream()
+                        .sorted(AnnotationAwareOrderComparator.INSTANCE)
+                        .toList();
 
         for (RoutingProvider provider : sortedProviders) {
 
@@ -79,26 +76,23 @@ public class RoutingEngine {
                     continue;
                 }
 
-                log.info("Trying routing provider: {}", provider.name());
+                log.info("Trying provider: {}", provider.name());
 
                 RoutingResult result =
-                        provider.calculate(origin, destination, vehicleType);
+                        provider.calculate(origin, destination, vehicleType, context);
 
-                log.info("Routing success via {}: {} km",
-                        provider.name(), result.getDistance());
+                log.info("Success via {} | distance={} km",
+                        provider.name(), result.getDistanceKm());
 
                 return result;
 
             } catch (Exception e) {
                 lastError = e;
-
-                log.warn("Provider {} failed: {}",
-                        provider.name(), e.getMessage());
+                log.warn("Provider {} failed", provider.name(), e);
             }
         }
 
-        log.error("All routing providers failed for {} -> {}",
-                originLabel, destLabel);
+        log.error("All routing providers failed for {} -> {}", originLabel, destLabel);
 
         throw new RuntimeException("All routing providers failed", lastError);
     }
