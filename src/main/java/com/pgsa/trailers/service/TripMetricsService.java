@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.pgsa.trailers.service.routing.RoutingResult;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -37,7 +38,7 @@ public class TripMetricsService {
         Trip trip = getTrip(tripId);
         TripMetrics metrics = getOrCreateMetrics(trip);
 
-        RoutingService.RoutingResult routing = routingService.calculateRoute(
+        RoutingResult routing = routingService.calculateRoute(
                 request.getOriginLocation(),
                 request.getDestinationLocation(),
                 request.getVehicleType()
@@ -46,18 +47,18 @@ public class TripMetricsService {
         // =========================
         // UPDATE TRIP (PLANNED)
         // =========================
-        trip.setPlannedDistanceKm(routing.getDistance());
-        trip.setPlannedDurationHours(routing.getDuration());
+        trip.setPlannedDistanceKm(routing.getDistanceKm());
+        trip.setPlannedDurationHours(routing.getDurationHours());
 
         tripRepository.save(trip);
 
         // =========================
         // UPDATE METRICS
         // =========================
-        metrics.setTotalDistanceKm(routing.getDistance());
-        metrics.setTotalDurationHours(routing.getDuration());
+        metrics.setTotalDistanceKm(routing.getDistanceKm());
+        metrics.setTotalDurationHours(routing.getDurationHours());
 
-        applyFuelAndCost(metrics, routing.getDistance(), request.getVehicleType());
+        applyFuelAndCost(metrics, routing.getDistanceKm(), request.getVehicleType());
         applyDerivedMetrics(metrics);
 
         TripMetrics saved = tripMetricsRepository.save(metrics);
@@ -155,28 +156,28 @@ public class TripMetricsService {
        ========================================================= */
     @Transactional(readOnly = true)
     public TripMetricsDTO calculateMetricsOnly(RouteCalculationRequestDTO request) {
-        RoutingService.RoutingResult routing = routingService.calculateRoute(
+        RoutingResult routing = routingService.calculateRoute(
                 request.getOriginLocation(),
                 request.getDestinationLocation(),
                 request.getVehicleType()
         );
 
-        BigDecimal fuelUsed = estimateFuel(routing.getDistance(), request.getVehicleType());
+        BigDecimal fuelUsed = estimateFuel(routing.getDistanceKm(), request.getVehicleType());
 
         TripMetricsDTO dto = new TripMetricsDTO();
         dto.setOriginLocation(request.getOriginLocation());
         dto.setDestinationLocation(request.getDestinationLocation());
         dto.setVehicleType(request.getVehicleType());
-        dto.setTotalDistanceKm(routing.getDistance());
-        dto.setTotalDurationHours(routing.getDuration());
+        dto.setTotalDistanceKm(routing.getDistanceKm());
+        dto.setTotalDurationHours(routing.getDurationHours());
         dto.setFuelUsedLiters(fuelUsed);
         dto.setCostAmount(fuelUsed.multiply(FUEL_PRICE_PER_LITER));
 
         // Updated setters to match DTO
-        if (routing.getDuration().compareTo(BigDecimal.ZERO) > 0) {
+        if (routing.getDurationHours().compareTo(BigDecimal.ZERO) > 0) {
             dto.setAverageSpeedKmh(
-                    routing.getDistance()
-                            .divide(routing.getDuration(), 2, RoundingMode.HALF_UP)
+                    routing.getDistanceKm()
+                            .divide(routing.getDurationHours(), 2, RoundingMode.HALF_UP)
             );
         } else {
             dto.setAverageSpeedKmh(BigDecimal.ZERO);
@@ -184,7 +185,7 @@ public class TripMetricsService {
 
         if (fuelUsed.compareTo(BigDecimal.ZERO) > 0) {
             dto.setFuelEfficiencyKmPerLiter(
-                    routing.getDistance()
+                    routing.getDistanceKm()
                             .divide(fuelUsed, 2, RoundingMode.HALF_UP)
             );
         } else {
