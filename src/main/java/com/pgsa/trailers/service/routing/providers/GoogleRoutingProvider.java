@@ -3,15 +3,14 @@ package com.pgsa.trailers.service.routing.providers;
 import com.pgsa.trailers.service.routing.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
+import java.util.Map;
 
-/**
- * Google Maps is premium-grade fallback (best accuracy)
- */
 @Component
 @RequiredArgsConstructor
+@Order(10)
 public class GoogleRoutingProvider implements RoutingProvider {
 
     @Value("${google.maps.api.key:}")
@@ -30,14 +29,11 @@ public class GoogleRoutingProvider implements RoutingProvider {
     @Override
     public RoutingResult calculate(Coordinates origin,
                                    Coordinates destination,
-                                   String vehicleType) {
-
-        // NOTE:
-        // You can plug Google Directions API here.
-        // Kept simplified for architecture clarity.
+                                   String vehicleType,
+                                   Map<String, Object> context) {
 
         throw new UnsupportedOperationException(
-                "Google provider not fully implemented yet"
+                "Google provider not implemented yet"
         );
     }
 }
