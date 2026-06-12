@@ -3,27 +3,24 @@ package com.pgsa.trailers.entity.ops;
 import com.pgsa.trailers.dto.CreateTripRequest;
 import com.pgsa.trailers.entity.assets.Driver;
 import com.pgsa.trailers.entity.assets.Vehicle;
+import com.pgsa.trailers.enums.TripStatus;
 import com.pgsa.trailers.repository.DriverRepository;
 import com.pgsa.trailers.repository.LoadRepository;
 import com.pgsa.trailers.repository.VehicleRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
+
 @Component
+@RequiredArgsConstructor
+@Slf4j
 public class CreateTripMapper {
 
     private final VehicleRepository vehicleRepository;
     private final DriverRepository driverRepository;
     private final LoadRepository loadRepository;
-
-    public CreateTripMapper(
-            VehicleRepository vehicleRepository,
-            DriverRepository driverRepository,
-            LoadRepository loadRepository
-    ) {
-        this.vehicleRepository = vehicleRepository;
-        this.driverRepository = driverRepository;
-        this.loadRepository = loadRepository;
-    }
 
     public Trip toEntity(CreateTripRequest request) {
         if (request == null) {
@@ -36,22 +33,26 @@ public class CreateTripMapper {
            RELATIONSHIPS
            ======================== */
         if (request.getVehicleId() != null) {
-            Vehicle vehicle = vehicleRepository.getReferenceById(request.getVehicleId());
+            Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
+                    .orElseThrow(() -> new IllegalArgumentException("Vehicle not found with ID: " + request.getVehicleId()));
             trip.setVehicle(vehicle);
         }
 
         if (request.getDriverId() != null) {
-            Driver driver = driverRepository.getReferenceById(request.getDriverId());
+            Driver driver = driverRepository.findById(request.getDriverId())
+                    .orElseThrow(() -> new IllegalArgumentException("Driver not found with ID: " + request.getDriverId()));
             trip.setDriver(driver);
         }
 
         if (request.getSupervisorId() != null) {
-            Driver supervisor = driverRepository.getReferenceById(request.getSupervisorId());
+            Driver supervisor = driverRepository.findById(request.getSupervisorId())
+                    .orElseThrow(() -> new IllegalArgumentException("Supervisor not found with ID: " + request.getSupervisorId()));
             trip.setSupervisor(supervisor);
         }
 
         if (request.getLoadId() != null) {
-            Load load = loadRepository.getReferenceById(request.getLoadId());
+            Load load = loadRepository.findById(request.getLoadId())
+                    .orElseThrow(() -> new IllegalArgumentException("Load not found with ID: " + request.getLoadId()));
             trip.setLoad(load);
         }
 
@@ -63,7 +64,7 @@ public class CreateTripMapper {
         /* ========================
            WORKFLOW
            ======================== */
-        trip.setStatus(request.getStatus());
+        trip.setStatus(request.getStatus() != null ? request.getStatus() : TripStatus.DRAFT);
         trip.setApprovalStatus(request.getApprovalStatus());
 
         /* ========================
@@ -132,9 +133,7 @@ public class CreateTripMapper {
         /* ========================
            OPERATIONS
            ======================== */
-        trip.setIncidentsLogged(
-                request.getIncidentsLogged() != null ? request.getIncidentsLogged() : 0
-        );
+        trip.setIncidentsLogged(request.getIncidentsLogged() != null ? request.getIncidentsLogged() : 0);
         trip.setCancellationReason(request.getCancellationReason());
 
         /* ========================
@@ -150,6 +149,22 @@ public class CreateTripMapper {
            ======================== */
         trip.setAuditTrail(request.getAuditTrail());
 
+        /* ========================
+           DEFAULT VALUES
+           ======================== */
+        trip.setLastStatusUpdate(LocalDateTime.now());
+        
+        // Build location strings from components if needed
+        if (request.getOriginLocation() == null && trip.buildOriginAddress() != null && !trip.buildOriginAddress().isEmpty()) {
+            trip.updateOriginLocationFromComponents();
+        }
+        
+        if (request.getDestinationLocation() == null && trip.buildDestinationAddress() != null && !trip.buildDestinationAddress().isEmpty()) {
+            trip.updateDestinationLocationFromComponents();
+        }
+
+        log.debug("Mapped CreateTripRequest to Trip entity");
+        
         return trip;
     }
 }
