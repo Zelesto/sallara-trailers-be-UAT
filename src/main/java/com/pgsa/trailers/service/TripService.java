@@ -6,37 +6,28 @@ import com.pgsa.trailers.dto.UpdateTripRequest;
 import com.pgsa.trailers.entity.assets.Driver;
 import com.pgsa.trailers.entity.assets.Vehicle;
 import com.pgsa.trailers.entity.ops.CreateTripMapper;
-import com.pgsa.trailers.entity.ops.*;
-import com.pgsa.trailers.repository.*;
+import com.pgsa.trailers.entity.ops.Trip;
 import com.pgsa.trailers.entity.ops.TripResponseMapper;
 import com.pgsa.trailers.entity.ops.auto.TripCompletedEvent;
 import com.pgsa.trailers.entity.ops.auto.TripPlannedEvent;
 import com.pgsa.trailers.entity.ops.auto.TripStartedEvent;
-import com.pgsa.trailers.entity.security.AppUser;
 import com.pgsa.trailers.enums.TripStatus;
 import com.pgsa.trailers.repository.DriverRepository;
+import com.pgsa.trailers.repository.TripMetricsRepository;
 import com.pgsa.trailers.repository.TripRepository;
 import com.pgsa.trailers.repository.VehicleRepository;
 import com.pgsa.trailers.service.util.SecurityUtil;
 import com.pgsa.trailers.service.util.TripNumberGenerator;
-import com.pgsa.trailers.service.TripMetricsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
@@ -47,12 +38,11 @@ import java.util.Optional;
 public class TripService {
 
     private final TripRepository tripRepository;
-    private final TripMetricsService tripMetricsService;
+    private final TripMetricsService tripMetricsService;  // Only declare once
     private final TripMetricsRepository metricsRepository;
     private final VehicleRepository vehicleRepository;
     private final DriverRepository driverRepository;
     private final TripFinalisationService tripFinalisationService;
-    private final TripMetricsService tripMetricsService;
     private final TripNumberGenerator tripNumberGenerator;
     private final CreateTripMapper createTripMapper;
     private final TripResponseMapper tripResponseMapper;
@@ -162,11 +152,11 @@ public class TripService {
      * Determines if incidents can be reported for a trip
      * Allows incidents for trips that are active, in progress, on hold, or delayed
      */
-public boolean canReportIncident(Trip trip) {
-    return trip.getStatus() == TripStatus.IN_PROGRESS || 
-           trip.getStatus() == TripStatus.ACTIVE ||
-           trip.getStatus() == TripStatus.PLANNED;  // Optional: allow for planned trips too
-}
+    public boolean canReportIncident(Trip trip) {
+        return trip.getStatus() == TripStatus.IN_PROGRESS || 
+               trip.getStatus() == TripStatus.ACTIVE ||
+               trip.getStatus() == TripStatus.PLANNED;  // Optional: allow for planned trips too
+    }
 
     /* ========================
        READ
@@ -216,12 +206,13 @@ public boolean canReportIncident(Trip trip) {
             case PLANNED -> eventPublisher.publishEvent(new TripPlannedEvent(tripId));
             case IN_PROGRESS -> eventPublisher.publishEvent(new TripStartedEvent(tripId));
             case COMPLETED -> eventPublisher.publishEvent(new TripCompletedEvent(tripId));
+            default -> {} // No event for other statuses
         }
     }
 
-   /* ========================
-   DELETE
-   ======================== */
+    /* ========================
+       DELETE
+       ======================== */
     @Transactional
     public void deleteTrip(Long id) {
         Trip trip = tripRepository.findById(id)
