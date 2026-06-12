@@ -13,7 +13,7 @@ import com.pgsa.trailers.entity.ops.auto.TripPlannedEvent;
 import com.pgsa.trailers.entity.ops.auto.TripStartedEvent;
 import com.pgsa.trailers.enums.TripStatus;
 import com.pgsa.trailers.exception.TripNotFoundException;
-import com.pgsa.trailers.exception.TripValidationException;
+import com.pgsa.trailers.entity.suppliers.TripValidationException;
 import com.pgsa.trailers.repository.DriverRepository;
 import com.pgsa.trailers.repository.TripRepository;
 import com.pgsa.trailers.repository.VehicleRepository;
