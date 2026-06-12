@@ -4,7 +4,7 @@ import com.pgsa.trailers.dto.CreateTripRequest;
 import com.pgsa.trailers.dto.UpdateTripRequest;
 import com.pgsa.trailers.entity.ops.Trip;
 import com.pgsa.trailers.enums.TripStatus;
-import com.pgsa.trailers.exception.TripValidationException;
+import com.pgsa.trailers.entity.suppliers.TripValidationException;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
