@@ -1,43 +1,51 @@
-package com.pgsa.trailers.entity.security;
+package com.pgsa.trailers.config;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.MappedSuperclass;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
+import com.pgsa.trailers.entity.security.AuditedEntity;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-
-import java.time.LocalDateTime;
 
 @MappedSuperclass
 @Getter
 @Setter
-public abstract class AuditedEntity {
+public abstract class BaseEntity extends AuditedEntity {
 
-    @Column(name = "created_by")
-    private String createdBy;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
+    @Version
+    @Column(name = "version")
+    private Integer version;
 
-    @Column(name = "updated_by")
-    private String updatedBy;
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
 
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        if (createdAt == null) {
-            createdAt = LocalDateTime.now();
-        }
-        if (updatedAt == null) {
-            updatedAt = createdAt;
-        }
+    /**
+     * Soft delete the entity
+     */
+    public void softDelete() {
+        this.isActive = false;
     }
 
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+    /**
+     * Restore a soft-deleted entity
+     */
+    public void restore() {
+        this.isActive = true;
+    }
+
+    /**
+     * Check if entity is active
+     */
+    public boolean isActive() {
+        return isActive != null && isActive;
+    }
+
+    /**
+     * Check if entity is soft-deleted
+     */
+    public boolean isDeleted() {
+        return isActive != null && !isActive;
     }
 }
