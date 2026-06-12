@@ -3,7 +3,7 @@ package com.pgsa.trailers.service;
 import com.pgsa.trailers.entity.ops.Trip;
 import com.pgsa.trailers.entity.ops.TripMetrics;
 import com.pgsa.trailers.enums.TripStatus;
-import com.pgsa.trailers.exception.TripValidationException;
+import com.pgsa.trailers.entity.suppliers.TripValidationException;
 import com.pgsa.trailers.repository.TripRepository;
 import com.pgsa.trailers.repository.PodRepository;
 import lombok.RequiredArgsConstructor;
