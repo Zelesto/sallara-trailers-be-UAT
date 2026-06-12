@@ -3,8 +3,12 @@ package com.pgsa.trailers.entity.ops;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
 @Getter
@@ -16,9 +20,11 @@ import java.time.LocalDateTime;
                 @UniqueConstraint(name = "uk_trip_metrics_trip", columnNames = "trip_id")
         },
         indexes = {
-                @Index(name = "idx_trip_metrics_trip", columnList = "trip_id")
+                @Index(name = "idx_trip_metrics_trip", columnList = "trip_id"),
+                @Index(name = "idx_trip_metrics_finalized", columnList = "finalized")
         }
 )
+@EntityListeners(AuditingEntityListener.class)
 public class TripMetrics {
 
     @Id
@@ -29,7 +35,7 @@ public class TripMetrics {
        Relationship (owner side)
        ======================== */
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "trip_id", referencedColumnName = "id")
     private Trip trip;
 
@@ -99,26 +105,19 @@ public class TripMetrics {
        Audit
        ======================== */
 
+    @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
     @Column(name = "finalized", nullable = false)
     private boolean finalized = false;
 
-    @PrePersist
-    protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
-        this.createdAt = now;
-        this.updatedAt = now;
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
+    @Column(name = "finalized_at")
+    private LocalDateTime finalizedAt;
 
     /* ========================
        Helper methods for metrics calculation
@@ -133,7 +132,7 @@ public class TripMetrics {
             totalDistanceKm == null || totalDistanceKm.compareTo(BigDecimal.ZERO) <= 0) {
             return BigDecimal.ZERO;
         }
-        return totalDistanceKm.divide(fuelUsedLiters, 2, java.math.RoundingMode.HALF_UP);
+        return totalDistanceKm.divide(fuelUsedLiters, 2, RoundingMode.HALF_UP);
     }
 
     /**
@@ -141,11 +140,12 @@ public class TripMetrics {
      * @return fuel consumption in L/100km
      */
     public BigDecimal calculateFuelConsumptionLPer100km() {
-        if (totalDistanceKm == null || totalDistanceKm.compareTo(BigDecimal.ZERO) <= 0) {
+        if (totalDistanceKm == null || totalDistanceKm.compareTo(BigDecimal.ZERO) <= 0 ||
+            fuelUsedLiters == null) {
             return BigDecimal.ZERO;
         }
         return fuelUsedLiters.multiply(BigDecimal.valueOf(100))
-                .divide(totalDistanceKm, 2, java.math.RoundingMode.HALF_UP);
+                .divide(totalDistanceKm, 2, RoundingMode.HALF_UP);
     }
 
     /**
@@ -165,7 +165,7 @@ public class TripMetrics {
         }
         
         BigDecimal performance = BigDecimal.valueOf(100).subtract(
-            variance.divide(plannedHours, 2, java.math.RoundingMode.HALF_UP)
+            variance.divide(plannedHours, 2, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100))
         );
         
@@ -194,7 +194,7 @@ public class TripMetrics {
             costAmount == null) {
             return BigDecimal.ZERO;
         }
-        return costAmount.divide(totalDistanceKm, 2, java.math.RoundingMode.HALF_UP);
+        return costAmount.divide(totalDistanceKm, 2, RoundingMode.HALF_UP);
     }
 
     /**
@@ -206,7 +206,7 @@ public class TripMetrics {
             revenueAmount == null) {
             return BigDecimal.ZERO;
         }
-        return revenueAmount.divide(totalDistanceKm, 2, java.math.RoundingMode.HALF_UP);
+        return revenueAmount.divide(totalDistanceKm, 2, RoundingMode.HALF_UP);
     }
 
     /**
@@ -220,7 +220,7 @@ public class TripMetrics {
         }
         
         BigDecimal profit = revenueAmount.subtract(costAmount);
-        return profit.divide(revenueAmount, 2, java.math.RoundingMode.HALF_UP)
+        return profit.divide(revenueAmount, 2, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100));
     }
 
@@ -255,6 +255,18 @@ public class TripMetrics {
     }
 
     /**
+     * Update average speed
+     */
+    public void updateAverageSpeed() {
+        if (totalDurationHours != null && totalDurationHours.compareTo(BigDecimal.ZERO) > 0 &&
+            totalDistanceKm != null && totalDistanceKm.compareTo(BigDecimal.ZERO) > 0) {
+            this.averageSpeedKmh = totalDistanceKm.divide(totalDurationHours, 2, RoundingMode.HALF_UP);
+        } else {
+            this.averageSpeedKmh = BigDecimal.ZERO;
+        }
+    }
+
+    /**
      * Check if trip is profitable
      * @return true if revenue > cost
      */
@@ -285,5 +297,19 @@ public class TripMetrics {
         this.geocodingConfidenceScore = BigDecimal.ZERO;
     }
 
-        
+    /**
+     * Finalize metrics (prevent further changes)
+     */
+    public void finalizeMetrics() {
+        this.finalized = true;
+        this.finalizedAt = LocalDateTime.now();
+        updateAverageSpeed();
+    }
+
+    /**
+     * Check if metrics are finalized
+     */
+    public boolean isFinalized() {
+        return finalized;
+    }
 }
