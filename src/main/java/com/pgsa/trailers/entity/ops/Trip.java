@@ -38,6 +38,22 @@ public class Trip {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+        // Cargo fields
+private String commodityType;
+private String cargoDescription;
+private BigDecimal cargoWeight;
+private BigDecimal cargoValue;
+private Integer palletCount;
+private String containerNumber;
+
+// Notes fields
+private String notes;
+private String specialInstructions;
+
+// Reference fields
+private String referenceNumber;
+private String purchaseOrderNumber;
+        
     /* ========================
        Identity
        ======================== */
