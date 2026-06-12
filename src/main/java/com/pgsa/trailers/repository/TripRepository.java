@@ -113,6 +113,9 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
                                    @Param("endDate") LocalDateTime endDate);
     
     // ======================== AGGREGATION QUERIES ========================
+
+    @Query("SELECT MAX(t.tripNumber) FROM Trip t WHERE t.tripNumber LIKE CONCAT('TRP-', :year, '-%')")
+String findMaxTripNumberForYear(@Param("year") int year);
     
     @Query("SELECT AVG(t.actualDistanceKm) FROM Trip t WHERE t.status = 'COMPLETED' AND t.vehicle.id = :vehicleId")
     Optional<Double> getAverageDistanceForVehicle(@Param("vehicleId") Long vehicleId);
