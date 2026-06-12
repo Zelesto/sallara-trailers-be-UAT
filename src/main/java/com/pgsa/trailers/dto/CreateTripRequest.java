@@ -27,6 +27,7 @@ public class CreateTripRequest {
        ======================== */
     private TripStatus status;
     private String approvalStatus;
+    private String priority;   // ✅ ADDED (exists in UI but was missing here)
 
     /* ========================
        PLANNING
@@ -98,7 +99,6 @@ public class CreateTripRequest {
        OPERATIONS
        ======================== */
     private Integer incidentsLogged;
-
     private String cancellationReason;
 
     /* ========================
