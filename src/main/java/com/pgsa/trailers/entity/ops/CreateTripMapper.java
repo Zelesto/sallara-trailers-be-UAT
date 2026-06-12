@@ -18,6 +18,12 @@ public class CreateTripMapper {
         trip.setPlannedStartDate(request.getPlannedStartDate());
         trip.setPlannedEndDate(request.getPlannedEndDate());
 
+        trip.setOriginLatitude(dto.getOriginLatitude());
+trip.setOriginLongitude(dto.getOriginLongitude());
+
+trip.setDestinationLatitude(dto.getDestinationLatitude());
+trip.setDestinationLongitude(dto.getDestinationLongitude());
+
         // vehicle, driver, load, status, tripNumber
         // are set in the SERVICE layer
 
