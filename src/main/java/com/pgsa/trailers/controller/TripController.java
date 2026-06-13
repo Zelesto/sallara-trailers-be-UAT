@@ -65,7 +65,7 @@ public class TripController {
        ======================== */
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER')")
-    public ResponseEntity<TripResponse> updateStatus(
+    public ResponseEntity<TripResponse> updateTripStatus(
             @PathVariable Long id,
             @RequestParam String status
     ) {
