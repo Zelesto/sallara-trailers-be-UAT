@@ -6,6 +6,9 @@ import com.pgsa.trailers.entity.ops.Trip;
 import com.pgsa.trailers.entity.ops.TripMetrics;
 import org.springframework.stereotype.Component;
 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 @Component
 public class TripResponseMapper {
 
