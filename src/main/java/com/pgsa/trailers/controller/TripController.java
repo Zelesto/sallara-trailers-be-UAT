@@ -73,23 +73,35 @@ public class TripController {
         return ResponseEntity.ok(tripService.updateTripStatus(id, status));
     }
 
-    /* ========================
-       UPDATE
-       ======================== */
-    @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER')")
-    public ResponseEntity<TripResponse> updateTrip(
-            @PathVariable Long id,
-            @RequestBody @Valid UpdateTripRequest request,
-            Authentication authentication
-    ) {
-        String email = authentication.getName();
-        AppUser user = appUserRepository.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
-
-        TripResponse updated = tripService.updateTrip(id, request, user.getId());
-        return ResponseEntity.ok(updated);
+   /* ========================
+   UPDATE STATUS
+   ======================== */
+@PatchMapping("/{id}/status")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER')")
+public ResponseEntity<TripResponse> updateTripStatus(
+        @PathVariable Long id,
+        @RequestParam String status,
+        Authentication authentication  // Add this parameter
+) {
+    log.debug("Updating status for trip {} to {}", id, status);
+    
+    // Get the authenticated user
+    AppUser user = getAuthenticatedUser(authentication);
+    
+    // Convert String status to TripStatus enum
+    com.pgsa.trailers.enums.TripStatus newStatus;
+    try {
+        newStatus = com.pgsa.trailers.enums.TripStatus.valueOf(status.toUpperCase());
+    } catch (IllegalArgumentException e) {
+        throw new IllegalArgumentException("Invalid status value: " + status + 
+            ". Valid values: DRAFT, PLANNED, ASSIGNED, IN_PROGRESS, ACTIVE, ON_HOLD, " +
+            "PENDING, COMPLETED, FINALIZED, CLOSED, CANCELLED");
     }
+    
+    // Call service with all three parameters
+    TripResponse response = tripService.updateTripStatus(id, newStatus, user.getId());
+    return ResponseEntity.ok(response);
+}
 
     /* ========================
    START TRIP (ODO START)
