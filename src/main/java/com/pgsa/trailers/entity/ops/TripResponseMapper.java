@@ -45,11 +45,7 @@ public class TripResponseMapper {
         response.setActualEndDate(trip.getActualEndDate());
 
         // Status
-        response.setStatus(
-                trip.getStatus() != null
-                        ? trip.getStatus().name()
-                        : null
-        );
+        response.setStatus(trip.getStatus());
         response.setApprovalStatus(trip.getApprovalStatus());
 
         // Audit
