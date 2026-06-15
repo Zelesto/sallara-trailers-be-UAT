@@ -33,68 +33,75 @@ public class AnalyticsService {
 
     // ==================== VEHICLE KPIs ====================
 
-    /**
-     * Get vehicle performance KPIs for a date range
-     */
-    public List<VehicleKpiDTO> getVehicleKpis(LocalDate startDate, LocalDate endDate) {
-        try {
-            log.info("Fetching vehicle KPIs from {} to {}", startDate, endDate);
-            
-            // Pass LocalDate directly to repository (not String)
-            List<Object[]> results = vehicleRepository.vehicleEfficiencyRaw(startDate, endDate);
-            log.info("Found {} vehicle records", results.size());
-            
-            return results.stream()
-                    .map(this::mapToVehicleKpiDTO)
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            log.error("Error fetching vehicle KPIs from {} to {}: {}", startDate, endDate, e.getMessage(), e);
-            return Collections.emptyList();
-        }
+/**
+ * Get vehicle performance KPIs for a date range
+ */
+public List<VehicleKpiDTO> getVehicleKpis(LocalDate startDate, LocalDate endDate) {
+    try {
+        // Convert LocalDate to String for repository
+        String fromStr = startDate.toString();
+        String toStr = endDate.toString();
+        
+        log.info("Fetching vehicle KPIs from {} to {}", fromStr, toStr);
+        
+        List<Object[]> results = vehicleRepository.vehicleEfficiencyRaw(fromStr, toStr);
+        log.info("Found {} vehicle records", results.size());
+        
+        return results.stream()
+                .map(this::mapToVehicleKpiDTO)
+                .collect(Collectors.toList());
+    } catch (Exception e) {
+        log.error("Error fetching vehicle KPIs from {} to {}: {}", startDate, endDate, e.getMessage(), e);
+        return Collections.emptyList();
     }
+}
 
-    // ==================== DRIVER KPIs ====================
+// ==================== DRIVER KPIs ====================
 
-    /**
-     * Get driver performance KPIs for a date range
-     */
-    public List<DriverKpiDTO> getDriverKpis(LocalDate startDate, LocalDate endDate) {
-        try {
-            log.info("Fetching driver KPIs from {} to {}", startDate, endDate);
-            
-            // Pass LocalDate directly to repository
-            List<Object[]> results = driverRepository.driverPerformanceRaw(startDate, endDate);
-            log.info("Found {} driver records", results.size());
-            
-            return results.stream()
-                    .map(this::mapToDriverKpiDTO)
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            log.error("Error fetching driver KPIs from {} to {}: {}", startDate, endDate, e.getMessage(), e);
-            return Collections.emptyList();
-        }
+/**
+ * Get driver performance KPIs for a date range
+ */
+public List<DriverKpiDTO> getDriverKpis(LocalDate startDate, LocalDate endDate) {
+    try {
+        // Convert LocalDate to String for repository
+        String fromStr = startDate.toString();
+        String toStr = endDate.toString();
+        
+        log.info("Fetching driver KPIs from {} to {}", fromStr, toStr);
+        
+        List<Object[]> results = driverRepository.driverPerformanceRaw(fromStr, toStr);
+        log.info("Found {} driver records", results.size());
+        
+        return results.stream()
+                .map(this::mapToDriverKpiDTO)
+                .collect(Collectors.toList());
+    } catch (Exception e) {
+        log.error("Error fetching driver KPIs from {} to {}: {}", startDate, endDate, e.getMessage(), e);
+        return Collections.emptyList();
     }
+}
 
-    // ==================== TRIP KPIs ====================
+// ==================== TRIP KPIs ====================
 
-    /**
-     * Get trip KPIs for a date range (LocalDate version)
-     */
-    public List<TripKpiDTO> getTripKpis(LocalDate startDate, LocalDate endDate) {
-        try {
-            log.info("Fetching trip KPIs from {} to {}", startDate, endDate);
-            
-            List<Object[]> results = tripRepository.findTripProfitabilityRaw(startDate, endDate);
-            log.info("Found {} trip records", results.size());
-            
-            return results.stream()
-                    .map(this::mapToTripKpiDTO)
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            log.error("Error fetching trip KPIs from {} to {}: {}", startDate, endDate, e.getMessage(), e);
-            return Collections.emptyList();
-        }
+/**
+ * Get trip KPIs for a date range (LocalDate version)
+ */
+public List<TripKpiDTO> getTripKpis(LocalDate startDate, LocalDate endDate) {
+    try {
+        log.info("Fetching trip KPIs from {} to {}", startDate, endDate);
+        
+        // Convert LocalDate to String for repository
+        List<Object[]> results = tripRepository.findTripProfitabilityRaw(startDate.toString(), endDate.toString());
+        log.info("Found {} trip records", results.size());
+        
+        return results.stream()
+                .map(this::mapToTripKpiDTO)
+                .collect(Collectors.toList());
+    } catch (Exception e) {
+        log.error("Error fetching trip KPIs from {} to {}: {}", startDate, endDate, e.getMessage(), e);
+        return Collections.emptyList();
     }
+}
 
     /**
      * Get trip KPIs for a specific trip ID (last 30 days)
