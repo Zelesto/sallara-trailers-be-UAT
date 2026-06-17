@@ -21,15 +21,27 @@ public class RoutingEngine {
                                         String destination,
                                         String vehicleType) {
 
+        if (origin == null || origin.isBlank() ||
+            destination == null || destination.isBlank()) {
+            throw new IllegalArgumentException("Origin and destination must not be empty");
+        }
+
         Coordinates originCoords;
         Coordinates destCoords;
 
         try {
             originCoords = geocodingService.geocode(origin);
             destCoords = geocodingService.geocode(destination);
+
+            validateCoordinates(originCoords, origin);
+            validateCoordinates(destCoords, destination);
+
         } catch (Exception e) {
             log.error("Geocoding failed for {} -> {}", origin, destination, e);
-            throw new RuntimeException("Failed to geocode locations", e);
+            throw new RuntimeException(
+                    "Failed to geocode locations: " + origin + " -> " + destination,
+                    e
+            );
         }
 
         return executeWithFailover(originCoords, destCoords, vehicleType, origin, destination);
@@ -62,7 +74,6 @@ public class RoutingEngine {
         log.info("Routing request: {} -> {} | vehicle={}",
                 originLabel, destLabel, vehicleType);
 
-        // Spring already respects @Order
         List<RoutingProvider> sortedProviders =
                 providers.stream()
                         .sorted(AnnotationAwareOrderComparator.INSTANCE)
@@ -81,6 +92,10 @@ public class RoutingEngine {
                 RoutingResult result =
                         provider.calculate(origin, destination, vehicleType, context);
 
+                if (result == null || result.getDistanceKm() == null) {
+                    throw new IllegalStateException("Invalid routing result from " + provider.name());
+                }
+
                 log.info("Success via {} | distance={} km",
                         provider.name(), result.getDistanceKm());
 
@@ -88,12 +103,30 @@ public class RoutingEngine {
 
             } catch (Exception e) {
                 lastError = e;
-                log.warn("Provider {} failed", provider.name(), e);
+                log.warn("Provider {} failed: {}", provider.name(), e.getMessage());
             }
         }
 
         log.error("All routing providers failed for {} -> {}", originLabel, destLabel);
 
-        throw new RuntimeException("All routing providers failed", lastError);
+        throw new RuntimeException(
+                "All routing providers failed for route: " +
+                originLabel + " -> " + destLabel,
+                lastError
+        );
+    }
+
+    private void validateCoordinates(Coordinates coords, String input) {
+        if (coords == null) {
+            throw new IllegalArgumentException("Geocoding returned null for: " + input);
+        }
+
+        if (coords.getLat() == 0.0 && coords.getLng() == 0.0) {
+            throw new IllegalArgumentException("Invalid geocoding result for: " + input);
+        }
+
+        if (Double.isNaN(coords.getLat()) || Double.isNaN(coords.getLng())) {
+            throw new IllegalArgumentException("NaN coordinates for: " + input);
+        }
     }
 }
