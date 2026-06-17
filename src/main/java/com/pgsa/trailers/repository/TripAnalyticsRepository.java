@@ -18,11 +18,12 @@ public interface TripAnalyticsRepository extends Repository<Trip, Long> {
 
     /**
      * Get trip summaries by status
+     * FIXED: Cast t.status to string using CAST function
      */
     @Query("SELECT new com.pgsa.trailers.dto.TripSummaryDTO(" +
            "t.id, " +
            "t.tripNumber, " +
-           "t.status, " +
+           "CAST(t.status AS string), " +  // ← FIXED: Cast enum to string
            "v.registrationNumber, " +
            "CONCAT(COALESCE(d.firstName, ''), ' ', COALESCE(d.lastName, '')), " +
            "t.plannedStartDate, " +
@@ -44,11 +45,12 @@ public interface TripAnalyticsRepository extends Repository<Trip, Long> {
 
     /**
      * Get trip summaries with pagination and filters
+     * FIXED: Cast t.status to string using CAST function
      */
     @Query("SELECT new com.pgsa.trailers.dto.TripSummaryDTO(" +
            "t.id, " +
            "t.tripNumber, " +
-           "t.status, " +
+           "CAST(t.status AS string), " +  // ← FIXED: Cast enum to string
            "v.registrationNumber, " +
            "CONCAT(COALESCE(d.firstName, ''), ' ', COALESCE(d.lastName, '')), " +
            "t.plannedStartDate, " +
@@ -78,6 +80,7 @@ public interface TripAnalyticsRepository extends Repository<Trip, Long> {
 
     /**
      * Get trip KPIs using DTO projection
+     * FIXED: TripKpiDTO uses String for status, not enum
      */
     @Query("""
         SELECT new com.pgsa.trailers.dto.TripKpiDTO(
