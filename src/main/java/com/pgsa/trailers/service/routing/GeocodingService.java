@@ -28,7 +28,7 @@ public class GeocodingService {
             String url = UriComponentsBuilder
                     .fromHttpUrl("https://nominatim.openstreetmap.org/search")
                     .queryParam("format", "json")
-                    .queryParam("q", encoded)
+                    .queryParam("q", location)
                     .queryParam("limit", "1")
                     .queryParam("addressdetails", "1")
                     .build()
