@@ -1,4 +1,4 @@
-package com.pgsa.trailers.exception;
+package com.pgsa.trailers.entity;
 
 public class TripFinalizationException extends BusinessException {
     
