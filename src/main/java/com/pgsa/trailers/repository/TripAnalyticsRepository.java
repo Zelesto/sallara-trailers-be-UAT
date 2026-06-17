@@ -37,9 +37,7 @@ public interface TripAnalyticsRepository extends Repository<Trip, Long> {
        "t.originCity, " +
        "t.destinationCity, " +
        "t.originZipCode, " +
-       "t.destinationZipCode, " +
-       "t.actualDistanceKm, " +
-       "t.plannedDistanceKm) " +
+       "t.destinationZipCode) " +
        "FROM Trip t " +
        "LEFT JOIN t.vehicle v " +
        "LEFT JOIN t.driver d " +
@@ -64,9 +62,7 @@ List<TripSummaryDTO> findTripSummariesByStatus(@Param("status") TripStatus statu
            "t.originCity, " +
            "t.destinationCity, " +
            "t.originZipCode, " +
-           "t.destinationZipCode, " +
-           "t.actualDistanceKm, " +
-           "t.plannedDistanceKm) " +
+           "t.destinationZipCode) " +
            "FROM Trip t " +
            "LEFT JOIN t.vehicle v " +
            "LEFT JOIN t.driver d " +
