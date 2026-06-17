@@ -86,30 +86,30 @@ List<TripSummaryDTO> findTripSummariesByStatus(@Param("status") TripStatus statu
      * FIXED: TripKpiDTO uses String for status, not enum
      */
     @Query("""
-        SELECT new com.pgsa.trailers.dto.TripKpiDTO(
-            t.id,
-            v.registrationNumber,
-            t.actualDistanceKm,
-            t.revenueAmount,
-            t.costAmount,
-            (t.revenueAmount - t.costAmount),
-            CASE 
-                WHEN t.actualDistanceKm > 0 
-                THEN t.costAmount / t.actualDistanceKm 
-                ELSE 0 
-            END
-        )
-        FROM Trip t
-        JOIN t.vehicle v
-        WHERE t.actualEndDate BETWEEN :startDate AND :endDate
-          AND t.status = 'COMPLETED'
-          AND t.isActive = true
-        ORDER BY t.actualEndDate DESC
-    """)
-    List<TripKpiDTO> findTripKpis(
-            @Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate
-    );
+    SELECT new com.pgsa.trailers.dto.TripKpiDTO(
+        t.id,
+        v.registrationNumber,
+        COALESCE(t.actualDistanceKm, 0),
+        COALESCE(t.revenueAmount, 0),
+        COALESCE(t.costAmount, 0),
+        COALESCE(t.revenueAmount, 0) - COALESCE(t.costAmount, 0),
+        CASE
+            WHEN t.actualDistanceKm > 0
+            THEN t.costAmount / t.actualDistanceKm
+            ELSE 0.0
+        END
+    )
+    FROM Trip t
+    JOIN t.vehicle v
+    WHERE t.actualEndDate BETWEEN :startDate AND :endDate
+      AND t.status = com.pgsa.trailers.enums.TripStatus.COMPLETED
+      AND t.isActive = true
+    ORDER BY t.actualEndDate DESC
+""")
+List<TripKpiDTO> findTripKpis(
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate
+);
 
     /**
      * Get trip profitability data - Native query
