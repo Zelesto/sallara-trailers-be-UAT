@@ -18,65 +18,60 @@ import java.time.LocalDateTime;
 public interface TripAnalyticsRepository extends Repository<Trip, Long> {
 
     /**
-     * Get trip summaries by status
-     * FIXED: Cast t.status to string using CAST function
-     */
-    /**
  * Get trip summaries by status
  */
-@Query("SELECT new com.pgsa.trailers.dto.TripSummaryDTO(" +
-       "t.id, " +
-       "t.tripNumber, " +
-       "CAST(t.status AS string), " +  // ← IMPORTANT: Cast enum to string
-       "v.registrationNumber, " +
-       "CONCAT(COALESCE(d.firstName, ''), ' ', COALESCE(d.lastName, '')), " +
-       "t.plannedStartDate, " +
-       "t.actualEndDate, " +
-       "t.originLocation, " +
-       "t.destinationLocation, " +
-       "t.originCity, " +
-       "t.destinationCity, " +
-       "t.originZipCode, " +
-       "t.destinationZipCode) " +
-       "FROM Trip t " +
-       "LEFT JOIN t.vehicle v " +
-       "LEFT JOIN t.driver d " +
-       "WHERE (:status IS NULL OR t.status = :status) " +
-       "AND t.isActive = true")
+@Query("""
+SELECT new com.pgsa.trailers.dto.TripSummaryDTO(
+    t.id,
+    t.tripNumber,
+    t.status,
+    v.registrationNumber,
+    CONCAT(COALESCE(d.firstName, ''), ' ', COALESCE(d.lastName, '')),
+    t.plannedStartDate,
+    t.actualEndDate,
+    t.originLocation,
+    t.destinationLocation,
+    t.originCity,
+    t.destinationCity,
+    t.originZipCode,
+    t.destinationZipCode
+)
+FROM Trip t
+LEFT JOIN t.vehicle v
+LEFT JOIN t.driver d
+WHERE (:status IS NULL OR t.status = :status)
+AND t.isActive = true
+""")
 List<TripSummaryDTO> findTripSummariesByStatus(@Param("status") TripStatus status);
 
     /**
      * Get trip summaries with pagination and filters
      * FIXED: Cast t.status to string using CAST function
      */
-    @Query("SELECT new com.pgsa.trailers.dto.TripSummaryDTO(" +
-           "t.id, " +
-           "t.tripNumber, " +
-           "CAST(t.status AS string), " +  // ← FIXED: Cast enum to string
-           "v.registrationNumber, " +
-           "CONCAT(COALESCE(d.firstName, ''), ' ', COALESCE(d.lastName, '')), " +
-           "t.plannedStartDate, " +
-           "t.actualEndDate, " +
-           "t.originLocation, " +
-           "t.destinationLocation, " +
-           "t.originCity, " +
-           "t.destinationCity, " +
-           "t.originZipCode, " +
-           "t.destinationZipCode) " +
-           "FROM Trip t " +
-           "LEFT JOIN t.vehicle v " +
-           "LEFT JOIN t.driver d " +
-           "WHERE (:search IS NULL OR LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :search, '%')) " +
-           "OR LOWER(t.originCity) LIKE LOWER(CONCAT('%', :search, '%')) " +
-           "OR LOWER(t.destinationCity) LIKE LOWER(CONCAT('%', :search, '%'))) " +
-           "AND (:status IS NULL OR t.status = :status) " +
-           "AND (:city IS NULL OR LOWER(t.originCity) = LOWER(:city) OR LOWER(t.destinationCity) = LOWER(:city)) " +
-           "AND t.isActive = true")
-    Page<TripSummaryDTO> findTripSummariesWithFilters(
-            @Param("search") String search,
-            @Param("status") TripStatus status,
-            @Param("city") String city,
-            Pageable pageable);
+    @Query("""
+SELECT new com.pgsa.trailers.dto.TripSummaryDTO(
+    t.id,
+    t.tripNumber,
+    t.status,
+    v.registrationNumber,
+    CONCAT(COALESCE(d.firstName, ''), ' ', COALESCE(d.lastName, '')),
+    t.plannedStartDate,
+    t.actualEndDate,
+    t.originLocation,
+    t.destinationLocation,
+    t.originCity,
+    t.destinationCity,
+    t.originZipCode,
+    t.destinationZipCode
+)
+FROM Trip t
+LEFT JOIN t.vehicle v
+LEFT JOIN t.driver d
+WHERE (:search IS NULL OR LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :search, '%')))
+AND (:status IS NULL OR t.status = :status)
+AND (:city IS NULL OR LOWER(t.originCity) = LOWER(:city) OR LOWER(t.destinationCity) = LOWER(:city))
+AND t.isActive = true
+""")
 
     /**
      * Get trip KPIs using DTO projection
