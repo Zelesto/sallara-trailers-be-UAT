@@ -223,7 +223,9 @@ private String purchaseOrderNumber;
     /* ========================
        Notes & Incidents
        ======================== */
-
+@Column(name = "is_active", nullable = false)
+private Boolean is_active = true;
+        
     @Column(name = "incidents_logged")
     private Integer incidentsLogged = 0;
 
