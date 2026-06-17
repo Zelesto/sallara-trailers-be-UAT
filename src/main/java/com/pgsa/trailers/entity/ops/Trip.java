@@ -198,6 +198,12 @@ private String purchaseOrderNumber;
        Costs
        ======================== */
 
+        @Column(name = "revenue_amount", precision = 15, scale = 2)
+    private BigDecimal revenue_amount;
+        @Column(name = "cost_amount", precision = 15, scale = 2)
+    private BigDecimal cost_amount;
+        
+        
     @Column(name = "toll_cost", precision = 15, scale = 2)
     private BigDecimal tollCost;
 
