@@ -50,7 +50,7 @@ public class TripService {
     /* ========================
        CREATE
        ======================== */
-    public TripResponse createTrip(CreateTripRequest request, Long userId) {
+public TripResponse createTrip(CreateTripRequest request, Long userId) {
 
     log.debug("Creating trip for vehicle: {}, user: {}", request.getVehicleId(), userId);
 
@@ -100,7 +100,7 @@ public class TripService {
     // Create metrics record
     tripMetricsService.initializeMetrics(saved.getId());
 
-    // Calculate route metrics in background-safe mode
+    // Calculate planned route metrics
     try {
 
         RouteCalculationRequestDTO routeRequest =
@@ -123,6 +123,12 @@ public class TripService {
                 saved.getId(),
                 routeRequest
         );
+
+        // Reload trip so planned distance/duration are included in response
+        saved = tripRepository.findById(saved.getId())
+                .orElseThrow(() -> new TripValidationException(
+                        "Trip not found after metric calculation"
+                ));
 
     } catch (Exception e) {
 
