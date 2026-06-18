@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class PodStatistics {
+public class PodStatisticsController {
     private long total;
     private long pending;
     private long delivered;
