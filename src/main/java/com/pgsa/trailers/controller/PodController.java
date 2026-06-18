@@ -3,6 +3,7 @@ package com.pgsa.trailers.controller;
 
 import com.pgsa.trailers.dto.PodRequestDTO;
 import com.pgsa.trailers.dto.PodResponseDTO;
+import com.pgsa.trailers.dto.PodStatistics;
 import com.pgsa.trailers.service.PodService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
