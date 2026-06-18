@@ -1,4 +1,4 @@
-package com.pgsa.trailers.service.listeners;
+package com.pgsa.trailers.service.listener;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
