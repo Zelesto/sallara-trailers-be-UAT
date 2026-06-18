@@ -50,45 +50,96 @@ public class TripService {
        CREATE
        ======================== */
     public TripResponse createTrip(CreateTripRequest request, Long userId) {
-        log.debug("Creating trip for vehicle: {}, user: {}", request.getVehicleId(), userId);
-        
-        tripValidator.validateCreateRequest(request);
-        
-        Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
-                .orElseThrow(() -> new TripValidationException("Vehicle not found with ID: " + request.getVehicleId()));
 
-        Driver driver = null;
-        if (request.getDriverId() != null) {
-            driver = driverRepository.findById(request.getDriverId())
-                    .orElseThrow(() -> new TripValidationException("Driver not found with ID: " + request.getDriverId()));
-        }
+    log.debug("Creating trip for vehicle: {}, user: {}", request.getVehicleId(), userId);
 
-        Driver supervisor = null;
-        if (request.getSupervisorId() != null) {
-            supervisor = driverRepository.findById(request.getSupervisorId())
-                    .orElseThrow(() -> new TripValidationException("Supervisor not found with ID: " + request.getSupervisorId()));
-        }
+    tripValidator.validateCreateRequest(request);
 
-        Trip trip = createTripMapper.toEntity(request);
-        trip.setVehicle(vehicle);
-        trip.setDriver(driver);
-        trip.setSupervisor(supervisor);
-        trip.setTripNumber(tripNumberGenerator.generate());
-        trip.setStatus(request.getStatus() != null ? request.getStatus() : TripStatus.DRAFT);
-        trip.setCreatedBy(userId);
-        trip.setLastStatusUpdate(LocalDateTime.now());
+    Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
+            .orElseThrow(() -> new TripValidationException(
+                    "Vehicle not found with ID: " + request.getVehicleId()));
 
-        Trip saved = tripRepository.save(trip);
-        log.info("Created trip with ID: {}, Number: {}", saved.getId(), saved.getTripNumber());
-
-        if (saved.getStatus() == TripStatus.PLANNED) {
-            eventPublisher.publishEvent(new TripPlannedEvent(saved.getId()));
-        }
-        
-        tripMetricsService.initializeMetrics(saved.getId());
-
-        return tripResponseMapper.toResponse(saved);
+    Driver driver = null;
+    if (request.getDriverId() != null) {
+        driver = driverRepository.findById(request.getDriverId())
+                .orElseThrow(() -> new TripValidationException(
+                        "Driver not found with ID: " + request.getDriverId()));
     }
+
+    Driver supervisor = null;
+    if (request.getSupervisorId() != null) {
+        supervisor = driverRepository.findById(request.getSupervisorId())
+                .orElseThrow(() -> new TripValidationException(
+                        "Supervisor not found with ID: " + request.getSupervisorId()));
+    }
+
+    Trip trip = createTripMapper.toEntity(request);
+
+    trip.setVehicle(vehicle);
+    trip.setDriver(driver);
+    trip.setSupervisor(supervisor);
+    trip.setTripNumber(tripNumberGenerator.generate());
+    trip.setStatus(
+            request.getStatus() != null
+                    ? request.getStatus()
+                    : TripStatus.DRAFT
+    );
+    trip.setCreatedBy(userId);
+    trip.setLastStatusUpdate(LocalDateTime.now());
+
+    // Save trip first
+    Trip saved = tripRepository.save(trip);
+
+    log.info(
+            "Created trip with ID: {}, Number: {}",
+            saved.getId(),
+            saved.getTripNumber()
+    );
+
+    // Create metrics record
+    tripMetricsService.initializeMetrics(saved.getId());
+
+    // Calculate route metrics in background-safe mode
+    try {
+
+        RouteCalculationRequestDTO routeRequest =
+                new RouteCalculationRequestDTO();
+
+        routeRequest.setOriginLocation(saved.getOriginLocation());
+        routeRequest.setDestinationLocation(saved.getDestinationLocation());
+
+        if (saved.getVehicle() != null &&
+            saved.getVehicle().getVehicleType() != null) {
+
+            routeRequest.setVehicleType(
+                    saved.getVehicle()
+                            .getVehicleType()
+                            .name()
+            );
+        }
+
+        tripMetricsService.calculateAndSaveMetrics(
+                saved.getId(),
+                routeRequest
+        );
+
+    } catch (Exception e) {
+
+        log.warn(
+                "Unable to calculate route metrics for trip {}. Trip was created successfully.",
+                saved.getId(),
+                e
+        );
+    }
+
+    if (saved.getStatus() == TripStatus.PLANNED) {
+        eventPublisher.publishEvent(
+                new TripPlannedEvent(saved.getId())
+        );
+    }
+
+    return tripResponseMapper.toResponse(saved);
+}
 
     /* ========================
        START TRIP
