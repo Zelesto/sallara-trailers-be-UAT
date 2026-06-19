@@ -2,9 +2,10 @@ package com.pgsa.trailers.controller;
 
 import com.pgsa.trailers.dto.*;
 import com.pgsa.trailers.entity.security.AppUser;
-import com.pgsa.trailers.enums.TripStatus;  // Add this import
+import com.pgsa.trailers.enums.TripStatus;
 import com.pgsa.trailers.repository.AppUserRepository;
 import com.pgsa.trailers.service.TripService;
+import com.pgsa.trailers.service.TripFinalisationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -25,6 +26,7 @@ import jakarta.validation.Valid;
 public class TripController {
 
     private final TripService tripService;
+    private final TripFinalisationService tripFinalisationService;  // ADD THIS
     private final AppUserRepository appUserRepository;
 
     /* ========================
@@ -61,21 +63,47 @@ public class TripController {
     }
 
     /* ========================
-       UPDATE STATUS - FIXED
+       FINALIZE TRIP - ADD THIS
+       ======================== */
+    @PostMapping("/{id}/finalize")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
+    public ResponseEntity<Void> finalizeTrip(@PathVariable Long id) {
+        log.info("📨 Received finalize request for trip: {}", id);
+        try {
+            tripFinalisationService.finalizeTrip(id);
+            log.info("✅ Trip {} finalized successfully", id);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("❌ Error finalizing trip {}: {}", id, e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    /* ========================
+       CAN FINALIZE CHECK - ADD THIS
+       ======================== */
+    @GetMapping("/{id}/can-finalize")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
+    public ResponseEntity<Boolean> canFinalize(@PathVariable Long id) {
+        log.info("📨 Checking if trip {} can be finalized", id);
+        boolean canFinalize = tripFinalisationService.canFinalize(id);
+        return ResponseEntity.ok(canFinalize);
+    }
+
+    /* ========================
+       UPDATE STATUS
        ======================== */
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER')")
     public ResponseEntity<TripResponse> updateTripStatus(
             @PathVariable Long id,
             @RequestParam String status,
-            Authentication authentication  // Added this parameter
+            Authentication authentication
     ) {
         log.debug("Updating status for trip {} to {}", id, status);
         
-        // Get authenticated user
         AppUser user = getAuthenticatedUser(authentication);
         
-        // Convert String to Enum
         TripStatus newStatus;
         try {
             newStatus = TripStatus.valueOf(status.toUpperCase());
@@ -83,7 +111,6 @@ public class TripController {
             throw new IllegalArgumentException("Invalid status value: " + status);
         }
         
-        // Call service with all three parameters
         TripResponse response = tripService.updateTripStatus(id, newStatus, user.getId());
         return ResponseEntity.ok(response);
     }
