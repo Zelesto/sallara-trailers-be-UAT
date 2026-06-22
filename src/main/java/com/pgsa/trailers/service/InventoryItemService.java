@@ -1,13 +1,13 @@
 // src/main/java/com/pgsa/trailers/service/inventory/InventoryItemService.java
 package com.pgsa.trailers.service;
 
-import com.pgsa.trailers.dto.InventoryItemRequestDTO;
-import com.pgsa.trailers.dto.InventoryItemResponseDTO;
-import com.pgsa.trailers.dto.InventoryStatisticsDTO;
+import com.pgsa.trailers.dto.inventory.InventoryItemRequestDTO;
+import com.pgsa.trailers.dto.inventory.InventoryItemResponseDTO;
+import com.pgsa.trailers.dto.inventory.InventoryStatisticsDTO;
 import com.pgsa.trailers.entity.inventory.InventoryItem;
 import com.pgsa.trailers.entity.inventory.InventoryLocation;
-import com.pgsa.trailers.repository.InventoryItemRepository;
-import com.pgsa.trailers.repository.InventoryLocationRepository;
+import com.pgsa.trailers.repository.inventory.InventoryItemRepository;
+import com.pgsa.trailers.repository.inventory.InventoryLocationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -77,14 +77,28 @@ public class InventoryItemService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<InventoryItemResponseDTO> getActiveItems() {
+        return inventoryItemRepository.findByIsActiveTrue()
+                .stream()
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
     public InventoryItemResponseDTO createItem(InventoryItemRequestDTO request) {
-        InventoryItem item = new InventoryItem();
-        item.setName(request.getName());
-        item.setCategory(request.getCategory());
-        item.setUnitOfMeasure(request.getUnitOfMeasure());
-        item.setIsConsumable(request.getIsConsumable() != null ? request.getIsConsumable() : false);
-        item.setReorderLevel(request.getReorderLevel());
-        item.setLocationId(request.getLocationId());
+        InventoryItem item = InventoryItem.builder()
+                .name(request.getName())
+                .category(request.getCategory())
+                .unitOfMeasure(request.getUnitOfMeasure())
+                .isConsumable(request.getIsConsumable() != null ? request.getIsConsumable() : false)
+                .reorderLevel(request.getReorderLevel())
+                .locationId(request.getLocationId())
+                .quantity(request.getQuantity() != null ? request.getQuantity() : 0)
+                .unitCost(request.getUnitCost())
+                .minLevel(request.getMinLevel())
+                .isActive(true)
+                .notes(request.getNotes())
+                .build();
 
         InventoryItem saved = inventoryItemRepository.save(item);
         log.info("Created inventory item with ID: {}", saved.getId());
@@ -101,6 +115,10 @@ public class InventoryItemService {
         item.setIsConsumable(request.getIsConsumable());
         item.setReorderLevel(request.getReorderLevel());
         item.setLocationId(request.getLocationId());
+        if (request.getQuantity() != null) item.setQuantity(request.getQuantity());
+        if (request.getUnitCost() != null) item.setUnitCost(request.getUnitCost());
+        if (request.getMinLevel() != null) item.setMinLevel(request.getMinLevel());
+        if (request.getNotes() != null) item.setNotes(request.getNotes());
 
         InventoryItem updated = inventoryItemRepository.save(item);
         log.info("Updated inventory item with ID: {}", updated.getId());
@@ -155,6 +173,17 @@ public class InventoryItemService {
                     .ifPresent(loc -> locationName = loc.getName());
         }
 
+        String status = "Unknown";
+        if (item.getQuantity() != null) {
+            if (item.getQuantity() <= 0) {
+                status = "Out of Stock";
+            } else if (item.getMinLevel() != null && item.getQuantity() <= item.getMinLevel()) {
+                status = "Low Stock";
+            } else {
+                status = "In Stock";
+            }
+        }
+
         return InventoryItemResponseDTO.builder()
                 .id(item.getId())
                 .name(item.getName())
@@ -164,6 +193,13 @@ public class InventoryItemService {
                 .reorderLevel(item.getReorderLevel())
                 .locationId(item.getLocationId())
                 .locationName(locationName)
+                .quantity(item.getQuantity())
+                .unitCost(item.getUnitCost())
+                .minLevel(item.getMinLevel())
+                .status(status)
+                .notes(item.getNotes())
+                .createdAt(item.getCreatedAt())
+                .updatedAt(item.getUpdatedAt())
                 .build();
     }
 }
