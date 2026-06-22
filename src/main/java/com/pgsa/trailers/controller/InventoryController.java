@@ -2,7 +2,7 @@
 package com.pgsa.trailers.controller;
 
 import com.pgsa.trailers.dto.*;
-import com.pgsa.trailers.entity.StockMovement;
+import com.pgsa.trailers.entity.inventory.StockMovement;
 import com.pgsa.trailers.service.StockCountService;
 import com.pgsa.trailers.service.InventoryItemService;
 import com.pgsa.trailers.service.InventoryLocationService;
