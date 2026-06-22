@@ -167,39 +167,44 @@ public class InventoryItemService {
     }
 
     private InventoryItemResponseDTO mapToResponseDTO(InventoryItem item) {
-        String locationName = null;
-        if (item.getLocationId() != null) {
-            inventoryLocationRepository.findById(item.getLocationId())
-                    .ifPresent(loc -> locationName = loc.getName());
+    String locationName = null;
+    
+    // Fix: Use Optional directly instead of lambda with variable assignment
+    if (item.getLocationId() != null) {
+        java.util.Optional<InventoryLocation> optionalLocation = 
+                inventoryLocationRepository.findById(item.getLocationId());
+        if (optionalLocation.isPresent()) {
+            locationName = optionalLocation.get().getName();
         }
-
-        String status = "Unknown";
-        if (item.getQuantity() != null) {
-            if (item.getQuantity() <= 0) {
-                status = "Out of Stock";
-            } else if (item.getMinLevel() != null && item.getQuantity() <= item.getMinLevel()) {
-                status = "Low Stock";
-            } else {
-                status = "In Stock";
-            }
-        }
-
-        return InventoryItemResponseDTO.builder()
-                .id(item.getId())
-                .name(item.getName())
-                .category(item.getCategory())
-                .unitOfMeasure(item.getUnitOfMeasure())
-                .isConsumable(item.getIsConsumable())
-                .reorderLevel(item.getReorderLevel())
-                .locationId(item.getLocationId())
-                .locationName(locationName)
-                .quantity(item.getQuantity())
-                .unitCost(item.getUnitCost())
-                .minLevel(item.getMinLevel())
-                .status(status)
-                .notes(item.getNotes())
-                .createdAt(item.getCreatedAt())
-                .updatedAt(item.getUpdatedAt())
-                .build();
     }
+
+    String status = "Unknown";
+    if (item.getQuantity() != null) {
+        if (item.getQuantity() <= 0) {
+            status = "Out of Stock";
+        } else if (item.getMinLevel() != null && item.getQuantity() <= item.getMinLevel()) {
+            status = "Low Stock";
+        } else {
+            status = "In Stock";
+        }
+    }
+
+    return InventoryItemResponseDTO.builder()
+            .id(item.getId())
+            .name(item.getName())
+            .category(item.getCategory())
+            .unitOfMeasure(item.getUnitOfMeasure())
+            .isConsumable(item.getIsConsumable())
+            .reorderLevel(item.getReorderLevel())
+            .locationId(item.getLocationId())
+            .locationName(locationName)
+            .quantity(item.getQuantity())
+            .unitCost(item.getUnitCost())
+            .minLevel(item.getMinLevel())
+            .status(status)
+            .notes(item.getNotes())
+            .createdAt(item.getCreatedAt())
+            .updatedAt(item.getUpdatedAt())
+            .build();
+}
 }
