@@ -1,44 +1,73 @@
+// src/main/java/com/pgsa/trailers/entity/inventory/InventoryItem.java
 package com.pgsa.trailers.entity.inventory;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import java.math.BigDecimal;
-import com.pgsa.trailers.enums.*;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "inventory_item")
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class InventoryItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "name", nullable = false, length = 200)
     private String name;
+
+    @Column(name = "category", length = 50)
     private String category;
+
+    @Column(name = "unit_of_measure", length = 20)
     private String unitOfMeasure;
+
+    @Column(name = "is_consumable")
     private Boolean isConsumable;
+
+    @Column(name = "reorder_level", precision = 10, scale = 2)
     private BigDecimal reorderLevel;
 
-    // Getters and setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    @Column(name = "location_id")
+    private Long locationId;
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+    @Column(name = "quantity")
+    private Integer quantity;
 
-    public String getCategory() { return category; }
-    public void setCategory(String category) { this.category = category; }
+    @Column(name = "unit_cost", precision = 10, scale = 2)
+    private BigDecimal unitCost;
 
-    public String getUnitOfMeasure() { return unitOfMeasure; }
-    public void setUnitOfMeasure(String unitOfMeasure) { this.unitOfMeasure = unitOfMeasure; }
+    @Column(name = "min_level")
+    private Integer minLevel;
 
-    public Boolean getIsConsumable() { return isConsumable; }
-    public void setIsConsumable(Boolean isConsumable) { this.isConsumable = isConsumable; }
+    @Column(name = "is_active")
+    private Boolean isActive;
 
-    public BigDecimal getReorderLevel() { return reorderLevel; }
-    public void setReorderLevel(BigDecimal reorderLevel) { this.reorderLevel = reorderLevel; }
+    @Column(name = "notes", length = 500)
+    private String notes;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @Column(name = "created_by")
+    private String createdBy;
+
+    @Column(name = "updated_by")
+    private String updatedBy;
 }
