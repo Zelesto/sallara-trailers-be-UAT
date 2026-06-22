@@ -17,6 +17,7 @@ public class PodResponseDTO {
     private Long id;
     private String podNumber;
     private Long tripId;
+    private String tripNumber;  // Add this field
     private String customerName;
     private LocalDate deliveryDate;
     private String status;
