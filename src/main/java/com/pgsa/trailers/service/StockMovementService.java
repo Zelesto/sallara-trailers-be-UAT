@@ -1,12 +1,12 @@
 // src/main/java/com/pgsa/trailers/service/inventory/StockMovementService.java
-package com.pgsa.trailers.service;
+package com.pgsa.trailers.service.inventory;
 
-import com.pgsa.trailers.dto.StockMovementRequestDTO;
-import com.pgsa.trailers.dto.StockMovementResponseDTO;
+import com.pgsa.trailers.dto.inventory.StockMovementRequestDTO;
+import com.pgsa.trailers.dto.inventory.StockMovementResponseDTO;
 import com.pgsa.trailers.entity.inventory.InventoryItem;
 import com.pgsa.trailers.entity.inventory.StockMovement;
-import com.pgsa.trailers.repository.InventoryItemRepository;
-import com.pgsa.trailers.repository.StockMovementRepository;
+import com.pgsa.trailers.repository.inventory.InventoryItemRepository;
+import com.pgsa.trailers.repository.inventory.StockMovementRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -15,7 +15,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -27,6 +29,9 @@ public class StockMovementService {
     private final StockMovementRepository stockMovementRepository;
     private final InventoryItemRepository inventoryItemRepository;
 
+    /**
+     * Record a new stock movement
+     */
     public StockMovementResponseDTO recordMovement(StockMovementRequestDTO request) {
         // Validate item exists
         InventoryItem item = inventoryItemRepository.findById(request.getItemId())
@@ -37,6 +42,19 @@ public class StockMovementService {
             throw new RuntimeException("Invalid movement type. Use IN, OUT, or ADJUSTMENT");
         }
 
+        // Determine if approval is required
+        boolean requiresApproval = request.getRequiresApproval() != null ? request.getRequiresApproval() : false;
+        
+        // Stock OUT and ADJUSTMENT always require approval
+        if ("OUT".equals(request.getMovementType()) || "ADJUSTMENT".equals(request.getMovementType())) {
+            requiresApproval = true;
+        }
+        
+        // Stock IN requires approval if no reference number provided
+        if ("IN".equals(request.getMovementType()) && (request.getReferenceNumber() == null || request.getReferenceNumber().isEmpty())) {
+            requiresApproval = true;
+        }
+
         // Create movement record using builder
         StockMovement movement = StockMovement.builder()
                 .itemId(request.getItemId())
@@ -45,47 +63,58 @@ public class StockMovementService {
                 .reason(request.getReason())
                 .notes(request.getNotes())
                 .referenceNumber(request.getReferenceNumber())
+                .referenceType(request.getReferenceType())
+                .performedBy(request.getPerformedBy())
                 .tripId(request.getTripId())
                 .fuelSlipId(request.getFuelSlipId())
+                .requiresApproval(requiresApproval)
+                .approvalStatus(requiresApproval ? "PENDING" : "APPROVED")
                 .build();
 
-        // Update inventory quantity
-        int currentQuantity = item.getQuantity() != null ? item.getQuantity() : 0;
-        int newQuantity;
-
-        switch (request.getMovementType()) {
-            case "IN":
-                newQuantity = currentQuantity + request.getQuantity();
-                break;
-            case "OUT":
-                if (currentQuantity < request.getQuantity()) {
-                    throw new RuntimeException("Insufficient stock. Available: " + currentQuantity + ", Requested: " + request.getQuantity());
-                }
-                newQuantity = currentQuantity - request.getQuantity();
-                break;
-            case "ADJUSTMENT":
-                newQuantity = request.getQuantity();
-                break;
-            default:
-                throw new RuntimeException("Invalid movement type");
-        }
-
-        item.setQuantity(newQuantity);
-        inventoryItemRepository.save(item);
-
         StockMovement saved = stockMovementRepository.save(movement);
-        log.info("Recorded stock movement for item {}: {} {} units", 
-                request.getItemId(), request.getMovementType(), request.getQuantity());
+        log.info("Recorded stock movement for item {}: {} {} units, Approval: {}", 
+                request.getItemId(), request.getMovementType(), request.getQuantity(), 
+                requiresApproval ? "PENDING" : "AUTO-APPROVED");
+
+        // If no approval required, update inventory immediately
+        if (!requiresApproval) {
+            updateInventoryQuantity(movement);
+        }
 
         return mapToResponseDTO(saved);
     }
 
+    /**
+     * Get all movements with pagination
+     */
+    @Transactional(readOnly = true)
+    public Page<StockMovementResponseDTO> getAllMovements(Pageable pageable) {
+        return stockMovementRepository.findAll(pageable)
+                .map(this::mapToResponseDTO);
+    }
+
+    /**
+     * Get movement by ID
+     */
+    @Transactional(readOnly = true)
+    public StockMovementResponseDTO getMovementById(Long id) {
+        StockMovement movement = stockMovementRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Stock movement not found with ID: " + id));
+        return mapToResponseDTO(movement);
+    }
+
+    /**
+     * Get movements by item with pagination
+     */
     @Transactional(readOnly = true)
     public Page<StockMovementResponseDTO> getMovementsByItem(Long itemId, Pageable pageable) {
         return stockMovementRepository.findByItemId(itemId, pageable)
                 .map(this::mapToResponseDTO);
     }
 
+    /**
+     * Get movements by trip
+     */
     @Transactional(readOnly = true)
     public List<StockMovementResponseDTO> getMovementsByTrip(Long tripId) {
         return stockMovementRepository.findByTripId(tripId)
@@ -94,6 +123,9 @@ public class StockMovementService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Get movements by fuel slip
+     */
     @Transactional(readOnly = true)
     public List<StockMovementResponseDTO> getMovementsByFuelSlip(Long fuelSlipId) {
         return stockMovementRepository.findByFuelSlipId(fuelSlipId)
@@ -102,6 +134,9 @@ public class StockMovementService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Get movements by date range
+     */
     @Transactional(readOnly = true)
     public List<StockMovementResponseDTO> getMovementsByDateRange(LocalDateTime startDate, LocalDateTime endDate) {
         return stockMovementRepository.findByDateRange(startDate, endDate)
@@ -110,37 +145,148 @@ public class StockMovementService {
                 .collect(Collectors.toList());
     }
 
-    private StockMovementResponseDTO mapToResponseDTO(StockMovement movement) {
-    // Create a separate variable for the item name
-    String itemName = null;
-    Long itemId = movement.getItemId(); // Store in a local variable first
-    
-    inventoryItemRepository.findById(itemId)
-            .ifPresent(item -> {
-                // Now item is effectively final
-                String name = item.getName();
-                // Use the name
-            });
-    
-    // Better approach - use Optional directly
-    java.util.Optional<InventoryItem> optionalItem = inventoryItemRepository.findById(movement.getItemId());
-    if (optionalItem.isPresent()) {
-        itemName = optionalItem.get().getName();
+    /**
+     * Get pending approvals
+     */
+    @Transactional(readOnly = true)
+    public List<StockMovementResponseDTO> getPendingApprovals() {
+        return stockMovementRepository.findByApprovalStatus("PENDING")
+                .stream()
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
     }
 
-    return StockMovementResponseDTO.builder()
-            .id(movement.getId())
-            .itemId(movement.getItemId())
-            .itemName(itemName)
-            .quantity(movement.getQuantity())
-            .movementType(movement.getMovementType())
-            .reason(movement.getReason())
-            .notes(movement.getNotes())
-            .referenceNumber(movement.getReferenceNumber())
-            .performedBy(movement.getPerformedBy())
-            .createdAt(movement.getCreatedAt())
-            .tripId(movement.getTripId())
-            .fuelSlipId(movement.getFuelSlipId())
-            .build();
-}
+    /**
+     * Approve a movement
+     */
+    @Transactional
+    public StockMovementResponseDTO approveMovement(Long id, String approvedBy, String notes) {
+        StockMovement movement = stockMovementRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Stock movement not found with ID: " + id));
+        
+        if (!"PENDING".equals(movement.getApprovalStatus())) {
+            throw new RuntimeException("Movement is not in pending status. Current status: " + movement.getApprovalStatus());
+        }
+        
+        movement.setApprovalStatus("APPROVED");
+        movement.setApprovedBy(approvedBy);
+        movement.setApprovedAt(LocalDateTime.now());
+        movement.setApprovalNotes(notes);
+        
+        // Update inventory quantity when approved
+        updateInventoryQuantity(movement);
+        
+        StockMovement updated = stockMovementRepository.save(movement);
+        log.info("Movement {} approved by: {}", id, approvedBy);
+        return mapToResponseDTO(updated);
+    }
+
+    /**
+     * Reject a movement
+     */
+    @Transactional
+    public StockMovementResponseDTO rejectMovement(Long id, String rejectedBy, String reason) {
+        StockMovement movement = stockMovementRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Stock movement not found with ID: " + id));
+        
+        if (!"PENDING".equals(movement.getApprovalStatus())) {
+            throw new RuntimeException("Movement is not in pending status. Current status: " + movement.getApprovalStatus());
+        }
+        
+        movement.setApprovalStatus("REJECTED");
+        movement.setRejectedBy(rejectedBy);
+        movement.setRejectedAt(LocalDateTime.now());
+        movement.setRejectionReason(reason);
+        
+        StockMovement updated = stockMovementRepository.save(movement);
+        log.info("Movement {} rejected by: {}, reason: {}", id, rejectedBy, reason);
+        return mapToResponseDTO(updated);
+    }
+
+    /**
+     * Get movement statistics
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getMovementStats(String startDate, String endDate) {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("totalMovements", stockMovementRepository.count());
+        stats.put("pendingApprovals", stockMovementRepository.countByApprovalStatus("PENDING"));
+        stats.put("approvedMovements", stockMovementRepository.countByApprovalStatus("APPROVED"));
+        stats.put("rejectedMovements", stockMovementRepository.countByApprovalStatus("REJECTED"));
+        
+        // Get counts by movement type
+        stats.put("stockIn", stockMovementRepository.countByMovementType("IN"));
+        stats.put("stockOut", stockMovementRepository.countByMovementType("OUT"));
+        stats.put("adjustments", stockMovementRepository.countByMovementType("ADJUSTMENT"));
+        
+        return stats;
+    }
+
+    /**
+     * Update inventory quantity based on movement
+     */
+    private void updateInventoryQuantity(StockMovement movement) {
+        InventoryItem item = inventoryItemRepository.findById(movement.getItemId())
+                .orElseThrow(() -> new RuntimeException("Item not found with ID: " + movement.getItemId()));
+        
+        int currentQuantity = item.getQuantity() != null ? item.getQuantity() : 0;
+        int newQuantity;
+        
+        switch (movement.getMovementType()) {
+            case "IN":
+                newQuantity = currentQuantity + movement.getQuantity();
+                break;
+            case "OUT":
+                if (currentQuantity < movement.getQuantity()) {
+                    throw new RuntimeException("Insufficient stock. Available: " + currentQuantity + ", Requested: " + movement.getQuantity());
+                }
+                newQuantity = currentQuantity - movement.getQuantity();
+                break;
+            case "ADJUSTMENT":
+                newQuantity = movement.getQuantity();
+                break;
+            default:
+                throw new RuntimeException("Invalid movement type: " + movement.getMovementType());
+        }
+        
+        item.setQuantity(newQuantity);
+        inventoryItemRepository.save(item);
+        log.info("Updated quantity for item {} to: {}", item.getId(), newQuantity);
+    }
+
+    /**
+     * Map entity to response DTO
+     */
+    private StockMovementResponseDTO mapToResponseDTO(StockMovement movement) {
+        // Get item name
+        String itemName = null;
+        java.util.Optional<InventoryItem> optionalItem = inventoryItemRepository.findById(movement.getItemId());
+        if (optionalItem.isPresent()) {
+            itemName = optionalItem.get().getName();
+        }
+
+        return StockMovementResponseDTO.builder()
+                .id(movement.getId())
+                .itemId(movement.getItemId())
+                .itemName(itemName)
+                .quantity(movement.getQuantity())
+                .movementType(movement.getMovementType())
+                .reason(movement.getReason())
+                .notes(movement.getNotes())
+                .referenceNumber(movement.getReferenceNumber())
+                .referenceType(movement.getReferenceType())
+                .performedBy(movement.getPerformedBy())
+                .createdAt(movement.getCreatedAt())
+                .tripId(movement.getTripId())
+                .fuelSlipId(movement.getFuelSlipId())
+                .requiresApproval(movement.getRequiresApproval())
+                .approvalStatus(movement.getApprovalStatus())
+                .approvedBy(movement.getApprovedBy())
+                .approvedAt(movement.getApprovedAt())
+                .approvalNotes(movement.getApprovalNotes())
+                .rejectedBy(movement.getRejectedBy())
+                .rejectedAt(movement.getRejectedAt())
+                .rejectionReason(movement.getRejectionReason())
+                .build();
+    }
 }
