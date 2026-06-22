@@ -1,5 +1,5 @@
 // src/main/java/com/pgsa/trailers/dto/inventory/StockMovementRequestDTO.java
-package com.pgsa.trailers.dto.inventory;
+package com.pgsa.trailers.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
