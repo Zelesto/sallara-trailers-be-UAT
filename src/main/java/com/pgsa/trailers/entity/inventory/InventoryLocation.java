@@ -1,4 +1,4 @@
-package com.pgsa.trailers.entity.inventory;
+package com.pgsa.trailers.entity;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
