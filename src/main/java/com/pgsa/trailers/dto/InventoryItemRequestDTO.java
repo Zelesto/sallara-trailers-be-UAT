@@ -1,5 +1,5 @@
 // src/main/java/com/pgsa/trailers/dto/inventory/InventoryItemRequestDTO.java
-package com.pgsa.trailers.dto;
+package com.pgsa.trailers.dto.inventory;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -19,4 +19,8 @@ public class InventoryItemRequestDTO {
     private Boolean isConsumable;
     private BigDecimal reorderLevel;
     private Long locationId;
+    private Integer quantity;
+    private BigDecimal unitCost;
+    private Integer minLevel;
+    private String notes;
 }
