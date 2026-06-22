@@ -3,7 +3,7 @@ package com.pgsa.trailers.service;
 
 import com.pgsa.trailers.dto.InventoryLocationRequestDTO;
 import com.pgsa.trailers.dto.InventoryLocationResponseDTO;
-import com.pgsa.trailers.entity.InventoryLocation;
+import com.pgsa.trailers.entity.inventory.InventoryLocation;
 import com.pgsa.trailers.repository.InventoryLocationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
