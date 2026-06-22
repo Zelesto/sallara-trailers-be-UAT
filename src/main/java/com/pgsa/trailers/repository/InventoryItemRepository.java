@@ -1,7 +1,7 @@
 // src/main/java/com/pgsa/trailers/repository/inventory/InventoryItemRepository.java
 package com.pgsa.trailers.repository;
 
-import com.pgsa.trailers.entity.InventoryItem;
+import com.pgsa.trailers.entity.inventory.InventoryItem;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
