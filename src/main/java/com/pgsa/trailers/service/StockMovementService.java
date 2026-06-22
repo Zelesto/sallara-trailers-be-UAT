@@ -1,5 +1,5 @@
 // src/main/java/com/pgsa/trailers/service/inventory/StockMovementService.java
-package com.pgsa.trailers.service;
+package com.pgsa.trailers.service.inventory;
 
 import com.pgsa.trailers.dto.StockMovementRequestDTO;
 import com.pgsa.trailers.dto.StockMovementResponseDTO;
@@ -37,7 +37,7 @@ public class StockMovementService {
             throw new RuntimeException("Invalid movement type. Use IN, OUT, or ADJUSTMENT");
         }
 
-        // Create movement record
+        // Create movement record using builder
         StockMovement movement = StockMovement.builder()
                 .itemId(request.getItemId())
                 .quantity(request.getQuantity())
@@ -112,18 +112,13 @@ public class StockMovementService {
 
     private StockMovementResponseDTO mapToResponseDTO(StockMovement movement) {
         String itemName = null;
-        String itemSku = null;
         inventoryItemRepository.findById(movement.getItemId())
-                .ifPresent(item -> {
-                    itemName = item.getName();
-                    itemSku = item.getSku();
-                });
+                .ifPresent(item -> itemName = item.getName());
 
         return StockMovementResponseDTO.builder()
                 .id(movement.getId())
                 .itemId(movement.getItemId())
                 .itemName(itemName)
-                .itemSku(itemSku)
                 .quantity(movement.getQuantity())
                 .movementType(movement.getMovementType())
                 .reason(movement.getReason())
