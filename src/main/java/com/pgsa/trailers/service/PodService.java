@@ -3,9 +3,11 @@ package com.pgsa.trailers.service;
 
 import com.pgsa.trailers.dto.PodRequestDTO;
 import com.pgsa.trailers.dto.PodResponseDTO;
-import com.pgsa.trailers.dto.PodStatistics;  // <-- ADD THIS IMPORT
+import com.pgsa.trailers.dto.PodStatistics;
 import com.pgsa.trailers.entity.ops.Pod;
+import com.pgsa.trailers.entity.ops.Trip;  // Add this import
 import com.pgsa.trailers.repository.PodRepository;
+import com.pgsa.trailers.repository.TripRepository;  // Add this import
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -24,6 +26,7 @@ import java.util.stream.Collectors;
 public class PodService {
 
     private final PodRepository podRepository;
+    private final TripRepository tripRepository;  // Inject TripRepository
 
     public PodResponseDTO createPod(PodRequestDTO request) {
         Pod pod = Pod.builder()
@@ -169,11 +172,30 @@ public class PodService {
                 .build();
     }
 
+    /**
+     * Helper method to get trip number from trip ID
+     */
+    private String getTripNumber(Long tripId) {
+        if (tripId == null) {
+            return null;
+        }
+        try {
+            return tripRepository.findTripNumberById(tripId);
+        } catch (Exception e) {
+            log.warn("Could not find trip number for trip ID: {}", tripId);
+            return null;
+        }
+    }
+
     private PodResponseDTO mapToResponse(Pod pod) {
+        // Get trip number from trip ID
+        String tripNumber = getTripNumber(pod.getTripId());
+
         return PodResponseDTO.builder()
                 .id(pod.getId())
                 .podNumber(pod.getPodNumber())
                 .tripId(pod.getTripId())
+                .tripNumber(tripNumber)  // Add trip number
                 .customerName(pod.getCustomerName())
                 .deliveryDate(pod.getDeliveryDate())
                 .status(pod.getStatus())
