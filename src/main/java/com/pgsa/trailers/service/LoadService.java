@@ -105,6 +105,41 @@ public class LoadService {
     // READ
     // =============================================
 
+
+    // src/main/java/com/pgsa/trailers/service/LoadService.java
+// Fix the findMergeableTrips method
+
+/**
+ * Suggest merging trips that could be combined into one load
+ */
+@Transactional(readOnly = true)
+public List<Trip> findMergeableTrips(Long customerId, LocalDateTime plannedDate) {
+    LocalDate date = plannedDate.toLocalDate();
+    LocalDateTime startOfDay = date.atStartOfDay();
+    LocalDateTime endOfDay = date.atTime(23, 59, 59);
+
+    // Create final variables for use in lambda
+    final Long finalCustomerId = customerId;
+    final LocalDateTime finalStartOfDay = startOfDay;
+    final LocalDateTime finalEndOfDay = endOfDay;
+
+    // If the repository method exists, use it
+    try {
+        return tripRepository.findByCustomerIdAndPlannedStartDateBetweenAndLoadIsNull(
+            finalCustomerId, finalStartOfDay, finalEndOfDay);
+    } catch (Exception e) {
+        log.warn("Repository method not found, using fallback");
+        // Fallback: get all trips for customer and filter manually
+        return tripRepository.findByCustomerId(finalCustomerId)
+                .stream()
+                .filter(t -> t.getLoadId() == null || t.getLoadId().isEmpty())
+                .filter(t -> t.getPlannedStartDate() != null)
+                .filter(t -> !t.getPlannedStartDate().isBefore(finalStartOfDay) && 
+                           !t.getPlannedStartDate().isAfter(finalEndOfDay))
+                .collect(Collectors.toList());
+    }
+}
+    
     @Transactional(readOnly = true)
     public LoadResponseDTO getLoadById(Long id) {
         Load load = loadRepository.findById(id)
