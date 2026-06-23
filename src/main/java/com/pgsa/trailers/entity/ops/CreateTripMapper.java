@@ -178,12 +178,14 @@ public class CreateTripMapper {
         trip.setIsActive(true);
         
         // Build location strings from components if needed
-        if (request.getOriginLocation() == null && trip.buildOriginAddress() != null && !trip.buildOriginAddress().isEmpty()) {
-            trip.updateOriginLocationFromComponents();
+        String originAddress = trip.buildOriginAddress();
+        if (request.getOriginLocation() == null && originAddress != null && !originAddress.isEmpty()) {
+            trip.setOriginLocation(originAddress);
         }
         
-        if (request.getDestinationLocation() == null && trip.buildDestinationAddress() != null && !trip.buildDestinationAddress().isEmpty()) {
-            trip.updateDestinationLocationFromComponents();
+        String destinationAddress = trip.buildDestinationAddress();
+        if (request.getDestinationLocation() == null && destinationAddress != null && !destinationAddress.isEmpty()) {
+            trip.setDestinationLocation(destinationAddress);
         }
 
         log.debug("Mapped CreateTripRequest to Trip entity");
