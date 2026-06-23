@@ -108,6 +108,8 @@ public class LoadController {
         return ResponseEntity.ok(loadService.smartMergeTrips(customerId, plannedDate, getCurrentUserId()));
     }
 
+
+
     @GetMapping("/merge-candidates")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'MANAGER')")
     public ResponseEntity<List<TripSummaryDTO>> findMergeCandidates(
@@ -120,11 +122,30 @@ public class LoadController {
             TripSummaryDTO dto = new TripSummaryDTO();
             dto.setId(trip.getId());
             dto.setTripNumber(trip.getTripNumber());
-            dto.setOrigin(trip.getOriginCity() != null ? trip.getOriginCity() : trip.getOriginLocation());
-            dto.setDestination(trip.getDestinationCity() != null ? trip.getDestinationCity() : trip.getDestinationLocation());
+            dto.setStatus(trip.getStatus());
+            // Use the correct field names - originCity and destinationCity
+            dto.setOriginCity(trip.getOriginCity() != null ? trip.getOriginCity() : trip.getOriginLocation());
+            dto.setDestinationCity(trip.getDestinationCity() != null ? trip.getDestinationCity() : trip.getDestinationLocation());
+            dto.setOriginLocation(trip.getOriginLocation());
+            dto.setDestinationLocation(trip.getDestinationLocation());
+            dto.setOriginZipCode(trip.getOriginZipCode());
+            dto.setDestinationZipCode(trip.getDestinationZipCode());
             dto.setPlannedStartDate(trip.getPlannedStartDate());
             dto.setPlannedEndDate(trip.getPlannedEndDate());
-            dto.setStatus(trip.getStatus());
+            dto.setVehicleRegistration(trip.getVehicle() != null ? trip.getVehicle().getRegistrationNumber() : null);
+            
+            if (trip.getDriver() != null) {
+                String firstName = trip.getDriver().getFirstName() != null ? trip.getDriver().getFirstName() : "";
+                String lastName = trip.getDriver().getLastName() != null ? trip.getDriver().getLastName() : "";
+                dto.setDriverName((firstName + " " + lastName).trim());
+            }
+            
+            // Optional: Add commodity info
+            dto.setCommodityType(trip.getCommodityType());
+            dto.setCargoWeight(trip.getCargoWeight());
+            dto.setPalletCount(trip.getPalletCount());
+            dto.setContainerNumber(trip.getContainerNumber());
+            
             summaries.add(dto);
         }
         return ResponseEntity.ok(summaries);
