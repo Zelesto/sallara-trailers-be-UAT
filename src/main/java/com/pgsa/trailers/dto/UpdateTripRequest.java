@@ -1,3 +1,4 @@
+// src/main/java/com/pgsa/trailers/dto/UpdateTripRequest.java
 package com.pgsa.trailers.dto;
 
 import com.pgsa.trailers.enums.TripStatus;
@@ -17,7 +18,10 @@ public class UpdateTripRequest {
     private Long vehicleId;
     private Long driverId;
     private Long supervisorId;
-    private Long loadId;
+    
+    // Customer and Load Associations
+    private Long customerId;
+    private String loadId;
 
     // ======================== IDENTITY ========================
     @Size(max = 50, message = "Trip type cannot exceed 50 characters")
