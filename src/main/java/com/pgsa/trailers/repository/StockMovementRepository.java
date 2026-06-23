@@ -1,5 +1,5 @@
 // src/main/java/com/pgsa/trailers/repository/inventory/StockMovementRepository.java
-package com.pgsa.trailers.repository.inventory;
+package com.pgsa.trailers.repository;
 
 import com.pgsa.trailers.entity.inventory.StockMovement;
 import org.springframework.data.domain.Page;
