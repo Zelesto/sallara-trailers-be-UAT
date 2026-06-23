@@ -5,7 +5,7 @@ import com.pgsa.trailers.dto.StockMovementRequestDTO;
 import com.pgsa.trailers.dto.StockMovementResponseDTO;
 import com.pgsa.trailers.entity.inventory.InventoryItem;
 import com.pgsa.trailers.entity.inventory.StockMovement;
-import com.pgsa.trailers.exception.InsufficientStockException;
+import com.pgsa.trailers.entity.InsufficientStockException;
 import com.pgsa.trailers.repository.InventoryItemRepository;
 import com.pgsa.trailers.repository.StockMovementRepository;
 import lombok.RequiredArgsConstructor;
