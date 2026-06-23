@@ -3,7 +3,10 @@ package com.pgsa.trailers.entity.ops;
 
 import com.pgsa.trailers.config.BaseEntity;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
@@ -14,6 +17,9 @@ import java.util.List;
 @Getter
 @Setter
 @Entity
+@Builder  // Add this
+@NoArgsConstructor  // Add this
+@AllArgsConstructor  // Add this
 @Table(name = "load", indexes = {
         @Index(name = "idx_load_load_number", columnList = "load_number", unique = true),
         @Index(name = "idx_load_status", columnList = "status"),
@@ -28,9 +34,6 @@ public class Load extends BaseEntity {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    /* ========================
-       Customer Relationship
-       ======================== */
     @Column(name = "customer_id")
     private Long customerId;
 
@@ -84,9 +87,8 @@ public class Load extends BaseEntity {
     public void addTrip(Trip trip) {
         trips.add(trip);
         trip.setLoad(this);
-        // Also set the load denormalized fields on trip
         trip.setLoadNumber(this.loadNumber);
-        trip.setLoadType(this.getType());
+        trip.setLoadType(this.commodityType);
         trip.setLoadDescription(this.description);
         trip.setLoadStatus(this.status);
     }
@@ -112,7 +114,6 @@ public class Load extends BaseEntity {
         if (weightKg != null) {
             return weightKg;
         }
-        // Calculate from trips if not set
         if (trips != null && !trips.isEmpty()) {
             return trips.stream()
                     .map(Trip::getCargoWeight)
@@ -126,7 +127,6 @@ public class Load extends BaseEntity {
         if (actualValue != null) {
             return actualValue;
         }
-        // Calculate from trips if not set
         if (trips != null && !trips.isEmpty()) {
             return trips.stream()
                     .map(Trip::getCargoValue)
@@ -151,20 +151,17 @@ public class Load extends BaseEntity {
 
     @PreUpdate
     protected void onUpdate() {
-        // Update all trips with load details when load is updated
         if (trips != null && !trips.isEmpty()) {
             for (Trip trip : trips) {
                 trip.setLoadNumber(this.loadNumber);
-                trip.setLoadType(this.getType());
+                trip.setLoadType(this.commodityType);
                 trip.setLoadDescription(this.description);
                 trip.setLoadStatus(this.status);
             }
         }
     }
 
-    // Helper to get type from commodity or other source
     public String getType() {
-        // Could be derived from commodity type or a separate field
         if (commodityType != null && !commodityType.isEmpty()) {
             return commodityType;
         }
