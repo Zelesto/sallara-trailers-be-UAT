@@ -1,3 +1,4 @@
+// src/main/java/com/pgsa/trailers/repository/TripRepository.java
 package com.pgsa.trailers.repository;
 
 import com.pgsa.trailers.entity.ops.Trip;
@@ -30,7 +31,7 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     
     List<Trip> findByVehicleId(Long vehicleId);
     
-    List<Trip> findByLoadId(Long loadId);
+    // REMOVED: List<Trip> findByLoadId(Long loadId); - This was causing the error
     
     List<Trip> findByDriverIdAndVehicleId(Long driverId, Long vehicleId);
     
@@ -120,7 +121,7 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     // ======================== AGGREGATION QUERIES ========================
 
     @Query("SELECT MAX(t.tripNumber) FROM Trip t WHERE t.tripNumber LIKE CONCAT('TRP-', :year, '-%')")
-String findMaxTripNumberForYear(@Param("year") int year);
+    String findMaxTripNumberForYear(@Param("year") int year);
     
     @Query("SELECT AVG(t.actualDistanceKm) FROM Trip t WHERE t.status = 'COMPLETED' AND t.vehicle.id = :vehicleId")
     Optional<Double> getAverageDistanceForVehicle(@Param("vehicleId") Long vehicleId);
@@ -128,33 +129,60 @@ String findMaxTripNumberForYear(@Param("year") int year);
     @Query("SELECT SUM(t.actualDistanceKm) FROM Trip t WHERE t.status = 'COMPLETED' AND t.driver.id = :driverId")
     Optional<BigDecimal> getTotalDistanceForDriver(@Param("driverId") Long driverId);
 
-      // ======================== LOAD QUERIES ========================
+    // ======================== LOAD QUERIES ========================
 
-   @Query("SELECT t FROM Trip t WHERE t.customerId = :customerId " +
-       "AND t.plannedStartDate BETWEEN :startDate AND :endDate " +
-       "AND (t.loadId IS NULL OR t.loadId = '')")
-List<Trip> findByCustomerIdAndPlannedStartDateBetweenAndLoadIsNull(
-    @Param("customerId") Long customerId,
-    @Param("startDate") LocalDateTime startDate,
-    @Param("endDate") LocalDateTime endDate
-);
+    /**
+     * Find trips by customer ID and planned start date range that don't have a load assigned
+     * Used for smart merge functionality
+     */
+    @Query("SELECT t FROM Trip t WHERE t.customerId = :customerId " +
+           "AND t.plannedStartDate BETWEEN :startDate AND :endDate " +
+           "AND (t.loadId IS NULL OR t.loadId = '')")
+    List<Trip> findByCustomerIdAndPlannedStartDateBetweenAndLoadIsNull(
+        @Param("customerId") Long customerId,
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate);
 
-/**
- * Find trips by customer ID with pagination
- */
-Page<Trip> findByCustomerId(Long customerId, Pageable pageable);
+    /**
+     * Find trips by customer ID with pagination
+     */
+    Page<Trip> findByCustomerId(Long customerId, Pageable pageable);
 
-/**
- * Find trips by load ID
- */
-List<Trip> findByLoadId(String loadId);
+    /**
+     * Find trips by load ID (String)
+     * loadId is stored as String (the load number)
+     */
+    List<Trip> findByLoadId(String loadId);
 
-/**
- * Count trips by customer
- */
-Long countByCustomerId(Long customerId);
+    /**
+     * Find trips by load number (String)
+     * Alias for findByLoadId
+     */
+    List<Trip> findByLoadNumber(String loadNumber);
 
-    
+    /**
+     * Count trips by customer
+     */
+    Long countByCustomerId(Long customerId);
+
+    /**
+     * Find trips without a load assigned
+     */
+    @Query("SELECT t FROM Trip t WHERE t.loadId IS NULL OR t.loadId = ''")
+    List<Trip> findTripsWithoutLoad();
+
+    /**
+     * Find trips without a load assigned with pagination
+     */
+    @Query("SELECT t FROM Trip t WHERE t.loadId IS NULL OR t.loadId = ''")
+    Page<Trip> findTripsWithoutLoad(Pageable pageable);
+
+    /**
+     * Count trips by load ID
+     */
+    @Query("SELECT COUNT(t) FROM Trip t WHERE t.loadId = :loadId")
+    long countByLoadId(@Param("loadId") String loadId);
+
     // ======================== EXISTS QUERIES ========================
     
     boolean existsByDriverIdAndStatus(Long driverId, TripStatus status);
