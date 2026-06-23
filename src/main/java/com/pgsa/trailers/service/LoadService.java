@@ -389,8 +389,24 @@ public class LoadService {
 
     /**
      * Helper method to create TripSummaryDTO from a Trip
+     * This avoids lambda expression issues
      */
     private TripSummaryDTO createTripSummaryDTO(Trip trip) {
+        String vehicleReg = null;
+        if (trip.getVehicle() != null) {
+            vehicleReg = trip.getVehicle().getRegistrationNumber();
+        }
+        
+        String driverName = null;
+        if (trip.getDriver() != null) {
+            String firstName = trip.getDriver().getFirstName() != null ? trip.getDriver().getFirstName() : "";
+            String lastName = trip.getDriver().getLastName() != null ? trip.getDriver().getLastName() : "";
+            driverName = (firstName + " " + lastName).trim();
+            if (driverName.isEmpty()) {
+                driverName = null;
+            }
+        }
+
         return TripSummaryDTO.builder()
                 .id(trip.getId())
                 .tripNumber(trip.getTripNumber())
@@ -401,10 +417,8 @@ public class LoadService {
                 .destinationCity(trip.getDestinationCity())
                 .originZipCode(trip.getOriginZipCode())
                 .destinationZipCode(trip.getDestinationZipCode())
-                .vehicleRegistration(trip.getVehicle() != null ? 
-                        trip.getVehicle().getRegistrationNumber() : null)
-                .driverName(trip.getDriver() != null ? 
-                        trip.getDriver().getFirstName() + " " + trip.getDriver().getLastName() : null)
+                .vehicleRegistration(vehicleReg)
+                .driverName(driverName)
                 .plannedStartDate(trip.getPlannedStartDate())
                 .plannedEndDate(trip.getPlannedEndDate())
                 .commodityType(trip.getCommodityType())
@@ -416,17 +430,20 @@ public class LoadService {
 
     /**
      * Map Load entity to LoadResponseDTO
+     * Uses helper method to avoid lambda issues
      */
     private LoadResponseDTO mapToResponseDTO(Load load) {
         String customerName = null;
         if (load.getCustomerId() != null) {
-            customerRepository.findById(load.getCustomerId())
-                    .ifPresent(customer -> customerName = customer.getName());
+            Customer customer = customerRepository.findById(load.getCustomerId()).orElse(null);
+            if (customer != null) {
+                customerName = customer.getName();
+            }
         }
 
         List<TripSummaryDTO> tripSummaries = new ArrayList<>();
         if (load.getTrips() != null && !load.getTrips().isEmpty()) {
-            // Use the helper method to avoid lambda issues
+            // Use a regular for loop instead of stream to avoid lambda issues
             for (Trip trip : load.getTrips()) {
                 tripSummaries.add(createTripSummaryDTO(trip));
             }
