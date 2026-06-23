@@ -32,57 +32,60 @@ public class StockMovementService {
     /**
      * Record a new stock movement
      */
-    public StockMovementResponseDTO recordMovement(StockMovementRequestDTO request) {
-        // Validate item exists
-        InventoryItem item = inventoryItemRepository.findById(request.getItemId())
-                .orElseThrow(() -> new RuntimeException("Inventory item not found with ID: " + request.getItemId()));
+public StockMovementResponseDTO recordMovement(StockMovementRequestDTO request) {
+    // Validate item exists
+    InventoryItem item = inventoryItemRepository.findById(request.getItemId())
+            .orElseThrow(() -> new RuntimeException("Inventory item not found with ID: " + request.getItemId()));
 
-        // Validate movement type
-        if (!request.getMovementType().matches("IN|OUT|ADJUSTMENT")) {
-            throw new RuntimeException("Invalid movement type. Use IN, OUT, or ADJUSTMENT");
-        }
-
-        // Determine if approval is required
-        boolean requiresApproval = request.getRequiresApproval() != null ? request.getRequiresApproval() : false;
-        
-        // Stock OUT and ADJUSTMENT always require approval
-        if ("OUT".equals(request.getMovementType()) || "ADJUSTMENT".equals(request.getMovementType())) {
-            requiresApproval = true;
-        }
-        
-        // Stock IN requires approval if no reference number provided
-        if ("IN".equals(request.getMovementType()) && (request.getReferenceNumber() == null || request.getReferenceNumber().isEmpty())) {
-            requiresApproval = true;
-        }
-
-        // Create movement record using builder
-        StockMovement movement = StockMovement.builder()
-                .itemId(request.getItemId())
-                .quantity(request.getQuantity())
-                .movementType(request.getMovementType())
-                .reason(request.getReason())
-                .notes(request.getNotes())
-                .referenceNumber(request.getReferenceNumber())
-                .referenceType(request.getReferenceType())
-                .performedBy(request.getPerformedBy())
-                .tripId(request.getTripId())
-                .fuelSlipId(request.getFuelSlipId())
-                .requiresApproval(requiresApproval)
-                .approvalStatus(requiresApproval ? "PENDING" : "APPROVED")
-                .build();
-
-        StockMovement saved = stockMovementRepository.save(movement);
-        log.info("Recorded stock movement for item {}: {} {} units, Approval: {}", 
-                request.getItemId(), request.getMovementType(), request.getQuantity(), 
-                requiresApproval ? "PENDING" : "AUTO-APPROVED");
-
-        // If no approval required, update inventory immediately
-        if (!requiresApproval) {
-            updateInventoryQuantity(movement);
-        }
-
-        return mapToResponseDTO(saved);
+    // Validate movement type
+    if (!request.getMovementType().matches("IN|OUT|ADJUSTMENT")) {
+        throw new RuntimeException("Invalid movement type. Use IN, OUT, or ADJUSTMENT");
     }
+
+    // Determine if approval is required
+    boolean requiresApproval = request.getRequiresApproval() != null ? request.getRequiresApproval() : false;
+    
+    // Stock OUT and ADJUSTMENT always require approval
+    if ("OUT".equals(request.getMovementType()) || "ADJUSTMENT".equals(request.getMovementType())) {
+        requiresApproval = true;
+    }
+    
+    // Stock IN requires approval if no reference number provided
+    if ("IN".equals(request.getMovementType()) && (request.getReferenceNumber() == null || request.getReferenceNumber().isEmpty())) {
+        requiresApproval = true;
+    }
+
+    // Generate internal reference number if not provided
+    String referenceNumber = request.getReferenceNumber();
+    if (referenceNumber == null || referenceNumber.isEmpty()) {
+        referenceNumber = "MOV-" + System.currentTimeMillis();
+    }
+
+    // Create movement record with PENDING status
+    StockMovement movement = StockMovement.builder()
+            .itemId(request.getItemId())
+            .quantity(request.getQuantity())
+            .movementType(request.getMovementType())
+            .reason(request.getReason())
+            .notes(request.getNotes())
+            .referenceNumber(referenceNumber)
+            .referenceType(request.getReferenceType())
+            .performedBy(request.getPerformedBy())
+            .tripId(request.getTripId())
+            .fuelSlipId(request.getFuelSlipId())
+            .requiresApproval(requiresApproval)
+            .approvalStatus("PENDING") // Always start as PENDING
+            .build();
+
+    StockMovement saved = stockMovementRepository.save(movement);
+    log.info("Recorded stock movement for item {}: {} {} units, Approval: PENDING", 
+            request.getItemId(), request.getMovementType(), request.getQuantity());
+
+    // DO NOT update inventory quantity here - wait for approval
+    // The inventory will be updated when the movement is approved
+
+    return mapToResponseDTO(saved);
+}
 
     /**
      * Get all movements with pagination
