@@ -86,4 +86,55 @@ public class LoadController {
         loadService.deleteLoad(id);
         return ResponseEntity.noContent().build();
     }
+
+
+/**
+ * Smart merge trips for a customer on a specific date
+ * Only accessible to elevated users (MANAGER, SUPER_ADMIN)
+ */
+@PostMapping("/smart-merge")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'MANAGER')")
+public ResponseEntity<LoadResponseDTO> smartMergeTrips(
+        @RequestParam Long customerId,
+        @RequestParam LocalDateTime plannedDate,
+        @RequestParam Long userId) {
+    log.info("Smart merging trips for customer {} on {}", customerId, plannedDate);
+    return ResponseEntity.ok(loadService.smartMergeTrips(customerId, plannedDate, userId));
+}
+
+/**
+ * Find merge candidates for a customer on a specific date
+ */
+@GetMapping("/merge-candidates")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'MANAGER', 'DISPATCHER')")
+public ResponseEntity<List<TripSummaryDTO>> findMergeCandidates(
+        @RequestParam Long customerId,
+        @RequestParam LocalDateTime plannedDate) {
+    log.info("Finding merge candidates for customer {} on {}", customerId, plannedDate);
+    List<Trip> trips = loadService.findMergeableTrips(customerId, plannedDate);
+    List<TripSummaryDTO> summaries = trips.stream()
+            .map(trip -> TripSummaryDTO.builder()
+                    .id(trip.getId())
+                    .tripNumber(trip.getTripNumber())
+                    .origin(trip.getOriginCity())
+                    .destination(trip.getDestinationCity())
+                    .plannedStartDate(trip.getPlannedStartDate())
+                    .plannedEndDate(trip.getPlannedEndDate())
+                    .build())
+            .collect(Collectors.toList());
+    return ResponseEntity.ok(summaries);
+}
+
+/**
+ * Add trips to an existing load
+ */
+@PostMapping("/{loadNumber}/trips")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'MANAGER')")
+public ResponseEntity<LoadResponseDTO> addTripsToLoad(
+        @PathVariable String loadNumber,
+        @RequestBody List<Long> tripIds,
+        @RequestParam Long userId) {
+    log.info("Adding trips to load {}", loadNumber);
+    return ResponseEntity.ok(loadService.addTripsToLoad(loadNumber, tripIds, userId));
+}
 }
