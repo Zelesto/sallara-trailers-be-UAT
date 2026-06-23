@@ -17,19 +17,28 @@ import java.util.List;
 public class LoadResponseDTO {
     private Long id;
     private String loadNumber;
-    private String loadType;
     private String description;
     private Long customerId;
     private String customerName;
+    private BigDecimal weightKg;
+    private BigDecimal volumeCubicM;
+    private LocalDateTime loadingDate;
+    private LocalDateTime unloadingDate;
     private String status;
-    private String priority;
+    private String commodityType;
+    private Integer palletCount;
+    private String containerNumber;
+    private Boolean hazardousMaterial;
+    private String specialHandling;
     private BigDecimal estimatedValue;
     private BigDecimal actualValue;
-    private String notes;
-    private LocalDateTime createdAt;
-    private String createdBy;
-    private LocalDateTime updatedAt;
-    private String updatedBy;
+    private String priority;
     private Integer tripCount;
     private List<TripSummaryDTO> trips;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    
+    // Merge suggestion fields
+    private Boolean mergeSuggestion;
+    private String mergeMessage;
 }
