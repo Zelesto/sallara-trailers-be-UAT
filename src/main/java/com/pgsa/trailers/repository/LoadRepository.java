@@ -50,6 +50,20 @@ public interface LoadRepository extends JpaRepository<Load, Long> {
     
     @Query("SELECT l FROM Load l WHERE l.loadingDate <= :now AND (l.unloadingDate IS NULL OR l.unloadingDate > :now)")
     List<Load> findCurrentLoads(@Param("now") LocalDateTime now);
+
+    
+ // ======================== CUSTOMER ========================
+
+       
+    List<Load> findByCustomerId(Long customerId);
+    
+    
+    @Query("SELECT l FROM Load l WHERE l.customerId = :customerId AND l.loadingDate BETWEEN :startDate AND :endDate")
+    List<Load> findByCustomerIdAndLoadingDateBetween(
+            @Param("customerId") Long customerId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
     
     // ======================== COUNT QUERIES ========================
     
