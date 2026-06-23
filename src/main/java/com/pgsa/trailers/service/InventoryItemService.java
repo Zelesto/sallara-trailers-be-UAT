@@ -1,13 +1,13 @@
 // src/main/java/com/pgsa/trailers/service/inventory/InventoryItemService.java
-package com.pgsa.trailers.service;
+package com.pgsa.trailers.service.inventory;
 
-import com.pgsa.trailers.dto.InventoryItemRequestDTO;
-import com.pgsa.trailers.dto.InventoryItemResponseDTO;
-import com.pgsa.trailers.dto.InventoryStatisticsDTO;
+import com.pgsa.trailers.dto.inventory.InventoryItemRequestDTO;
+import com.pgsa.trailers.dto.inventory.InventoryItemResponseDTO;
+import com.pgsa.trailers.dto.inventory.InventoryStatisticsDTO;
 import com.pgsa.trailers.entity.inventory.InventoryItem;
 import com.pgsa.trailers.entity.inventory.InventoryLocation;
-import com.pgsa.trailers.repository.InventoryItemRepository;
-import com.pgsa.trailers.repository.InventoryLocationRepository;
+import com.pgsa.trailers.repository.inventory.InventoryItemRepository;
+import com.pgsa.trailers.repository.inventory.InventoryLocationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -20,6 +20,7 @@ import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -84,35 +85,37 @@ public class InventoryItemService {
                 .map(this::mapToResponseDTO)
                 .collect(Collectors.toList());
     }
-public InventoryItemResponseDTO updateQuantity(Long id, Integer quantity, String operation) {
-    InventoryItem item = inventoryItemRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Inventory item not found with ID: " + id));
 
-    int currentQuantity = item.getQuantity() != null ? item.getQuantity() : 0;
-    int newQuantity;
+    public InventoryItemResponseDTO updateQuantity(Long id, Integer quantity, String operation) {
+        InventoryItem item = inventoryItemRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Inventory item not found with ID: " + id));
 
-    if ("SET".equalsIgnoreCase(operation)) {
-        newQuantity = quantity;
-    } else if ("ADD".equalsIgnoreCase(operation)) {
-        newQuantity = currentQuantity + quantity;
-    } else if ("SUBTRACT".equalsIgnoreCase(operation)) {
-        if (currentQuantity < quantity) {
-            throw new RuntimeException("Insufficient stock. Available: " + currentQuantity + ", Requested: " + quantity);
+        int currentQuantity = item.getQuantity() != null ? item.getQuantity() : 0;
+        int newQuantity;
+
+        if ("SET".equalsIgnoreCase(operation)) {
+            newQuantity = quantity;
+        } else if ("ADD".equalsIgnoreCase(operation)) {
+            newQuantity = currentQuantity + quantity;
+        } else if ("SUBTRACT".equalsIgnoreCase(operation)) {
+            if (currentQuantity < quantity) {
+                throw new RuntimeException("Insufficient stock. Available: " + currentQuantity + ", Requested: " + quantity);
+            }
+            newQuantity = currentQuantity - quantity;
+        } else {
+            throw new RuntimeException("Invalid operation. Use SET, ADD, or SUBTRACT");
         }
-        newQuantity = currentQuantity - quantity;
-    } else {
-        throw new RuntimeException("Invalid operation. Use SET, ADD, or SUBTRACT");
+
+        if (newQuantity < 0) {
+            throw new RuntimeException("Quantity cannot be negative");
+        }
+
+        item.setQuantity(newQuantity);
+        InventoryItem updated = inventoryItemRepository.save(item);
+        log.info("Updated quantity for item ID: {} from {} to {}", id, currentQuantity, newQuantity);
+        return mapToResponseDTO(updated);
     }
 
-    if (newQuantity < 0) {
-        throw new RuntimeException("Quantity cannot be negative");
-    }
-
-    item.setQuantity(newQuantity);
-    InventoryItem updated = inventoryItemRepository.save(item);
-    log.info("Updated quantity for item ID: {} from {} to {}", id, currentQuantity, newQuantity);
-    return mapToResponseDTO(updated);
-}
     public InventoryItemResponseDTO createItem(InventoryItemRequestDTO request) {
         InventoryItem item = InventoryItem.builder()
                 .name(request.getName())
@@ -142,7 +145,7 @@ public InventoryItemResponseDTO updateQuantity(Long id, Integer quantity, String
         item.setUnitOfMeasure(request.getUnitOfMeasure());
         item.setIsConsumable(request.getIsConsumable());
         item.setReorderLevel(request.getReorderLevel());
-        item.setLocationId(request.getLocationId());
+        if (request.getLocationId() != null) item.setLocationId(request.getLocationId());
         if (request.getQuantity() != null) item.setQuantity(request.getQuantity());
         if (request.getUnitCost() != null) item.setUnitCost(request.getUnitCost());
         if (request.getMinLevel() != null) item.setMinLevel(request.getMinLevel());
@@ -187,52 +190,55 @@ public InventoryItemResponseDTO updateQuantity(Long id, Integer quantity, String
 
         return InventoryStatisticsDTO.builder()
                 .totalItems(totalItems)
-                .activeItems(totalItems) // Assuming all items are active
+                .activeItems(totalItems)
                 .categoryCounts(categoryCounts)
                 .locationCounts(locationCounts)
                 .averageReorderLevel(averageReorderLevel)
                 .build();
     }
 
-    private InventoryItemResponseDTO mapToResponseDTO(InventoryItem item) {
-    String locationName = null;
-    
-    // Fix: Use Optional directly instead of lambda with variable assignment
-    if (item.getLocationId() != null) {
-        java.util.Optional<InventoryLocation> optionalLocation = 
-                inventoryLocationRepository.findById(item.getLocationId());
-        if (optionalLocation.isPresent()) {
-            locationName = optionalLocation.get().getName();
+    /**
+     * Public method to map InventoryItem entity to Response DTO
+     * Used by controller for low-stock and out-of-stock endpoints
+     */
+    public InventoryItemResponseDTO mapToResponseDTO(InventoryItem item) {
+        String locationName = null;
+        
+        if (item.getLocationId() != null) {
+            Optional<InventoryLocation> optionalLocation = 
+                    inventoryLocationRepository.findById(item.getLocationId());
+            if (optionalLocation.isPresent()) {
+                locationName = optionalLocation.get().getName();
+            }
         }
-    }
 
-    String status = "Unknown";
-    if (item.getQuantity() != null) {
-        if (item.getQuantity() <= 0) {
-            status = "Out of Stock";
-        } else if (item.getMinLevel() != null && item.getQuantity() <= item.getMinLevel()) {
-            status = "Low Stock";
-        } else {
-            status = "In Stock";
+        String status = "Unknown";
+        if (item.getQuantity() != null) {
+            if (item.getQuantity() <= 0) {
+                status = "Out of Stock";
+            } else if (item.getMinLevel() != null && item.getQuantity() <= item.getMinLevel()) {
+                status = "Low Stock";
+            } else {
+                status = "In Stock";
+            }
         }
-    }
 
-    return InventoryItemResponseDTO.builder()
-            .id(item.getId())
-            .name(item.getName())
-            .category(item.getCategory())
-            .unitOfMeasure(item.getUnitOfMeasure())
-            .isConsumable(item.getIsConsumable())
-            .reorderLevel(item.getReorderLevel())
-            .locationId(item.getLocationId())
-            .locationName(locationName)
-            .quantity(item.getQuantity())
-            .unitCost(item.getUnitCost())
-            .minLevel(item.getMinLevel())
-            .status(status)
-            .notes(item.getNotes())
-            .createdAt(item.getCreatedAt())
-            .updatedAt(item.getUpdatedAt())
-            .build();
-}
+        return InventoryItemResponseDTO.builder()
+                .id(item.getId())
+                .name(item.getName())
+                .category(item.getCategory())
+                .unitOfMeasure(item.getUnitOfMeasure())
+                .isConsumable(item.getIsConsumable())
+                .reorderLevel(item.getReorderLevel())
+                .locationId(item.getLocationId())
+                .locationName(locationName)
+                .quantity(item.getQuantity())
+                .unitCost(item.getUnitCost())
+                .minLevel(item.getMinLevel())
+                .status(status)
+                .notes(item.getNotes())
+                .createdAt(item.getCreatedAt())
+                .updatedAt(item.getUpdatedAt())
+                .build();
+    }
 }
