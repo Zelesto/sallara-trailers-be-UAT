@@ -291,18 +291,6 @@ public Page<LoadResponseDTO> searchLoads(String search, Pageable pageable) {
                 .orElse(null);
     }
 
-    /**
-     * Suggest merging trips that could be combined into one load
-     */
-    @Transactional(readOnly = true)
-    public List<Trip> findMergeableTrips(Long customerId, LocalDateTime plannedDate) {
-        LocalDate date = plannedDate.toLocalDate();
-        LocalDateTime startOfDay = date.atStartOfDay();
-        LocalDateTime endOfDay = date.atTime(23, 59, 59);
-
-        return tripRepository.findByCustomerIdAndPlannedStartDateBetweenAndLoadIsNull(
-            customerId, startOfDay, endOfDay);
-    }
 
     /**
      * Smart merge: Automatically merge trips for the same customer on the same day
