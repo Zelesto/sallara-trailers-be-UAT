@@ -87,7 +87,7 @@ public class CreateTripMapper {
            ======================== */
         trip.setStatus(request.getStatus() != null ? request.getStatus() : TripStatus.DRAFT);
         trip.setApprovalStatus(request.getApprovalStatus());
-        trip.setPriority(request.getPriority());
+        //trip.setPriority(request.getPriority());
 
         /* ========================
            PLANNING
