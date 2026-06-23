@@ -108,6 +108,28 @@ public class InventoryController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/items/low-stock")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER')")
+public ResponseEntity<List<InventoryItemResponseDTO>> getLowStockItems() {
+    log.info("Fetching low stock items");
+    List<InventoryItemResponseDTO> lowStockItems = inventoryItemRepository.findLowStockItems()
+            .stream()
+            .map(inventoryItemService::mapToResponseDTO)
+            .collect(Collectors.toList());
+    return ResponseEntity.ok(lowStockItems);
+}
+
+@GetMapping("/items/out-of-stock")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER')")
+public ResponseEntity<List<InventoryItemResponseDTO>> getOutOfStockItems() {
+    log.info("Fetching out of stock items");
+    List<InventoryItemResponseDTO> outOfStockItems = inventoryItemRepository.findOutOfStockItems()
+            .stream()
+            .map(inventoryItemService::mapToResponseDTO)
+            .collect(Collectors.toList());
+    return ResponseEntity.ok(outOfStockItems);
+}
+    
     // =============================================
     // Inventory Locations
     // =============================================
