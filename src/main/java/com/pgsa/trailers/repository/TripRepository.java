@@ -130,9 +130,9 @@ String findMaxTripNumberForYear(@Param("year") int year);
 
       // ======================== LOAD QUERIES ========================
 
-    @Query("SELECT t FROM Trip t WHERE t.customerId = :customerId " +
+   @Query("SELECT t FROM Trip t WHERE t.customerId = :customerId " +
        "AND t.plannedStartDate BETWEEN :startDate AND :endDate " +
-       "AND t.loadId IS NULL")
+       "AND (t.loadId IS NULL OR t.loadId = '')")
 List<Trip> findByCustomerIdAndPlannedStartDateBetweenAndLoadIsNull(
     @Param("customerId") Long customerId,
     @Param("startDate") LocalDateTime startDate,
