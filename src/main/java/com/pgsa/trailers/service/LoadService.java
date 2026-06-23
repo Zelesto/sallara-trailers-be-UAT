@@ -36,6 +36,10 @@ public class LoadService {
     private final TripRepository tripRepository;
     private final CustomerRepository customerRepository;
 
+    // =============================================
+    // CREATE
+    // =============================================
+
     /**
      * Create a new load or suggest merging with existing load
      */
@@ -47,7 +51,6 @@ public class LoadService {
             Load existingLoad = findMergeCandidate(request.getCustomerId(), request.getLoadingDate());
             if (existingLoad != null) {
                 log.info("Found existing load {} that could be merged", existingLoad.getLoadNumber());
-                // Return existing load with merge suggestion
                 LoadResponseDTO response = mapToResponseDTO(existingLoad);
                 response.setMergeSuggestion(true);
                 response.setMergeMessage("A load already exists for this customer on " + 
@@ -96,107 +99,85 @@ public class LoadService {
         return mapToResponseDTO(saved);
     }
 
+    // =============================================
+    // READ
+    // =============================================
 
-    // src/main/java/com/pgsa/trailers/service/LoadService.java
-// Add these missing methods and fix existing ones
-
-@Transactional(readOnly = true)
-public LoadResponseDTO getLoadById(Long id) {
-    Load load = loadRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Load not found with ID: " + id));
-    return mapToResponseDTO(load);
-}
-
-@Transactional(readOnly = true)
-public LoadResponseDTO getLoadByNumber(String loadNumber) {
-    Load load = loadRepository.findByLoadNumber(loadNumber)
-            .orElseThrow(() -> new RuntimeException("Load not found with number: " + loadNumber));
-    return mapToResponseDTO(load);
-}
-
-@Transactional(readOnly = true)
-public Page<LoadResponseDTO> getAllLoads(Pageable pageable) {
-    return loadRepository.findAll(pageable)
-            .map(this::mapToResponseDTO);
-}
-
-@Transactional(readOnly = true)
-public Page<LoadResponseDTO> searchLoads(String search, Pageable pageable) {
-    return loadRepository.searchLoads(search, pageable)
-            .map(this::mapToResponseDTO);
-}
-
-@Transactional(readOnly = true)
-public List<LoadResponseDTO> getLoadsByCustomer(Long customerId) {
-    return loadRepository.findByCustomerId(customerId)
-            .stream()
-            .map(this::mapToResponseDTO)
-            .collect(Collectors.toList());
-}
-
-@Transactional(readOnly = true)
-public List<LoadResponseDTO> getLoadsByStatus(String status) {
-    return loadRepository.findByStatus(status)
-            .stream()
-            .map(this::mapToResponseDTO)
-            .collect(Collectors.toList());
-}
-
-public void deleteLoad(Long id) {
-    if (!loadRepository.existsById(id)) {
-        throw new RuntimeException("Load not found with ID: " + id);
+    @Transactional(readOnly = true)
+    public LoadResponseDTO getLoadById(Long id) {
+        Load load = loadRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Load not found with ID: " + id));
+        return mapToResponseDTO(load);
     }
-    loadRepository.deleteById(id);
-    log.info("Deleted load with ID: {}", id);
-}
-    
-    // Add these methods to LoadService.java if they don't exist
 
-@Transactional(readOnly = true)
-public Page<LoadResponseDTO> searchLoads(String search, Pageable pageable) {
-    log.info("Searching loads with term: {}", search);
-    return loadRepository.searchLoads(search, pageable)
-            .map(this::mapToResponseDTO);
-}
+    @Transactional(readOnly = true)
+    public LoadResponseDTO getLoadByNumber(String loadNumber) {
+        Load load = loadRepository.findByLoadNumber(loadNumber)
+                .orElseThrow(() -> new RuntimeException("Load not found with number: " + loadNumber));
+        return mapToResponseDTO(load);
+    }
 
-@Transactional
-public LoadResponseDTO updateLoad(Long id, LoadRequestDTO request, Long userId) {
-    log.info("Updating load with ID: {}", id);
-    
-    Load load = loadRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Load not found with ID: " + id));
-    
-    load.setDescription(request.getDescription());
-    load.setCustomerId(request.getCustomerId());
-    load.setWeightKg(request.getWeightKg());
-    load.setVolumeCubicM(request.getVolumeCubicM());
-    load.setLoadingDate(request.getLoadingDate());
-    load.setUnloadingDate(request.getUnloadingDate());
-    load.setCommodityType(request.getCommodityType());
-    load.setPalletCount(request.getPalletCount());
-    load.setContainerNumber(request.getContainerNumber());
-    load.setHazardousMaterial(request.getHazardousMaterial());
-    load.setSpecialHandling(request.getSpecialHandling());
-    load.setEstimatedValue(request.getEstimatedValue());
-    load.setActualValue(request.getActualValue());
-    load.setPriority(request.getPriority());
-    load.setUpdatedAt(LocalDateTime.now());
-    load.setUpdatedBy(String.valueOf(userId));
-    
-    Load updated = loadRepository.save(load);
-    log.info("Updated load with ID: {}", updated.getId());
-    return mapToResponseDTO(updated);
-}
+    @Transactional(readOnly = true)
+    public Page<LoadResponseDTO> getAllLoads(Pageable pageable) {
+        return loadRepository.findAll(pageable)
+                .map(this::mapToResponseDTO);
+    }
 
-@Transactional(readOnly = true)
-public List<LoadResponseDTO> getLoadsByStatus(String status) {
-    log.info("Fetching loads with status: {}", status);
-    return loadRepository.findByStatus(status)
-            .stream()
-            .map(this::mapToResponseDTO)
-            .collect(Collectors.toList());
-}
-    
+    @Transactional(readOnly = true)
+    public Page<LoadResponseDTO> searchLoads(String search, Pageable pageable) {
+        return loadRepository.searchLoads(search, pageable)
+                .map(this::mapToResponseDTO);
+    }
+
+    @Transactional(readOnly = true)
+    public List<LoadResponseDTO> getLoadsByCustomer(Long customerId) {
+        return loadRepository.findByCustomerId(customerId)
+                .stream()
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<LoadResponseDTO> getLoadsByStatus(String status) {
+        return loadRepository.findByStatus(status)
+                .stream()
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    // =============================================
+    // UPDATE
+    // =============================================
+
+    @Transactional
+    public LoadResponseDTO updateLoad(Long id, LoadRequestDTO request, Long userId) {
+        log.info("Updating load with ID: {}", id);
+        
+        Load load = loadRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Load not found with ID: " + id));
+        
+        load.setDescription(request.getDescription());
+        load.setCustomerId(request.getCustomerId());
+        load.setWeightKg(request.getWeightKg());
+        load.setVolumeCubicM(request.getVolumeCubicM());
+        load.setLoadingDate(request.getLoadingDate());
+        load.setUnloadingDate(request.getUnloadingDate());
+        load.setCommodityType(request.getCommodityType());
+        load.setPalletCount(request.getPalletCount());
+        load.setContainerNumber(request.getContainerNumber());
+        load.setHazardousMaterial(request.getHazardousMaterial());
+        load.setSpecialHandling(request.getSpecialHandling());
+        load.setEstimatedValue(request.getEstimatedValue());
+        load.setActualValue(request.getActualValue());
+        load.setPriority(request.getPriority());
+        load.setUpdatedAt(LocalDateTime.now());
+        load.setUpdatedBy(String.valueOf(userId));
+        
+        Load updated = loadRepository.save(load);
+        log.info("Updated load with ID: {}", updated.getId());
+        return mapToResponseDTO(updated);
+    }
+
     /**
      * Add trips to an existing load
      */
@@ -235,12 +216,27 @@ public List<LoadResponseDTO> getLoadsByStatus(String status) {
         return mapToResponseDTO(updated);
     }
 
+    // =============================================
+    // DELETE
+    // =============================================
+
+    public void deleteLoad(Long id) {
+        if (!loadRepository.existsById(id)) {
+            throw new RuntimeException("Load not found with ID: " + id);
+        }
+        loadRepository.deleteById(id);
+        log.info("Deleted load with ID: {}", id);
+    }
+
+    // =============================================
+    // SMART MERGE
+    // =============================================
+
     /**
      * Find a merge candidate load for a customer on a specific date
      */
     @Transactional(readOnly = true)
     public Load findMergeCandidate(Long customerId, LocalDateTime loadingDate) {
-        // Look for loads on the same day for the same customer
         LocalDate date = loadingDate.toLocalDate();
         LocalDateTime startOfDay = date.atStartOfDay();
         LocalDateTime endOfDay = date.atTime(23, 59, 59);
@@ -248,7 +244,6 @@ public List<LoadResponseDTO> getLoadsByStatus(String status) {
         List<Load> loads = loadRepository.findByCustomerIdAndLoadingDateBetween(
             customerId, startOfDay, endOfDay);
 
-        // Filter for loads that are still open (not completed/cancelled)
         return loads.stream()
                 .filter(l -> !"COMPLETED".equals(l.getStatus()) && !"CANCELLED".equals(l.getStatus()))
                 .findFirst()
@@ -264,7 +259,6 @@ public List<LoadResponseDTO> getLoadsByStatus(String status) {
         LocalDateTime startOfDay = date.atStartOfDay();
         LocalDateTime endOfDay = date.atTime(23, 59, 59);
 
-        // Find trips for the same customer on the same day that don't have a load assigned
         return tripRepository.findByCustomerIdAndPlannedStartDateBetweenAndLoadIsNull(
             customerId, startOfDay, endOfDay);
     }
@@ -277,25 +271,21 @@ public List<LoadResponseDTO> getLoadsByStatus(String status) {
     public LoadResponseDTO smartMergeTrips(Long customerId, LocalDateTime plannedDate, Long userId) {
         log.info("Smart merging trips for customer {} on {}", customerId, plannedDate);
 
-        // Find mergeable trips
         List<Trip> mergeableTrips = findMergeableTrips(customerId, plannedDate);
         
         if (mergeableTrips.isEmpty()) {
             throw new RuntimeException("No mergeable trips found for this customer on this date");
         }
 
-        // Check if a load already exists for this customer on this date
         Load existingLoad = findMergeCandidate(customerId, plannedDate);
         
         if (existingLoad != null) {
-            // Add trips to existing load
             List<Long> tripIds = mergeableTrips.stream()
                 .map(Trip::getId)
                 .collect(Collectors.toList());
             return addTripsToLoad(existingLoad.getLoadNumber(), tripIds, userId);
         }
 
-        // Create a new load
         Customer customer = customerRepository.findById(customerId)
             .orElseThrow(() -> new RuntimeException("Customer not found"));
 
@@ -308,7 +298,6 @@ public List<LoadResponseDTO> getLoadsByStatus(String status) {
             .map(Trip::getId)
             .collect(Collectors.toList()));
 
-        // Set commodity type from first trip
         if (!mergeableTrips.isEmpty()) {
             Trip firstTrip = mergeableTrips.get(0);
             loadRequest.setCommodityType(firstTrip.getCommodityType());
@@ -320,6 +309,10 @@ public List<LoadResponseDTO> getLoadsByStatus(String status) {
         
         return response;
     }
+
+    // =============================================
+    // PRIVATE HELPERS
+    // =============================================
 
     /**
      * Update load details based on associated trips
@@ -376,44 +369,12 @@ public List<LoadResponseDTO> getLoadsByStatus(String status) {
      * Generate a unique load number
      */
     private String generateLoadNumber() {
-        String prefix = "LD";
-        String timestamp = String.valueOf(System.currentTimeMillis());
-        return prefix + "-" + timestamp;
+        return "LD-" + System.currentTimeMillis();
     }
 
     /**
-     * Get load by number with all trips
+     * Map Load entity to LoadResponseDTO
      */
-    @Transactional(readOnly = true)
-    public LoadResponseDTO getLoadByNumber(String loadNumber) {
-        Load load = loadRepository.findByLoadNumber(loadNumber)
-                .orElseThrow(() -> new RuntimeException("Load not found with number: " + loadNumber));
-        return mapToResponseDTO(load);
-    }
-
-    /**
-     * Get all loads for a customer
-     */
-    @Transactional(readOnly = true)
-    public List<LoadResponseDTO> getLoadsByCustomer(Long customerId) {
-        if (!customerRepository.existsById(customerId)) {
-            throw new RuntimeException("Customer not found with ID: " + customerId);
-        }
-        return loadRepository.findByCustomerId(customerId)
-                .stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Get all loads with pagination
-     */
-    @Transactional(readOnly = true)
-    public Page<LoadResponseDTO> getAllLoads(Pageable pageable) {
-        return loadRepository.findAll(pageable)
-                .map(this::mapToResponseDTO);
-    }
-
     private LoadResponseDTO mapToResponseDTO(Load load) {
         String customerName = null;
         if (load.getCustomerId() != null) {
