@@ -5,7 +5,7 @@ import com.pgsa.trailers.dto.StockMovementRequestDTO;
 import com.pgsa.trailers.dto.StockMovementResponseDTO;
 import com.pgsa.trailers.entity.inventory.InventoryItem;
 import com.pgsa.trailers.entity.inventory.StockMovement;
-import com.pgsa.trailers.entity.InsufficientStockException;
+import com.pgsa.trailers.exception.InsufficientStockException;
 import com.pgsa.trailers.repository.InventoryItemRepository;
 import com.pgsa.trailers.repository.StockMovementRepository;
 import lombok.RequiredArgsConstructor;
@@ -87,15 +87,20 @@ public class StockMovementService {
         // =============================================
         // Determine if approval is required
         // =============================================
+        // Check if the movement is already approved (from the popup)
+        boolean isApproved = request.getApprovalStatus() != null && 
+                             "APPROVED".equalsIgnoreCase(request.getApprovalStatus());
+        
         boolean requiresApproval = request.getRequiresApproval() != null ? request.getRequiresApproval() : false;
         
-        // Stock OUT and ADJUSTMENT always require approval
-        if ("OUT".equals(request.getMovementType()) || "ADJUSTMENT".equals(request.getMovementType())) {
+        // Stock OUT and ADJUSTMENT always require approval (unless already approved)
+        if (!isApproved && ("OUT".equals(request.getMovementType()) || "ADJUSTMENT".equals(request.getMovementType()))) {
             requiresApproval = true;
         }
         
-        // Stock IN requires approval if no reference number provided
-        if ("IN".equals(request.getMovementType()) && (request.getReferenceNumber() == null || request.getReferenceNumber().isEmpty())) {
+        // Stock IN requires approval if no reference number provided (unless already approved)
+        if (!isApproved && "IN".equals(request.getMovementType()) && 
+            (request.getReferenceNumber() == null || request.getReferenceNumber().isEmpty())) {
             requiresApproval = true;
         }
 
@@ -105,14 +110,7 @@ public class StockMovementService {
             referenceNumber = generateReferenceNumber(request.getMovementType());
         }
 
-        // =============================================
-        // For OUT movements with sufficient stock, allow direct approval
-        // =============================================
-        // If it's an OUT movement and there's enough stock, 
-        // the user can choose to approve immediately or submit for approval
-        // This is controlled by the frontend
-
-        // Create movement record with PENDING status
+        // Create movement record
         StockMovement movement = StockMovement.builder()
                 .itemId(request.getItemId())
                 .quantity(request.getQuantity())
@@ -125,16 +123,34 @@ public class StockMovementService {
                 .tripId(request.getTripId())
                 .fuelSlipId(request.getFuelSlipId())
                 .requiresApproval(requiresApproval)
-                .approvalStatus("PENDING") // Always start as PENDING
+                .approvalStatus(isApproved ? "APPROVED" : "PENDING")
                 .build();
+
+        // If already approved, set approval details
+        if (isApproved) {
+            movement.setApprovedBy(request.getApprovedBy() != null ? request.getApprovedBy() : "System");
+            movement.setApprovedAt(LocalDateTime.now());
+            movement.setApprovalNotes(request.getApprovalNotes());
+        }
 
         StockMovement saved = stockMovementRepository.save(movement);
         log.info("✅ Recorded stock movement for item {}: {} {} units, Reference: {}, Approval: {}", 
                 request.getItemId(), request.getMovementType(), request.getQuantity(), 
-                referenceNumber, requiresApproval ? "PENDING" : "AUTO-APPROVED");
+                referenceNumber, movement.getApprovalStatus());
 
-        // DO NOT update inventory quantity here - wait for approval
-        // The inventory will be updated when the movement is approved
+        // =============================================
+        // CRITICAL FIX: Update inventory if approved immediately
+        // =============================================
+        if (isApproved) {
+            log.info("Movement approved immediately, updating inventory...");
+            try {
+                updateInventoryQuantity(movement);
+                log.info("✅ Inventory updated successfully for item: {}", item.getName());
+            } catch (Exception e) {
+                log.error("❌ Failed to update inventory: {}", e.getMessage());
+                throw e;
+            }
+        }
 
         return mapToResponseDTO(saved);
     }
