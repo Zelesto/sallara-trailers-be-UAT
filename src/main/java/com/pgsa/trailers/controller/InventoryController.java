@@ -3,12 +3,13 @@ package com.pgsa.trailers.controller;
 
 import com.pgsa.trailers.dto.*;
 import com.pgsa.trailers.dto.InventoryVarianceDTO;
+import com.pgsa.trailers.dto.inventory.*;
 import com.pgsa.trailers.entity.inventory.StockMovement;
-import com.pgsa.trailers.repository.InventoryItemRepository;
+import com.pgsa.trailers.repository.inventory.InventoryItemRepository;
 import com.pgsa.trailers.service.StockCountService;
-import com.pgsa.trailers.service.InventoryItemService;
-import com.pgsa.trailers.service.InventoryLocationService;
-import com.pgsa.trailers.service.StockMovementService;
+import com.pgsa.trailers.service.inventory.InventoryItemService;
+import com.pgsa.trailers.service.inventory.InventoryLocationService;
+import com.pgsa.trailers.service.inventory.StockMovementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/inventory")
@@ -35,6 +37,7 @@ public class InventoryController {
     private final InventoryLocationService inventoryLocationService;
     private final StockMovementService stockMovementService;
     private final StockCountService stockCountService;
+    private final InventoryItemRepository inventoryItemRepository; // Add this
 
     // =============================================
     // Inventory Items
@@ -110,26 +113,26 @@ public class InventoryController {
     }
 
     @GetMapping("/items/low-stock")
-@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER')")
-public ResponseEntity<List<InventoryItemResponseDTO>> getLowStockItems() {
-    log.info("Fetching low stock items");
-    List<InventoryItemResponseDTO> lowStockItems = inventoryItemRepository.findLowStockItems()
-            .stream()
-            .map(inventoryItemService::mapToResponseDTO)
-            .collect(Collectors.toList());
-    return ResponseEntity.ok(lowStockItems);
-}
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER')")
+    public ResponseEntity<List<InventoryItemResponseDTO>> getLowStockItems() {
+        log.info("Fetching low stock items");
+        List<InventoryItemResponseDTO> lowStockItems = inventoryItemRepository.findLowStockItems()
+                .stream()
+                .map(inventoryItemService::mapToResponseDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(lowStockItems);
+    }
 
-@GetMapping("/items/out-of-stock")
-@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER')")
-public ResponseEntity<List<InventoryItemResponseDTO>> getOutOfStockItems() {
-    log.info("Fetching out of stock items");
-    List<InventoryItemResponseDTO> outOfStockItems = inventoryItemRepository.findOutOfStockItems()
-            .stream()
-            .map(inventoryItemService::mapToResponseDTO)
-            .collect(Collectors.toList());
-    return ResponseEntity.ok(outOfStockItems);
-}
+    @GetMapping("/items/out-of-stock")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER')")
+    public ResponseEntity<List<InventoryItemResponseDTO>> getOutOfStockItems() {
+        log.info("Fetching out of stock items");
+        List<InventoryItemResponseDTO> outOfStockItems = inventoryItemRepository.findOutOfStockItems()
+                .stream()
+                .map(inventoryItemService::mapToResponseDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(outOfStockItems);
+    }
     
     // =============================================
     // Inventory Locations
