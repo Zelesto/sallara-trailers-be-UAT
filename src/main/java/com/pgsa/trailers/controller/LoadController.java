@@ -19,6 +19,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -114,17 +115,18 @@ public class LoadController {
             @RequestParam LocalDateTime plannedDate) {
         log.info("Finding merge candidates for customer {} on {}", customerId, plannedDate);
         List<Trip> trips = loadService.findMergeableTrips(customerId, plannedDate);
-        List<TripSummaryDTO> summaries = trips.stream()
-                .map(trip -> TripSummaryDTO.builder()
-                        .id(trip.getId())
-                        .tripNumber(trip.getTripNumber())
-                        .origin(trip.getOriginCity() != null ? trip.getOriginCity() : trip.getOriginLocation())
-                        .destination(trip.getDestinationCity() != null ? trip.getDestinationCity() : trip.getDestinationLocation())
-                        .plannedStartDate(trip.getPlannedStartDate())
-                        .plannedEndDate(trip.getPlannedEndDate())
-                        .status(trip.getStatus())
-                        .build())
-                .collect(Collectors.toList());
+        List<TripSummaryDTO> summaries = new ArrayList<>();
+        for (Trip trip : trips) {
+            TripSummaryDTO dto = new TripSummaryDTO();
+            dto.setId(trip.getId());
+            dto.setTripNumber(trip.getTripNumber());
+            dto.setOrigin(trip.getOriginCity() != null ? trip.getOriginCity() : trip.getOriginLocation());
+            dto.setDestination(trip.getDestinationCity() != null ? trip.getDestinationCity() : trip.getDestinationLocation());
+            dto.setPlannedStartDate(trip.getPlannedStartDate());
+            dto.setPlannedEndDate(trip.getPlannedEndDate());
+            dto.setStatus(trip.getStatus());
+            summaries.add(dto);
+        }
         return ResponseEntity.ok(summaries);
     }
 
@@ -140,7 +142,6 @@ public class LoadController {
     // Helper method to get current user ID
     private Long getCurrentUserId() {
         // This should be implemented based on your authentication context
-        // For now, return a default value or get from SecurityContext
         return 1L; // Placeholder
     }
 }
