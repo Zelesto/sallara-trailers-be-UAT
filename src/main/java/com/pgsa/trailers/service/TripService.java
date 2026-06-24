@@ -84,77 +84,56 @@ public class TripService {
 
         // Validate customer if provided
         Customer customer = null;
-        if (request.getCustomerId() != null) {
-            customer = customerRepository.findById(request.getCustomerId())
-                    .orElseThrow(() -> new TripValidationException(
-                            "Customer not found with ID: " + request.getCustomerId()));
-        }
-
-        Trip trip = createTripMapper.toEntity(request);
-
-        trip.setVehicle(vehicle);
-        trip.setDriver(driver);
-        trip.setSupervisor(supervisor);
-        
-        // Set customer
-        if (customer != null) {
-            trip.setCustomerId(customer.getId());
-        }
-
-        // Handle load ID - loadId is a String, not Long
-        String loadId = request.getLoadId();
-        if (loadId != null && !loadId.isEmpty()) {
-            // Validate load exists if provided
-            if (!loadRepository.existsByLoadNumber(loadId)) {
-                throw new TripValidationException("Load not found with number: " + loadId);
-            }
-            trip.setLoadId(loadId);
-            // Get load details if load exists
-            loadRepository.findByLoadNumber(loadId).ifPresent(load -> {
-                trip.setLoadNumber(load.getLoadNumber());
-                trip.setLoadType(load.getCommodityType());
-                trip.setLoadDescription(load.getDescription());
-                trip.setLoadStatus(load.getStatus());
-            });
-        } else {
-            // Generate load ID if not provided
-            String newLoadId = generateLoadId();
-            trip.setLoadId(newLoadId);
-            trip.setLoadNumber(newLoadId);
-        }
-
-        trip.setTripNumber(tripNumberGenerator.generate());
-        trip.setStatus(
-                request.getStatus() != null
-                        ? request.getStatus()
-                        : TripStatus.DRAFT
-        );
-        trip.setCreatedBy(userId);
-        trip.setLastStatusUpdate(LocalDateTime.now());
-
-        // Save trip first
-        Trip saved = tripRepository.save(trip);
-
-        log.info(
-                "Created trip with ID: {}, Number: {}, Load ID: {}, Customer: {}",
-                saved.getId(),
-                saved.getTripNumber(),
-                saved.getLoadId(),
-                customer != null ? customer.getName() : "None"
-        );
-
-        // Create initial metrics record
-        tripMetricsService.initializeMetrics(saved.getId());
-
-        if (saved.getStatus() == TripStatus.PLANNED) {
-            eventPublisher.publishEvent(
-                    new TripPlannedEvent(saved.getId())
-            );
-            log.info("Published TripPlannedEvent for trip {} (metrics will be calculated async)", saved.getId());
-        }
-
-        return tripResponseMapper.toResponse(saved);
+    if (request.getCustomerId() != null && request.getCustomerId() > 0) {
+        customer = customerRepository.findById(request.getCustomerId())
+                .orElseThrow(() -> new TripValidationException(
+                        "Customer not found with ID: " + request.getCustomerId()));
     }
+
+    Trip trip = createTripMapper.toEntity(request);
+
+    trip.setVehicle(vehicle);
+    trip.setDriver(driver);
+    trip.setSupervisor(supervisor);
+    
+    // Set customer
+    if (customer != null) {
+        trip.setCustomerId(customer.getId());
+    }
+
+    // Handle load ID if provided
+    if (request.getLoadId() != null && !request.getLoadId().isEmpty()) {
+        trip.setLoadId(request.getLoadId());
+    }
+
+    // Set priority if provided
+    if (request.getPriority() != null) {
+        trip.setPriority(request.getPriority());
+    }
+
+    trip.setTripNumber(tripNumberGenerator.generate());
+    trip.setStatus(request.getStatus() != null ? request.getStatus() : TripStatus.DRAFT);
+    trip.setCreatedBy(userId);
+    trip.setLastStatusUpdate(LocalDateTime.now());
+
+    // Save trip first
+    Trip saved = tripRepository.save(trip);
+
+    log.info("Created trip with ID: {}, Number: {}, Customer: {}",
+            saved.getId(),
+            saved.getTripNumber(),
+            customer != null ? customer.getName() : "None"
+    );
+
+    // Create initial metrics record
+    tripMetricsService.initializeMetrics(saved.getId());
+
+    if (saved.getStatus() == TripStatus.PLANNED) {
+        eventPublisher.publishEvent(new TripPlannedEvent(saved.getId()));
+    }
+
+    return tripResponseMapper.toResponse(saved);
+}
 
     /* ========================
        START TRIP
