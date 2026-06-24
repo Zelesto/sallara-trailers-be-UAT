@@ -1,11 +1,12 @@
-// src/main/java/com/pgsa/trailers/entity/ops/TripResponseMapper.java
 package com.pgsa.trailers.entity.ops;
 
 import com.pgsa.trailers.dto.TripMetricsResponse;
 import com.pgsa.trailers.dto.TripResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 @Component
+@Slf4j
 public class TripResponseMapper {
 
     public TripResponse toResponse(Trip trip) {
@@ -24,7 +25,10 @@ public class TripResponseMapper {
         if (trip.getCustomer() != null) {
             response.setCustomerId(trip.getCustomer().getId());
             response.setCustomerName(trip.getCustomer().getName());
-            response.setCustomerCode(trip.getCustomer().getCustomerCode());
+            // Null-safe customer code
+            response.setCustomerCode(trip.getCustomer().getCustomerCode() != null 
+                ? trip.getCustomer().getCustomerCode() 
+                : null);
         } else if (trip.getCustomerId() != null) {
             response.setCustomerId(trip.getCustomerId());
         }
@@ -73,7 +77,6 @@ public class TripResponseMapper {
         // ======================== STATUS ========================
         response.setStatus(trip.getStatus());
         response.setApprovalStatus(trip.getApprovalStatus());
-       // response.setPriority(trip.getPriority());
 
         // ======================== AUDIT ========================
         response.setCreatedAt(trip.getCreatedAt());
@@ -81,38 +84,43 @@ public class TripResponseMapper {
         response.setCreatedBy(trip.getCreatedBy());
         response.setUpdatedBy(trip.getUpdatedBy());
 
-        // ======================== VEHICLE ========================
+        // ======================== VEHICLE (NULL SAFE) ========================
         if (trip.getVehicle() != null) {
             response.setVehicleId(trip.getVehicle().getId());
+            // Null-safe registration number
             response.setVehicleRegistration(
-                    trip.getVehicle().getRegistrationNumber()
+                trip.getVehicle().getRegistrationNumber() != null 
+                    ? trip.getVehicle().getRegistrationNumber() 
+                    : null
             );
             response.setVehicleMake(trip.getVehicle().getMake());
             response.setVehicleModel(trip.getVehicle().getModel());
         }
 
-        // ======================== DRIVER ========================
+        // ======================== DRIVER (NULL SAFE) ========================
         if (trip.getDriver() != null) {
             response.setDriverId(trip.getDriver().getId());
-            String firstName = trip.getDriver().getFirstName() != null
-                    ? trip.getDriver().getFirstName()
-                    : "";
-            String lastName = trip.getDriver().getLastName() != null
-                    ? trip.getDriver().getLastName()
-                    : "";
-            response.setDriverName((firstName + " " + lastName).trim());
+            String firstName = trip.getDriver().getFirstName() != null 
+                ? trip.getDriver().getFirstName() 
+                : "";
+            String lastName = trip.getDriver().getLastName() != null 
+                ? trip.getDriver().getLastName() 
+                : "";
+            String fullName = (firstName + " " + lastName).trim();
+            response.setDriverName(fullName.isEmpty() ? null : fullName);
         }
 
-        // ======================== SUPERVISOR ========================
+        // ======================== SUPERVISOR (NULL SAFE) ========================
         if (trip.getSupervisor() != null) {
             response.setSupervisorId(trip.getSupervisor().getId());
-            String firstName = trip.getSupervisor().getFirstName() != null
-                    ? trip.getSupervisor().getFirstName()
-                    : "";
-            String lastName = trip.getSupervisor().getLastName() != null
-                    ? trip.getSupervisor().getLastName()
-                    : "";
-            response.setSupervisorName((firstName + " " + lastName).trim());
+            String firstName = trip.getSupervisor().getFirstName() != null 
+                ? trip.getSupervisor().getFirstName() 
+                : "";
+            String lastName = trip.getSupervisor().getLastName() != null 
+                ? trip.getSupervisor().getLastName() 
+                : "";
+            String fullName = (firstName + " " + lastName).trim();
+            response.setSupervisorName(fullName.isEmpty() ? null : fullName);
         }
 
         // ======================== CARGO ========================
