@@ -259,19 +259,20 @@ public class LoadService {
     /**
      * Suggest merging trips that could be combined into one load
      */
-    @Transactional(readOnly = true)
+   @Transactional(readOnly = true)
     public List<Trip> findMergeableTrips(Long customerId, LocalDateTime plannedDate) {
         LocalDate date = plannedDate.toLocalDate();
         LocalDateTime startOfDay = date.atStartOfDay();
         LocalDateTime endOfDay = date.atTime(23, 59, 59);
-
+    
         // Use Pageable.unpaged() to get all results
         List<Trip> allTrips = tripRepository.findByCustomerId(customerId, Pageable.unpaged())
                 .getContent();
         
         // Filter for trips without load and within date range
+        // FIXED: loadId is now Long, so check for null or 0
         return allTrips.stream()
-                .filter(t -> t.getLoadId() == null || t.getLoadId().isEmpty())
+                .filter(t -> t.getLoadId() == null || t.getLoadId() == 0)  // FIXED HERE
                 .filter(t -> t.getPlannedStartDate() != null)
                 .filter(t -> !t.getPlannedStartDate().isBefore(startOfDay) && 
                            !t.getPlannedStartDate().isAfter(endOfDay))
