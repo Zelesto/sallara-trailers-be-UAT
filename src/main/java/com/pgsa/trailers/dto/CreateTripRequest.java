@@ -40,7 +40,7 @@ public class CreateTripRequest {
        ======================== */
     private TripStatus status;
     private String approvalStatus;
-    private String priority;
+    //private String priority;
 
     /* ========================
        PLANNING
