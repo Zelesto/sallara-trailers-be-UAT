@@ -110,6 +110,15 @@ public class LoadService {
                 .orElseThrow(() -> new RuntimeException("Load not found with ID: " + id));
         return mapToResponseDTO(load);
     }
+    
+    @Transactional(readOnly = true)
+    public Page<LoadResponseDTO> getAllLoads(Pageable pageable) {
+    log.info("Fetching all loads with pagination: page={}, size={}", 
+    pageable.getPageNumber(), pageable.getPageSize());
+    
+    return loadRepository.findAll(pageable)
+            .map(this::mapToResponseDTO);
+}
 
     @Transactional(readOnly = true)
     public LoadResponseDTO getLoadByNumber(String loadNumber) {
