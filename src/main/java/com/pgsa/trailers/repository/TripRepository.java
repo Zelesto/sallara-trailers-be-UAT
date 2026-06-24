@@ -152,7 +152,7 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
      * Find trips by load ID (String)
      * loadId is stored as String (the load number)
      */
-    List<Trip> findByLoadId(String loadId);
+    List<Trip> findByLoadId(Long loadId);
 
     /**
      * Find trips by load number (String)
