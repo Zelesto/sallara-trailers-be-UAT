@@ -31,7 +31,8 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     
     List<Trip> findByVehicleId(Long vehicleId);
     
-    // REMOVED: List<Trip> findByLoadId(Long loadId); - This was causing the error
+    // loadId is String (load number)
+    List<Trip> findByLoadId(String loadId);  // UNCOMMENTED - needed for LoadService
     
     List<Trip> findByDriverIdAndVehicleId(Long driverId, Long vehicleId);
     
@@ -51,16 +52,46 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     
     boolean existsByTripNumber(String tripNumber);
     
-    // ======================== ADVANCED QUERIES ========================
-
-
-
+    // ======================== LOAD QUERIES ========================
+    
+    // Find trips without a load (load_id is null)
     Page<Trip> findByLoadIdIsNull(Pageable pageable);
 
-// If you want to check for both null and empty string
-@Query("SELECT t FROM Trip t WHERE t.loadId IS NULL OR t.loadId = ''")
-Page<Trip> findByLoadIdIsNullOrEmpty(Pageable pageable);
+    // Find trips without a load (load_id is null or empty string)
+    @Query("SELECT t FROM Trip t WHERE t.loadId IS NULL OR t.loadId = ''")
+    Page<Trip> findByLoadIdIsNullOrEmpty(Pageable pageable);
+    
+    // Find trips by customer ID and planned start date range that don't have a load assigned
+    @Query("SELECT t FROM Trip t WHERE t.customerId = :customerId " +
+           "AND t.plannedStartDate BETWEEN :startDate AND :endDate " +
+           "AND (t.loadId IS NULL OR t.loadId = '')")
+    List<Trip> findByCustomerIdAndPlannedStartDateBetweenAndLoadIsNull(
+        @Param("customerId") Long customerId,
+        @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate);
 
+    // Find trips by customer ID with pagination
+    Page<Trip> findByCustomerId(Long customerId, Pageable pageable);
+
+    // Find trips by load number (String)
+    List<Trip> findByLoadNumber(String loadNumber);
+
+    // Count trips by customer
+    Long countByCustomerId(Long customerId);
+
+    // Find trips without a load assigned
+    @Query("SELECT t FROM Trip t WHERE t.loadId IS NULL OR t.loadId = ''")
+    List<Trip> findTripsWithoutLoad();
+
+    // Find trips without a load assigned with pagination
+    @Query("SELECT t FROM Trip t WHERE t.loadId IS NULL OR t.loadId = ''")
+    Page<Trip> findTripsWithoutLoad(Pageable pageable);
+
+    // Count trips by load ID
+    @Query("SELECT COUNT(t) FROM Trip t WHERE t.loadId = :loadId")
+    long countByLoadId(@Param("loadId") String loadId);
+    
+    // ======================== ADVANCED QUERIES ========================
     
     @Query("SELECT t FROM Trip t WHERE " +
             "(:driverId IS NULL OR t.driver.id = :driverId) AND " +
@@ -137,60 +168,6 @@ Page<Trip> findByLoadIdIsNullOrEmpty(Pageable pageable);
     
     @Query("SELECT SUM(t.actualDistanceKm) FROM Trip t WHERE t.status = 'COMPLETED' AND t.driver.id = :driverId")
     Optional<BigDecimal> getTotalDistanceForDriver(@Param("driverId") Long driverId);
-
-    // ======================== LOAD QUERIES ========================
-
-    /**
-     * Find trips by customer ID and planned start date range that don't have a load assigned
-     * Used for smart merge functionality
-     */
-    @Query("SELECT t FROM Trip t WHERE t.customerId = :customerId " +
-           "AND t.plannedStartDate BETWEEN :startDate AND :endDate " +
-           "AND (t.loadId IS NULL OR t.loadId = '')")
-    List<Trip> findByCustomerIdAndPlannedStartDateBetweenAndLoadIsNull(
-        @Param("customerId") Long customerId,
-        @Param("startDate") LocalDateTime startDate,
-        @Param("endDate") LocalDateTime endDate);
-
-    /**
-     * Find trips by customer ID with pagination
-     */
-    Page<Trip> findByCustomerId(Long customerId, Pageable pageable);
-
-    /**
-     * Find trips by load ID (String)
-     * loadId is stored as String (the load number)
-     */
-    List<Trip> findByLoadId(String loadId);
-
-    /**
-     * Find trips by load number (String)
-     * Alias for findByLoadId
-     */
-    List<Trip> findByLoadNumber(String loadNumber);
-
-    /**
-     * Count trips by customer
-     */
-    Long countByCustomerId(Long customerId);
-
-    /**
-     * Find trips without a load assigned
-     */
-    @Query("SELECT t FROM Trip t WHERE t.loadId IS NULL OR t.loadId = ''")
-    List<Trip> findTripsWithoutLoad();
-
-    /**
-     * Find trips without a load assigned with pagination
-     */
-    @Query("SELECT t FROM Trip t WHERE t.loadId IS NULL OR t.loadId = ''")
-    Page<Trip> findTripsWithoutLoad(Pageable pageable);
-
-    /**
-     * Count trips by load ID
-     */
-    @Query("SELECT COUNT(t) FROM Trip t WHERE t.loadId = :loadId")
-    long countByLoadId(@Param("loadId") String loadId);
 
     // ======================== EXISTS QUERIES ========================
     
