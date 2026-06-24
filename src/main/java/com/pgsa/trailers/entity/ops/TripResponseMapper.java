@@ -34,19 +34,20 @@ public class TripResponseMapper {
         }
 
         // ======================== LOAD ========================
-           if (trip.getLoad() != null) {
-        response.setLoadId(trip.getLoad().getId());  // Now Long
-        response.setLoadNumber(trip.getLoad().getLoadNumber());
-        response.setLoadType(trip.getLoad().getCommodityType());
-        response.setLoadDescription(trip.getLoad().getDescription());
-        response.setLoadStatus(trip.getLoad().getStatus());
-    } else if (trip.getLoadId() != null) {
-        response.setLoadId(trip.getLoadId());  // Now Long
-        response.setLoadNumber(trip.getLoadNumber());
-        response.setLoadType(trip.getLoadType());
-        response.setLoadDescription(trip.getLoadDescription());
-        response.setLoadStatus(trip.getLoadStatus());
-    }
+          // ======================== LOAD ========================
+if (trip.getLoad() != null) {
+    response.setLoadId(trip.getLoad().getLoadNumber());  // String
+    response.setLoadNumber(trip.getLoad().getLoadNumber());
+    response.setLoadType(trip.getLoad().getCommodityType());
+    response.setLoadDescription(trip.getLoad().getDescription());
+    response.setLoadStatus(trip.getLoad().getStatus());
+} else if (trip.getLoadId() != null) {
+    response.setLoadId(trip.getLoadId());  // String
+    response.setLoadNumber(trip.getLoadNumber());
+    response.setLoadType(trip.getLoadType());
+    response.setLoadDescription(trip.getLoadDescription());
+    response.setLoadStatus(trip.getLoadStatus());
+}
 
         // ======================== LOCATIONS ========================
         response.setOriginLocation(trip.getOriginLocation());
