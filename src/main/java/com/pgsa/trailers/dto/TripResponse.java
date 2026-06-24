@@ -26,7 +26,7 @@ public class TripResponse {
     private String customerCode;
 
     // ======================== LOAD ========================
-    private String loadId;
+    private Long loadId;
     private String loadNumber;
     private String loadType;
     private String loadDescription;
