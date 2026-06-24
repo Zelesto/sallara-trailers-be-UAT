@@ -253,15 +253,7 @@ public class CreateTripMapper {
         return trip;
     }
 
-    /**
-     * Generate a unique trip number
-     * Format: TRP-YYYYMMDD-XXXXX
-     */
-    private String generateTripNumber() {
-        String datePart = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String randomPart = UUID.randomUUID().toString().substring(0, 5).toUpperCase();
-        return "TRP-" + datePart + "-" + randomPart;
-    }
+    
 
     /**
      * Build a location string from components
