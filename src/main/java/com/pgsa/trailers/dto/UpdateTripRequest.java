@@ -121,7 +121,7 @@ public class UpdateTripRequest {
     // ======================== WORKFLOW ========================
     private TripStatus status;
     private String approvalStatus;
-    private String priority;
+    //private String priority;
 
     // ======================== NOTES ========================
     private String driverNotes;
