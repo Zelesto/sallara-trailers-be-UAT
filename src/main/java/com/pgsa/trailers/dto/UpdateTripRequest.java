@@ -21,7 +21,7 @@ public class UpdateTripRequest {
     
     // Customer and Load Associations
     private Long customerId;
-    private String loadId;
+    private Long loadId;
 
     // ======================== IDENTITY ========================
     @Size(max = 50, message = "Trip type cannot exceed 50 characters")
