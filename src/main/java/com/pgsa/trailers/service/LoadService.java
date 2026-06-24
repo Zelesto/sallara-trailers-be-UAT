@@ -110,15 +110,6 @@ public class LoadService {
                 .orElseThrow(() -> new RuntimeException("Load not found with ID: " + id));
         return mapToResponseDTO(load);
     }
-    
-    @Transactional(readOnly = true)
-    public Page<LoadResponseDTO> getAllLoads(Pageable pageable) {
-    log.info("Fetching all loads with pagination: page={}, size={}", 
-    pageable.getPageNumber(), pageable.getPageSize());
-    
-    return loadRepository.findAll(pageable)
-            .map(this::mapToResponseDTO);
-}
 
     @Transactional(readOnly = true)
     public LoadResponseDTO getLoadByNumber(String loadNumber) {
@@ -129,6 +120,9 @@ public class LoadService {
 
     @Transactional(readOnly = true)
     public Page<LoadResponseDTO> getAllLoads(Pageable pageable) {
+        log.info("Fetching all loads with pagination: page={}, size={}", 
+            pageable.getPageNumber(), pageable.getPageSize());
+        
         return loadRepository.findAll(pageable)
                 .map(this::mapToResponseDTO);
     }
@@ -266,26 +260,27 @@ public class LoadService {
 
     /**
      * Suggest merging trips that could be combined into one load
-     * FIXED: loadId is now Long, check for null or 0
+     * loadId is String, check for null or empty
      */
     @Transactional(readOnly = true)
-public List<Trip> findMergeableTrips(Long customerId, LocalDateTime plannedDate) {
-    LocalDate date = plannedDate.toLocalDate();
-    LocalDateTime startOfDay = date.atStartOfDay();
-    LocalDateTime endOfDay = date.atTime(23, 59, 59);
+    public List<Trip> findMergeableTrips(Long customerId, LocalDateTime plannedDate) {
+        LocalDate date = plannedDate.toLocalDate();
+        LocalDateTime startOfDay = date.atStartOfDay();
+        LocalDateTime endOfDay = date.atTime(23, 59, 59);
 
-    List<Trip> allTrips = tripRepository.findByCustomerId(customerId, Pageable.unpaged())
-            .getContent();
-    
-    // Filter for trips without load and within date range
-    // loadId is String, check for null or empty
-    return allTrips.stream()
-            .filter(t -> t.getLoadId() == null || t.getLoadId().isEmpty())  // String check
-            .filter(t -> t.getPlannedStartDate() != null)
-            .filter(t -> !t.getPlannedStartDate().isBefore(startOfDay) && 
-                       !t.getPlannedStartDate().isAfter(endOfDay))
-            .collect(Collectors.toList());
-}
+        List<Trip> allTrips = tripRepository.findByCustomerId(customerId, Pageable.unpaged())
+                .getContent();
+        
+        // Filter for trips without load and within date range
+        // loadId is String, check for null or empty
+        return allTrips.stream()
+                .filter(t -> t.getLoadId() == null || t.getLoadId().isEmpty())  // String check
+                .filter(t -> t.getPlannedStartDate() != null)
+                .filter(t -> !t.getPlannedStartDate().isBefore(startOfDay) && 
+                           !t.getPlannedStartDate().isAfter(endOfDay))
+                .collect(Collectors.toList());
+    }
+
     /**
      * Smart merge: Automatically merge trips for the same customer on the same day
      */
