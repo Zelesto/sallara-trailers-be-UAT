@@ -7,7 +7,7 @@ import com.pgsa.trailers.entity.assets.Driver;
 import com.pgsa.trailers.entity.assets.Vehicle;
 import com.pgsa.trailers.entity.ops.Customer;
 import com.pgsa.trailers.entity.ops.CreateTripMapper;
-import com.pgsa.trailers.entity.ops.Load;  // ADDED IMPORT
+import com.pgsa.trailers.entity.ops.Load;
 import com.pgsa.trailers.entity.ops.Trip;
 import com.pgsa.trailers.entity.ops.TripResponseMapper;
 import com.pgsa.trailers.entity.ops.auto.TripCompletedEvent;
@@ -101,14 +101,14 @@ public class TripService {
             trip.setCustomerId(customer.getId());
         }
 
-        // Handle load ID if provided - loadId is now Long
-        if (request.getLoadId() != null && request.getLoadId() > 0) {
-            // Fetch the load entity to set on the trip
-            Load load = loadRepository.findById(request.getLoadId())
+        // Handle load ID if provided - loadId is String (loadNumber)
+        if (request.getLoadId() != null && !request.getLoadId().isEmpty()) {
+            // Load ID is a String (loadNumber)
+            Load load = loadRepository.findByLoadNumber(request.getLoadId())
                     .orElseThrow(() -> new TripValidationException(
-                            "Load not found with ID: " + request.getLoadId()));
+                            "Load not found with number: " + request.getLoadId()));
             trip.setLoad(load);
-            trip.setLoadId(load.getId());
+            trip.setLoadId(load.getLoadNumber());  // String
             trip.setLoadNumber(load.getLoadNumber());
             trip.setLoadType(load.getCommodityType());
             trip.setLoadDescription(load.getDescription());
@@ -226,9 +226,9 @@ public class TripService {
                 .collect(Collectors.toList());
     }
 
-    // FIXED: Changed parameter type from String to Long
+    // loadId is String
     @Transactional(readOnly = true)
-    public List<TripResponse> getTripsByLoad(Long loadId) {
+    public List<TripResponse> getTripsByLoad(String loadId) {
         return tripRepository.findByLoadId(loadId)
                 .stream()
                 .map(tripResponseMapper::toResponse)
@@ -317,20 +317,20 @@ public class TripService {
     }
 
     /**
-     * Assign load to a trip - FIXED: loadId is now Long
+     * Assign load to a trip - loadId is String (loadNumber)
      */
     @Transactional
-    public TripResponse assignLoadToTrip(Long tripId, Long loadId, Long userId) {
+    public TripResponse assignLoadToTrip(Long tripId, String loadId, Long userId) {
         log.debug("Assigning load {} to trip {}", loadId, tripId);
         
         Trip trip = findTripOrThrow(tripId);
         
-        if (loadId != null && loadId > 0) {
-            // Validate load exists by ID
-            Load load = loadRepository.findById(loadId)
-                    .orElseThrow(() -> new TripValidationException("Load not found with ID: " + loadId));
+        if (loadId != null && !loadId.isEmpty()) {
+            // Validate load exists by loadNumber
+            Load load = loadRepository.findByLoadNumber(loadId)
+                    .orElseThrow(() -> new TripValidationException("Load not found with number: " + loadId));
             trip.setLoad(load);
-            trip.setLoadId(load.getId());
+            trip.setLoadId(load.getLoadNumber());  // String
             trip.setLoadNumber(load.getLoadNumber());
             trip.setLoadType(load.getCommodityType());
             trip.setLoadDescription(load.getDescription());
@@ -361,10 +361,10 @@ public class TripService {
     }
 
     /**
-     * Update trip with customer and load information in one call - FIXED: loadId is now Long
+     * Update trip with customer and load information in one call - loadId is String
      */
     @Transactional
-    public TripResponse updateTripCustomerAndLoad(Long tripId, Long customerId, Long loadId, Long userId) {
+    public TripResponse updateTripCustomerAndLoad(Long tripId, Long customerId, String loadId, Long userId) {
         log.debug("Updating trip {} with customer: {} and load: {}", tripId, customerId, loadId);
         
         Trip trip = findTripOrThrow(tripId);
@@ -379,11 +379,11 @@ public class TripService {
         }
         
         // Update load
-        if (loadId != null && loadId > 0) {
-            Load load = loadRepository.findById(loadId)
-                    .orElseThrow(() -> new TripValidationException("Load not found with ID: " + loadId));
+        if (loadId != null && !loadId.isEmpty()) {
+            Load load = loadRepository.findByLoadNumber(loadId)
+                    .orElseThrow(() -> new TripValidationException("Load not found with number: " + loadId));
             trip.setLoad(load);
-            trip.setLoadId(load.getId());
+            trip.setLoadId(load.getLoadNumber());  // String
             trip.setLoadNumber(load.getLoadNumber());
             trip.setLoadType(load.getCommodityType());
             trip.setLoadDescription(load.getDescription());
@@ -472,13 +472,13 @@ public class TripService {
             trip.setCustomerId(customer.getId());
         }
 
-        // Update load if provided - FIXED: loadId is now Long
+        // Update load if provided - loadId is String (loadNumber)
         if (request.getLoadId() != null) {
-            if (request.getLoadId() > 0) {
-                Load load = loadRepository.findById(request.getLoadId())
-                        .orElseThrow(() -> new TripValidationException("Load not found with ID: " + request.getLoadId()));
+            if (!request.getLoadId().isEmpty()) {
+                Load load = loadRepository.findByLoadNumber(request.getLoadId())
+                        .orElseThrow(() -> new TripValidationException("Load not found with number: " + request.getLoadId()));
                 trip.setLoad(load);
-                trip.setLoadId(load.getId());
+                trip.setLoadId(load.getLoadNumber());  // String
                 trip.setLoadNumber(load.getLoadNumber());
                 trip.setLoadType(load.getCommodityType());
                 trip.setLoadDescription(load.getDescription());
