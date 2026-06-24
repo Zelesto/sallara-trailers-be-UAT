@@ -14,6 +14,11 @@ import java.time.LocalDateTime;
 @Slf4j
 public class CreateTripMapper {
 
+    /**
+     * Maps a CreateTripRequest to a Trip entity.
+     * NOTE: Relationships (vehicle, driver, supervisor, customer, load) 
+     * and tripNumber are set by the TripService.
+     */
     public Trip toEntity(CreateTripRequest request) {
         if (request == null) {
             return null;
@@ -21,112 +26,69 @@ public class CreateTripMapper {
 
         Trip trip = new Trip();
 
-        // NOTE: tripNumber is set by the service using TripNumberGenerator
-        // NOTE: vehicle, driver, supervisor, customer, load are set by the service
-
-        /* ========================
-           IDENTITY
-           ======================== */
+        // ======================== IDENTITY ========================
         trip.setTripType(request.getTripType());
 
-        /* ========================
-           WORKFLOW
-           ======================== */
+        // ======================== WORKFLOW ========================
         trip.setStatus(request.getStatus() != null ? request.getStatus() : TripStatus.DRAFT);
         trip.setApprovalStatus(request.getApprovalStatus());
 
-        /* ========================
-           PLANNING
-           ======================== */
+        // ======================== PLANNING ========================
         trip.setPlannedStartDate(request.getPlannedStartDate());
         trip.setPlannedEndDate(request.getPlannedEndDate());
-        
-        if (request.getPlannedDistanceKm() != null) {
-            trip.setPlannedDistanceKm(BigDecimal.valueOf(request.getPlannedDistanceKm()));
-        }
-        
-        if (request.getPlannedDurationHours() != null) {
-            trip.setPlannedDurationHours(BigDecimal.valueOf(request.getPlannedDurationHours()));
-        }
-        
-        if (request.getEstimatedDurationHours() != null) {
-            trip.setEstimatedDurationHours(BigDecimal.valueOf(request.getEstimatedDurationHours()));
-        }
+        trip.setPlannedDistanceKm(request.getPlannedDistanceKm());
+        trip.setPlannedDurationHours(request.getPlannedDurationHours());
+        trip.setEstimatedDurationHours(request.getEstimatedDurationHours());
 
-        /* ========================
-           COSTS
-           ======================== */
-        if (request.getTollCost() != null) {
-            trip.setTollCost(BigDecimal.valueOf(request.getTollCost()));
-        }
-        if (request.getOtherExpenses() != null) {
-            trip.setOtherExpenses(BigDecimal.valueOf(request.getOtherExpenses()));
-        }
+        // ======================== COSTS ========================
+        trip.setTollCost(request.getTollCost());
+        trip.setOtherExpenses(request.getOtherExpenses());
 
-        /* ========================
-           CARGO
-           ======================== */
+        // ======================== CARGO ========================
         trip.setCommodityType(request.getCommodityType());
         trip.setCargoDescription(request.getCargoDescription());
-        
-        if (request.getCargoWeight() != null) {
-            trip.setCargoWeight(BigDecimal.valueOf(request.getCargoWeight()));
-        }
-        
-        if (request.getCargoValue() != null) {
-            trip.setCargoValue(BigDecimal.valueOf(request.getCargoValue()));
-        }
-        
+        trip.setCargoWeight(request.getCargoWeight());
+        trip.setCargoValue(request.getCargoValue());
         trip.setPalletCount(request.getPalletCount());
         trip.setContainerNumber(request.getContainerNumber());
+        trip.setDistanceKm(request.getDistanceKm());
+        trip.setFuelConsumedLiters(request.getFuelConsumedLiters());
 
-        if (request.getDistanceKm() != null) {
-            trip.setDistanceKm(BigDecimal.valueOf(request.getDistanceKm()));
-        }
-        
-        if (request.getFuelConsumedLiters() != null) {
-            trip.setFuelConsumedLiters(BigDecimal.valueOf(request.getFuelConsumedLiters()));
-        }
-
-        /* ========================
-           ORIGIN LOCATION (REQUIRED)
-           ======================== */
-        // Origin location is required (nullable = false)
+        // ======================== ORIGIN LOCATION (REQUIRED) ========================
+        // originLocation is required (@NotNull in DTO)
         if (request.getOriginLocation() != null && !request.getOriginLocation().isEmpty()) {
             trip.setOriginLocation(request.getOriginLocation());
         } else {
-            // Build from components
+            // Build from components as fallback
             String builtOrigin = buildLocationFromComponents(
                 request.getOriginStreetAddress(),
                 request.getOriginCity(),
                 request.getOriginZipCode(),
                 request.getOriginProvince()
             );
-            // If still empty, set a default to avoid NOT NULL constraint violation
+            // This should never happen due to @NotNull, but just in case
             trip.setOriginLocation(builtOrigin.isEmpty() ? "Origin not specified" : builtOrigin);
+            log.warn("Origin location was null, built from components: {}", builtOrigin);
         }
 
-        /* ========================
-           DESTINATION LOCATION (REQUIRED)
-           ======================== */
-        // Destination location is required (nullable = false)
+        // ======================== DESTINATION LOCATION (REQUIRED) ========================
+        // destinationLocation is required (@NotNull in DTO)
         if (request.getDestinationLocation() != null && !request.getDestinationLocation().isEmpty()) {
             trip.setDestinationLocation(request.getDestinationLocation());
         } else {
-            // Build from components
+            // Build from components as fallback
             String builtDestination = buildLocationFromComponents(
                 request.getDestinationStreetAddress(),
                 request.getDestinationCity(),
                 request.getDestinationZipCode(),
                 request.getDestinationProvince()
             );
-            // If still empty, set a default to avoid NOT NULL constraint violation
+            // This should never happen due to @NotNull, but just in case
             trip.setDestinationLocation(builtDestination.isEmpty() ? "Destination not specified" : builtDestination);
+            log.warn("Destination location was null, built from components: {}", builtDestination);
         }
 
-        /* ========================
-           ORIGIN DETAILS
-           ======================== */
+        // ======================== ORIGIN DETAILS ========================
         trip.setOriginStreetAddress(request.getOriginStreetAddress());
         trip.setOriginCity(request.getOriginCity());
         trip.setOriginZipCode(request.getOriginZipCode());
@@ -134,9 +96,7 @@ public class CreateTripMapper {
         trip.setOriginLatitude(request.getOriginLatitude());
         trip.setOriginLongitude(request.getOriginLongitude());
 
-        /* ========================
-           DESTINATION DETAILS
-           ======================== */
+        // ======================== DESTINATION DETAILS ========================
         trip.setDestinationStreetAddress(request.getDestinationStreetAddress());
         trip.setDestinationCity(request.getDestinationCity());
         trip.setDestinationZipCode(request.getDestinationZipCode());
@@ -144,41 +104,29 @@ public class CreateTripMapper {
         trip.setDestinationLatitude(request.getDestinationLatitude());
         trip.setDestinationLongitude(request.getDestinationLongitude());
 
-        /* ========================
-           NOTES
-           ======================== */
+        // ======================== NOTES ========================
         trip.setNotes(request.getNotes());
         trip.setSpecialInstructions(request.getSpecialInstructions());
         trip.setDriverNotes(request.getDriverNotes());
 
-        /* ========================
-           REFERENCES
-           ======================== */
+        // ======================== REFERENCES ========================
         trip.setReferenceNumber(request.getReferenceNumber());
         trip.setPurchaseOrderNumber(request.getPurchaseOrderNumber());
 
-        /* ========================
-           OPERATIONS
-           ======================== */
+        // ======================== OPERATIONS ========================
         trip.setIncidentsLogged(request.getIncidentsLogged() != null ? request.getIncidentsLogged() : 0);
         trip.setCancellationReason(request.getCancellationReason());
 
-        /* ========================
-           ROUTE DATA
-           ======================== */
+        // ======================== ROUTE DATA ========================
         trip.setGpsStartLocation(request.getGpsStartLocation());
         trip.setGpsEndLocation(request.getGpsEndLocation());
         trip.setRouteDetails(request.getRouteDetails());
         trip.setCheckpoints(request.getCheckpoints());
 
-        /* ========================
-           AUDIT
-           ======================== */
+        // ======================== AUDIT ========================
         trip.setAuditTrail(request.getAuditTrail());
 
-        /* ========================
-           DEFAULT VALUES
-           ======================== */
+        // ======================== DEFAULT VALUES ========================
         trip.setLastStatusUpdate(LocalDateTime.now());
         trip.setIsActive(true);
 
