@@ -73,30 +73,33 @@ public class SecurityConfig {
     // CORS CONFIG (ONLY ONE SOURCE)
     // =========================
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+public CorsConfigurationSource corsConfigurationSource() {
 
-        CorsConfiguration config = new CorsConfiguration();
+    CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowCredentials(true);
+    config.setAllowCredentials(true);
 
-        config.setAllowedOrigins(List.of(
-            "https://trailers-1.onrender.com",
-            "http://localhost:5173"
-        ));
+    config.setAllowedOrigins(List.of(
+        "https://trailers-1.onrender.com",           // Old production
+        "https://sallara-trailers-fe-uat.onrender.com",  // NEW UAT frontend
+        "https://sallara-trailers-fe-UAT.onrender.com",  // NEW UAT frontend (case sensitive)
+        "http://localhost:5173",                     // Local dev
+        "http://localhost:3000"                      // Alternative local dev
+    ));
 
-        config.setAllowedMethods(List.of(
-            "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
-        ));
+    config.setAllowedMethods(List.of(
+        "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
+    ));
 
-        config.setAllowedHeaders(List.of("*"));
+    config.setAllowedHeaders(List.of("*"));
 
-        config.setExposedHeaders(List.of("Authorization"));
+    config.setExposedHeaders(List.of("Authorization"));
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", config);
 
-        return source;
-    }
+    return source;
+}
 
     // =========================
     // PASSWORD ENCODER
