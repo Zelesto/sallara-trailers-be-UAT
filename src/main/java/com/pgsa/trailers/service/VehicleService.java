@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -67,12 +68,24 @@ public class VehicleService {
 
     public List<Vehicle> getVehiclesWithUpcomingService() {
         log.debug("Fetching vehicles with upcoming service");
-        return vehicleRepository.findVehiclesWithUpcomingService();
+        LocalDate today = LocalDate.now();
+        LocalDate thirtyDaysFromNow = today.plusDays(30);
+        return vehicleRepository.findByNextServiceDueBetween(today, thirtyDaysFromNow);
     }
 
     public List<Vehicle> getVehiclesOverdueForService() {
         log.debug("Fetching vehicles overdue for service");
-        return vehicleRepository.findVehiclesOverdueForService();
+        return vehicleRepository.findByNextServiceDueBefore(LocalDate.now());
+    }
+
+    public List<Vehicle> getVehiclesWithExpiredInsurance() {
+        log.debug("Fetching vehicles with expired insurance");
+        return vehicleRepository.findByInsuranceExpiryBefore(LocalDate.now());
+    }
+
+    public List<Vehicle> getVehiclesWithExpiredRoadworthy() {
+        log.debug("Fetching vehicles with expired roadworthy");
+        return vehicleRepository.findByRoadworthyExpiryBefore(LocalDate.now());
     }
 
     @Transactional
@@ -99,7 +112,7 @@ public class VehicleService {
             dto.getVehicleType(), dto.getFuelType(), dto.getStatus(), 
             dto.getYear(), dto.getVin());
 
-        // ===== UPDATE BASIC FIELDS =====
+        // Update basic fields
         if (dto.getRegistrationNumber() != null) {
             vehicle.setRegistrationNumber(dto.getRegistrationNumber());
         }
@@ -122,7 +135,7 @@ public class VehicleService {
             vehicle.setCurrentMileage(dto.getCurrentMileage());
         }
         
-        // ===== HANDLE STATUS ENUM =====
+        // Handle status enum
         if (dto.getStatus() != null) {
             try {
                 vehicle.setStatus(VehicleStatus.valueOf(dto.getStatus().toUpperCase()));
@@ -132,23 +145,19 @@ public class VehicleService {
             }
         }
         
-        // ===== HANDLE VEHICLE TYPE ENUM =====
+        // Handle vehicle type enum
         if (dto.getVehicleType() != null && !dto.getVehicleType().isEmpty()) {
             try {
                 String vehicleTypeStr = dto.getVehicleType().trim().toUpperCase();
-                log.info("Converting vehicle type: '{}' to enum", vehicleTypeStr);
-                
                 VehicleType vehicleType = VehicleType.valueOf(vehicleTypeStr);
                 vehicle.setVehicleType(vehicleType);
                 log.info("✅ Set vehicle type to: {}", vehicleType);
             } catch (IllegalArgumentException e) {
-                log.error("❌ Invalid vehicle type: '{}'. Available values: {}", 
-                    dto.getVehicleType(), 
-                    java.util.Arrays.toString(VehicleType.values()));
+                log.error("❌ Invalid vehicle type: '{}'", dto.getVehicleType());
             }
         }
         
-        // ===== UPDATE OTHER FIELDS =====
+        // Update other fields
         if (dto.getAvgConsumption() != null) {
             vehicle.setAvgConsumption(dto.getAvgConsumption());
         }
@@ -237,7 +246,7 @@ public class VehicleService {
             vehicle.setInsuranceExpiryDate(dto.getInsuranceExpiryDate());
         }
 
-        // ===== HANDLE DRIVER ASSIGNMENT =====
+        // Handle driver assignment
         if (dto.getAssignedDriverId() != null) {
             if (dto.getAssignedDriverId() > 0) {
                 Driver driver = driverRepository.findById(dto.getAssignedDriverId())
@@ -250,7 +259,7 @@ public class VehicleService {
             }
         }
 
-        // ===== UPDATE TIMESTAMP AND RECALCULATE =====
+        // Update timestamp and recalculate
         vehicle.setUpdatedAt(LocalDateTime.now());
         vehicle.calculateNextService();
 
