@@ -57,57 +57,94 @@ public class VehicleService {
     public Vehicle updateVehicle(Long id, VehicleDTO dto) {
         log.info("Updating vehicle ID: {} with DTO: {}", id, dto);
         
-        // Log the DTO values that matter
         log.info("DTO - make: {}, model: {}, vehicleType: {}, fuelType: {}, status: {}", 
             dto.getMake(), dto.getModel(), dto.getVehicleType(), dto.getFuelType(), dto.getStatus());
 
         Vehicle vehicle = getVehicleById(id);
         
-        // Log current vehicle values
         log.info("Current vehicle - make: {}, model: {}, vehicleType: {}, fuelType: {}, status: {}", 
             vehicle.getMake(), vehicle.getModel(), vehicle.getVehicleType(), vehicle.getFuelType(), vehicle.getStatus());
 
-        // Update all fields - only if not null
-        updateField(dto.getRegistrationNumber(), vehicle::setRegistrationNumber);
-        updateField(dto.getVin(), vehicle::setVin);
-        updateField(dto.getMake(), vehicle::setMake);
-        updateField(dto.getModel(), vehicle::setModel);
-        updateField(dto.getYear(), vehicle::setYear);
-        updateField(dto.getFuelType(), vehicle::setFuelType);
-        updateField(dto.getCurrentMileage(), vehicle::setCurrentMileage);
+        // Basic fields
+        if (dto.getRegistrationNumber() != null) {
+            vehicle.setRegistrationNumber(dto.getRegistrationNumber());
+        }
+        if (dto.getVin() != null) {
+            vehicle.setVin(dto.getVin());
+        }
+        if (dto.getMake() != null) {
+            vehicle.setMake(dto.getMake());
+        }
+        if (dto.getModel() != null) {
+            vehicle.setModel(dto.getModel());
+        }
+        if (dto.getYear() != null) {
+            vehicle.setYear(dto.getYear());
+        }
+        if (dto.getFuelType() != null) {
+            vehicle.setFuelType(dto.getFuelType());
+        }
+        if (dto.getCurrentMileage() != null) {
+            vehicle.setCurrentMileage(dto.getCurrentMileage());
+        }
         
-        // Handle status enum conversion
+        // Status enum conversion
         if (dto.getStatus() != null) {
             try {
-                vehicle.setStatus(VehicleStatus.valueOf(dto.getStatus()));
+                vehicle.setStatus(VehicleStatus.valueOf(dto.getStatus().toUpperCase()));
                 log.info("Set status to: {}", vehicle.getStatus());
             } catch (IllegalArgumentException e) {
                 log.warn("Invalid status value: {}, keeping current: {}", dto.getStatus(), vehicle.getStatus());
             }
         }
         
-        updateField(dto.getCreatedBy(), vehicle::setCreatedBy);
-        updateField(dto.getUpdatedBy(), vehicle::setUpdatedBy);
-        updateField(dto.getAvgConsumption(), vehicle::setAvgConsumption);
-        updateField(dto.getCurrentOdometer(), vehicle::setCurrentOdometer);
-        updateField(dto.getLastServiceDate(), vehicle::setLastServiceDate);
-        updateField(dto.getLastServiceOdometer(), vehicle::setLastServiceOdometer);
-        updateField(dto.getServiceIntervalDays(), vehicle::setServiceIntervalDays);
-        updateField(dto.getServiceIntervalKm(), vehicle::setServiceIntervalKm);
-        updateField(dto.getInsurancePolicyNumber(), vehicle::setInsurancePolicyNumber);
-        updateField(dto.getInsuranceExpiry(), vehicle::setInsuranceExpiry);
-        updateField(dto.getRoadworthyExpiry(), vehicle::setRoadworthyExpiry);
-        updateField(dto.getFleetNumber(), vehicle::setFleetNumber);
-        updateField(dto.getGpsTrackerId(), vehicle::setGpsTrackerId);
-        updateField(dto.getMaintenanceStatus(), vehicle::setMaintenanceStatus);
-        updateField(dto.getNextServiceDue(), vehicle::setNextServiceDue);
-        updateField(dto.getNextServiceOdometer(), vehicle::setNextServiceOdometer);
-        updateField(dto.getIncidentsLogged(), vehicle::setIncidentsLogged);
-        updateField(dto.getNotes(), vehicle::setNotes);
-        updateField(dto.getAuditTrail(), vehicle::setAuditTrail);
-        updateField(dto.getCategory(), vehicle::setCategory);
+        // Service fields
+        if (dto.getAvgConsumption() != null) {
+            vehicle.setAvgConsumption(dto.getAvgConsumption());
+        }
+        if (dto.getCurrentOdometer() != null) {
+            vehicle.setCurrentOdometer(dto.getCurrentOdometer());
+        }
+        if (dto.getLastServiceDate() != null) {
+            vehicle.setLastServiceDate(dto.getLastServiceDate());
+        }
+        if (dto.getLastServiceOdometer() != null) {
+            vehicle.setLastServiceOdometer(dto.getLastServiceOdometer());
+        }
+        if (dto.getServiceIntervalDays() != null) {
+            vehicle.setServiceIntervalDays(dto.getServiceIntervalDays());
+        }
+        if (dto.getServiceIntervalKm() != null) {
+            vehicle.setServiceIntervalKm(dto.getServiceIntervalKm());
+        }
+        if (dto.getMaintenanceStatus() != null) {
+            vehicle.setMaintenanceStatus(dto.getMaintenanceStatus());
+        }
+        if (dto.getNextServiceDue() != null) {
+            vehicle.setNextServiceDue(dto.getNextServiceDue());
+        }
+        if (dto.getNextServiceOdometer() != null) {
+            vehicle.setNextServiceOdometer(dto.getNextServiceOdometer());
+        }
         
-        // ✅ CRITICAL FIX: Handle vehicleType enum conversion with better logging
+        // Insurance fields
+        if (dto.getInsurancePolicyNumber() != null) {
+            vehicle.setInsurancePolicyNumber(dto.getInsurancePolicyNumber());
+        }
+        if (dto.getInsuranceExpiry() != null) {
+            vehicle.setInsuranceExpiry(dto.getInsuranceExpiry());
+        }
+        if (dto.getRoadworthyExpiry() != null) {
+            vehicle.setRoadworthyExpiry(dto.getRoadworthyExpiry());
+        }
+        if (dto.getInsuranceProvider() != null) {
+            vehicle.setInsuranceProvider(dto.getInsuranceProvider());
+        }
+        if (dto.getInsuranceExpiryDate() != null) {
+            vehicle.setInsuranceExpiryDate(dto.getInsuranceExpiryDate());
+        }
+        
+        // Vehicle type enum conversion
         if (dto.getVehicleType() != null) {
             try {
                 VehicleType vehicleType = VehicleType.valueOf(dto.getVehicleType().toUpperCase());
@@ -116,23 +153,67 @@ public class VehicleService {
             } catch (IllegalArgumentException e) {
                 log.warn("❌ Invalid vehicle type: {}, keeping current value: {}", 
                     dto.getVehicleType(), vehicle.getVehicleType());
-                // Keep existing value - don't set to null
             }
-        } else {
-            log.info("Vehicle type is null in DTO, keeping current value: {}", vehicle.getVehicleType());
         }
         
-        updateField(dto.getIsActive(), vehicle::setIsActive);
-        updateField(dto.getVersion(), vehicle::setVersion);
-        updateField(dto.getCurrentValue(), vehicle::setCurrentValue);
-        updateField(dto.getPurchaseDate(), vehicle::setPurchaseDate);
-        updateField(dto.getPurchasePrice(), vehicle::setPurchasePrice);
-        updateField(dto.getMaintenanceCost(), vehicle::setMaintenanceCost);
-        updateField(dto.getLastMaintenanceDate(), vehicle::setLastMaintenanceDate);
-        updateField(dto.getNextMaintenanceDue(), vehicle::setNextMaintenanceDue);
-        updateField(dto.getFuelEfficiency(), vehicle::setFuelEfficiency);
-        updateField(dto.getInsuranceProvider(), vehicle::setInsuranceProvider);
-        updateField(dto.getInsuranceExpiryDate(), vehicle::setInsuranceExpiryDate);
+        // Other fields
+        if (dto.getFleetNumber() != null) {
+            vehicle.setFleetNumber(dto.getFleetNumber());
+        }
+        if (dto.getGpsTrackerId() != null) {
+            vehicle.setGpsTrackerId(dto.getGpsTrackerId());
+        }
+        if (dto.getIncidentsLogged() != null) {
+            vehicle.setIncidentsLogged(dto.getIncidentsLogged());
+        }
+        if (dto.getNotes() != null) {
+            vehicle.setNotes(dto.getNotes());
+        }
+        if (dto.getAuditTrail() != null) {
+            vehicle.setAuditTrail(dto.getAuditTrail());
+        }
+        if (dto.getCategory() != null) {
+            vehicle.setCategory(dto.getCategory());
+        }
+        if (dto.getCreatedBy() != null) {
+            vehicle.setCreatedBy(dto.getCreatedBy());
+        }
+        if (dto.getUpdatedBy() != null) {
+            vehicle.setUpdatedBy(dto.getUpdatedBy());
+        }
+        
+        // Status fields
+        if (dto.getIsActive() != null) {
+            vehicle.setIsActive(dto.getIsActive());
+        }
+        if (dto.getVersion() != null) {
+            vehicle.setVersion(dto.getVersion());
+        }
+        
+        // Financial fields
+        if (dto.getCurrentValue() != null) {
+            vehicle.setCurrentValue(dto.getCurrentValue());
+        }
+        if (dto.getPurchaseDate() != null) {
+            vehicle.setPurchaseDate(dto.getPurchaseDate());
+        }
+        if (dto.getPurchasePrice() != null) {
+            vehicle.setPurchasePrice(dto.getPurchasePrice());
+        }
+        if (dto.getMaintenanceCost() != null) {
+            vehicle.setMaintenanceCost(dto.getMaintenanceCost());
+        }
+        if (dto.getFuelEfficiency() != null) {
+            vehicle.setFuelEfficiency(dto.getFuelEfficiency());
+        }
+        
+        // Maintenance dates
+        if (dto.getLastMaintenanceDate() != null) {
+            vehicle.setLastMaintenanceDate(dto.getLastMaintenanceDate());
+        }
+        if (dto.getNextMaintenanceDue() != null) {
+            vehicle.setNextMaintenanceDue(dto.getNextMaintenanceDue());
+        }
 
         // Handle driver assignment
         if (dto.getAssignedDriverId() != null) {
@@ -153,7 +234,6 @@ public class VehicleService {
         // Recalculate next service
         vehicle.calculateNextService();
 
-        // Log before saving
         log.info("Saving vehicle - registration: {}, make: {}, model: {}, vehicleType: {}, status: {}, fuelType: {}", 
             vehicle.getRegistrationNumber(), 
             vehicle.getMake(), 
@@ -169,13 +249,6 @@ public class VehicleService {
         } catch (Exception e) {
             log.error("❌ Failed to save vehicle: {}", e.getMessage(), e);
             throw e;
-        }
-    }
-
-    // Helper method to update field if value is not null
-    private <T> void updateField(T value, java.util.function.Consumer<T> setter) {
-        if (value != null) {
-            setter.accept(value);
         }
     }
 
