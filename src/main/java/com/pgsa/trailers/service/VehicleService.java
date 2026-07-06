@@ -61,47 +61,128 @@ public class VehicleService {
      * Update vehicle
      */
     @Transactional
-    public Vehicle updateVehicle(Long id, Vehicle vehicleDetails) {
-        log.info("Updating vehicle ID: {}", id);
+public Vehicle updateVehicle(Long id, VehicleDTO vehicleDTO) {
+    log.info("Updating vehicle ID: {} with DTO: {}", id, vehicleDTO);
 
-        Vehicle vehicle = getVehicleById(id);
+    Vehicle vehicle = getVehicleById(id);
 
-        // Update basic fields
-        vehicle.setRegistrationNumber(vehicleDetails.getRegistrationNumber());
-        vehicle.setVin(vehicleDetails.getVin());
-        vehicle.setMake(vehicleDetails.getMake());
-        vehicle.setModel(vehicleDetails.getModel());
-        vehicle.setYear(vehicleDetails.getYear());
-        vehicle.setFuelType(vehicleDetails.getFuelType());
-        vehicle.setCurrentMileage(vehicleDetails.getCurrentMileage());
-        vehicle.setAvgConsumption(vehicleDetails.getAvgConsumption());
-        vehicle.setCurrentOdometer(vehicleDetails.getCurrentOdometer());
-        vehicle.setStatus(vehicleDetails.getStatus());
-
-        // Update service-related fields
-        vehicle.setLastServiceDate(vehicleDetails.getLastServiceDate());
-        vehicle.setLastServiceOdometer(vehicleDetails.getLastServiceOdometer());
-        vehicle.setServiceIntervalDays(vehicleDetails.getServiceIntervalDays());
-        vehicle.setServiceIntervalKm(vehicleDetails.getServiceIntervalKm());
-        vehicle.setNextServiceDue(vehicleDetails.getNextServiceDue());
-        vehicle.setNextServiceOdometer(vehicleDetails.getNextServiceOdometer());
-        vehicle.setMaintenanceStatus(vehicleDetails.getMaintenanceStatus());
-
-        // Update insurance and roadworthy fields
-        vehicle.setInsurancePolicyNumber(vehicleDetails.getInsurancePolicyNumber());
-        vehicle.setInsuranceExpiry(vehicleDetails.getInsuranceExpiry());
-        vehicle.setRoadworthyExpiry(vehicleDetails.getRoadworthyExpiry());
-
-        // Update other fields
-        vehicle.setFleetNumber(vehicleDetails.getFleetNumber());
-        vehicle.setAssignedDriver(vehicleDetails.getAssignedDriver());
-        vehicle.setGpsTrackerId(vehicleDetails.getGpsTrackerId());
-        vehicle.setIncidentsLogged(vehicleDetails.getIncidentsLogged());
-        vehicle.setNotes(vehicleDetails.getNotes());
-        vehicle.setAuditTrail(vehicleDetails.getAuditTrail());
-
-        return vehicleRepository.save(vehicle);
+    // Update basic fields - only if not null
+    if (vehicleDTO.getRegistration_number() != null) {
+        vehicle.setRegistrationNumber(vehicleDTO.getRegistration_number());
     }
+    if (vehicleDTO.getVin() != null) {
+        vehicle.setVin(vehicleDTO.getVin());
+    }
+    if (vehicleDTO.getMake() != null) {
+        vehicle.setMake(vehicleDTO.getMake());
+    }
+    if (vehicleDTO.getModel() != null) {
+        vehicle.setModel(vehicleDTO.getModel());
+    }
+    if (vehicleDTO.getYear() != null) {
+        vehicle.setYear(vehicleDTO.getYear());
+    }
+    if (vehicleDTO.getFuelType() != null) {
+        vehicle.setFuelType(vehicleDTO.getFuelType());
+    }
+    if (vehicleDTO.getCurrentMileage() != null) {
+        vehicle.setCurrentMileage(vehicleDTO.getCurrentMileage());
+    }
+    if (vehicleDTO.getAvgConsumption() != null) {
+        vehicle.setAvgConsumption(vehicleDTO.getAvgConsumption());
+    }
+    if (vehicleDTO.getCurrentOdometer() != null) {
+        vehicle.setCurrentOdometer(vehicleDTO.getCurrentOdometer());
+    }
+    if (vehicleDTO.getStatus() != null) {
+        vehicle.setStatus(VehicleStatus.valueOf(vehicleDTO.getStatus()));
+    }
+
+    // Update service-related fields
+    if (vehicleDTO.getLastServiceDate() != null) {
+        vehicle.setLastServiceDate(vehicleDTO.getLastServiceDate());
+    }
+    if (vehicleDTO.getLastServiceOdometer() != null) {
+        vehicle.setLastServiceOdometer(vehicleDTO.getLastServiceOdometer());
+    }
+    if (vehicleDTO.getServiceIntervalDays() != null) {
+        vehicle.setServiceIntervalDays(vehicleDTO.getServiceIntervalDays());
+    }
+    if (vehicleDTO.getServiceIntervalKm() != null) {
+        vehicle.setServiceIntervalKm(vehicleDTO.getServiceIntervalKm());
+    }
+    if (vehicleDTO.getNextServiceDue() != null) {
+        vehicle.setNextServiceDue(vehicleDTO.getNextServiceDue());
+    }
+    if (vehicleDTO.getNextServiceOdometer() != null) {
+        vehicle.setNextServiceOdometer(vehicleDTO.getNextServiceOdometer());
+    }
+    if (vehicleDTO.getMaintenanceStatus() != null) {
+        vehicle.setMaintenanceStatus(vehicleDTO.getMaintenanceStatus());
+    }
+
+    // Update insurance and roadworthy fields
+    if (vehicleDTO.getInsurancePolicyNumber() != null) {
+        vehicle.setInsurancePolicyNumber(vehicleDTO.getInsurancePolicyNumber());
+    }
+    if (vehicleDTO.getInsuranceExpiry() != null) {
+        vehicle.setInsuranceExpiry(vehicleDTO.getInsuranceExpiry());
+    }
+    if (vehicleDTO.getRoadworthyExpiry() != null) {
+        vehicle.setRoadworthyExpiry(vehicleDTO.getRoadworthyExpiry());
+    }
+
+    // Update other fields
+    if (vehicleDTO.getFleetNumber() != null) {
+        vehicle.setFleetNumber(vehicleDTO.getFleetNumber());
+    }
+    if (vehicleDTO.getGpsTrackerId() != null) {
+        vehicle.setGpsTrackerId(vehicleDTO.getGpsTrackerId());
+    }
+    if (vehicleDTO.getIncidentsLogged() != null) {
+        vehicle.setIncidentsLogged(vehicleDTO.getIncidentsLogged());
+    }
+    if (vehicleDTO.getNotes() != null) {
+        vehicle.setNotes(vehicleDTO.getNotes());
+    }
+    if (vehicleDTO.getAuditTrail() != null) {
+        vehicle.setAuditTrail(vehicleDTO.getAuditTrail());
+    }
+    if (vehicleDTO.getCategory() != null) {
+        vehicle.setCategory(vehicleDTO.getCategory());
+    }
+    if (vehicleDTO.getVehicleType() != null) {
+        vehicle.setVehicleType(vehicleDTO.getVehicleType());
+    }
+    if (vehicleDTO.getPurchaseDate() != null) {
+        vehicle.setPurchaseDate(vehicleDTO.getPurchaseDate());
+    }
+    if (vehicleDTO.getPurchasePrice() != null) {
+        vehicle.setPurchasePrice(vehicleDTO.getPurchasePrice());
+    }
+    if (vehicleDTO.getCurrentValue() != null) {
+        vehicle.setCurrentValue(vehicleDTO.getCurrentValue());
+    }
+
+    // CRITICAL: Handle driver assignment properly
+    if (vehicleDTO.getAssignedDriverId() != null) {
+        if (vehicleDTO.getAssignedDriverId() > 0) {
+            // Find and assign the driver
+            Driver driver = driverRepository.findById(vehicleDTO.getAssignedDriverId())
+                .orElseThrow(() -> new RuntimeException("Driver not found with id: " + vehicleDTO.getAssignedDriverId()));
+            vehicle.setAssignedDriver(driver);
+        } else {
+            // If ID is 0 or negative, unassign the driver
+            vehicle.setAssignedDriver(null);
+        }
+    }
+    // If assignedDriverId is null, don't change the driver assignment
+
+    // Recalculate next service date based on updated values
+    vehicle.calculateNextService();
+
+    return vehicleRepository.save(vehicle);
+}
 
     /**
      * Delete vehicle
