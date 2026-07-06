@@ -40,6 +40,41 @@ public class VehicleService {
                 .orElseThrow(() -> new RuntimeException("Vehicle not found with registration: " + registrationNumber));
     }
 
+    public List<Vehicle> getVehiclesByStatus(String status) {
+        log.debug("Fetching vehicles by status: {}", status);
+        return vehicleRepository.findByStatus(status);
+    }
+
+    public List<Vehicle> getActiveVehicles() {
+        log.debug("Fetching active vehicles");
+        return vehicleRepository.findByStatusIn(List.of("ACTIVE", "AVAILABLE"));
+    }
+
+    public List<Vehicle> searchVehicles(String searchTerm) {
+        log.debug("Searching vehicles by: {}", searchTerm);
+        return vehicleRepository.searchVehicles(searchTerm);
+    }
+
+    public List<Vehicle> getVehiclesByDriver(Long driverId) {
+        log.debug("Fetching vehicles for driver: {}", driverId);
+        return vehicleRepository.findByAssignedDriverId(driverId);
+    }
+
+    public List<Vehicle> getAvailableVehicles() {
+        log.debug("Fetching available vehicles");
+        return vehicleRepository.findByAssignedDriverIsNull();
+    }
+
+    public List<Vehicle> getVehiclesWithUpcomingService() {
+        log.debug("Fetching vehicles with upcoming service");
+        return vehicleRepository.findVehiclesWithUpcomingService();
+    }
+
+    public List<Vehicle> getVehiclesOverdueForService() {
+        log.debug("Fetching vehicles overdue for service");
+        return vehicleRepository.findVehiclesOverdueForService();
+    }
+
     @Transactional
     public Vehicle createVehicle(Vehicle vehicle) {
         log.info("Creating vehicle with registration: {}", vehicle.getRegistrationNumber());
@@ -57,15 +92,14 @@ public class VehicleService {
     public Vehicle updateVehicle(Long id, VehicleDTO dto) {
         log.info("Updating vehicle ID: {} with DTO: {}", id, dto);
         
-        log.info("DTO - make: {}, model: {}, vehicleType: {}, fuelType: {}, status: {}", 
-            dto.getMake(), dto.getModel(), dto.getVehicleType(), dto.getFuelType(), dto.getStatus());
-
         Vehicle vehicle = getVehicleById(id);
         
-        log.info("Current vehicle - make: {}, model: {}, vehicleType: {}, fuelType: {}, status: {}", 
-            vehicle.getMake(), vehicle.getModel(), vehicle.getVehicleType(), vehicle.getFuelType(), vehicle.getStatus());
+        log.info("DTO fields - registrationNumber: {}, make: {}, model: {}, vehicleType: {}, fuelType: {}, status: {}, year: {}, vin: {}", 
+            dto.getRegistrationNumber(), dto.getMake(), dto.getModel(), 
+            dto.getVehicleType(), dto.getFuelType(), dto.getStatus(), 
+            dto.getYear(), dto.getVin());
 
-        // Basic fields
+        // ===== UPDATE BASIC FIELDS =====
         if (dto.getRegistrationNumber() != null) {
             vehicle.setRegistrationNumber(dto.getRegistrationNumber());
         }
@@ -88,17 +122,33 @@ public class VehicleService {
             vehicle.setCurrentMileage(dto.getCurrentMileage());
         }
         
-        // Status enum conversion
+        // ===== HANDLE STATUS ENUM =====
         if (dto.getStatus() != null) {
             try {
                 vehicle.setStatus(VehicleStatus.valueOf(dto.getStatus().toUpperCase()));
-                log.info("Set status to: {}", vehicle.getStatus());
+                log.info("✅ Set status to: {}", vehicle.getStatus());
             } catch (IllegalArgumentException e) {
-                log.warn("Invalid status value: {}, keeping current: {}", dto.getStatus(), vehicle.getStatus());
+                log.warn("❌ Invalid status: {}, keeping current: {}", dto.getStatus(), vehicle.getStatus());
             }
         }
         
-        // Service fields
+        // ===== HANDLE VEHICLE TYPE ENUM =====
+        if (dto.getVehicleType() != null && !dto.getVehicleType().isEmpty()) {
+            try {
+                String vehicleTypeStr = dto.getVehicleType().trim().toUpperCase();
+                log.info("Converting vehicle type: '{}' to enum", vehicleTypeStr);
+                
+                VehicleType vehicleType = VehicleType.valueOf(vehicleTypeStr);
+                vehicle.setVehicleType(vehicleType);
+                log.info("✅ Set vehicle type to: {}", vehicleType);
+            } catch (IllegalArgumentException e) {
+                log.error("❌ Invalid vehicle type: '{}'. Available values: {}", 
+                    dto.getVehicleType(), 
+                    java.util.Arrays.toString(VehicleType.values()));
+            }
+        }
+        
+        // ===== UPDATE OTHER FIELDS =====
         if (dto.getAvgConsumption() != null) {
             vehicle.setAvgConsumption(dto.getAvgConsumption());
         }
@@ -117,17 +167,6 @@ public class VehicleService {
         if (dto.getServiceIntervalKm() != null) {
             vehicle.setServiceIntervalKm(dto.getServiceIntervalKm());
         }
-        if (dto.getMaintenanceStatus() != null) {
-            vehicle.setMaintenanceStatus(dto.getMaintenanceStatus());
-        }
-        if (dto.getNextServiceDue() != null) {
-            vehicle.setNextServiceDue(dto.getNextServiceDue());
-        }
-        if (dto.getNextServiceOdometer() != null) {
-            vehicle.setNextServiceOdometer(dto.getNextServiceOdometer());
-        }
-        
-        // Insurance fields
         if (dto.getInsurancePolicyNumber() != null) {
             vehicle.setInsurancePolicyNumber(dto.getInsurancePolicyNumber());
         }
@@ -137,31 +176,20 @@ public class VehicleService {
         if (dto.getRoadworthyExpiry() != null) {
             vehicle.setRoadworthyExpiry(dto.getRoadworthyExpiry());
         }
-        if (dto.getInsuranceProvider() != null) {
-            vehicle.setInsuranceProvider(dto.getInsuranceProvider());
-        }
-        if (dto.getInsuranceExpiryDate() != null) {
-            vehicle.setInsuranceExpiryDate(dto.getInsuranceExpiryDate());
-        }
-        
-        // Vehicle type enum conversion
-        if (dto.getVehicleType() != null) {
-            try {
-                VehicleType vehicleType = VehicleType.valueOf(dto.getVehicleType().toUpperCase());
-                vehicle.setVehicleType(vehicleType);
-                log.info("✅ Set vehicle type to: {}", vehicleType);
-            } catch (IllegalArgumentException e) {
-                log.warn("❌ Invalid vehicle type: {}, keeping current value: {}", 
-                    dto.getVehicleType(), vehicle.getVehicleType());
-            }
-        }
-        
-        // Other fields
         if (dto.getFleetNumber() != null) {
             vehicle.setFleetNumber(dto.getFleetNumber());
         }
         if (dto.getGpsTrackerId() != null) {
             vehicle.setGpsTrackerId(dto.getGpsTrackerId());
+        }
+        if (dto.getMaintenanceStatus() != null) {
+            vehicle.setMaintenanceStatus(dto.getMaintenanceStatus());
+        }
+        if (dto.getNextServiceDue() != null) {
+            vehicle.setNextServiceDue(dto.getNextServiceDue());
+        }
+        if (dto.getNextServiceOdometer() != null) {
+            vehicle.setNextServiceOdometer(dto.getNextServiceOdometer());
         }
         if (dto.getIncidentsLogged() != null) {
             vehicle.setIncidentsLogged(dto.getIncidentsLogged());
@@ -175,22 +203,12 @@ public class VehicleService {
         if (dto.getCategory() != null) {
             vehicle.setCategory(dto.getCategory());
         }
-        if (dto.getCreatedBy() != null) {
-            vehicle.setCreatedBy(dto.getCreatedBy());
-        }
-        if (dto.getUpdatedBy() != null) {
-            vehicle.setUpdatedBy(dto.getUpdatedBy());
-        }
-        
-        // Status fields
         if (dto.getIsActive() != null) {
             vehicle.setIsActive(dto.getIsActive());
         }
         if (dto.getVersion() != null) {
             vehicle.setVersion(dto.getVersion());
         }
-        
-        // Financial fields
         if (dto.getCurrentValue() != null) {
             vehicle.setCurrentValue(dto.getCurrentValue());
         }
@@ -203,19 +221,23 @@ public class VehicleService {
         if (dto.getMaintenanceCost() != null) {
             vehicle.setMaintenanceCost(dto.getMaintenanceCost());
         }
-        if (dto.getFuelEfficiency() != null) {
-            vehicle.setFuelEfficiency(dto.getFuelEfficiency());
-        }
-        
-        // Maintenance dates
         if (dto.getLastMaintenanceDate() != null) {
             vehicle.setLastMaintenanceDate(dto.getLastMaintenanceDate());
         }
         if (dto.getNextMaintenanceDue() != null) {
             vehicle.setNextMaintenanceDue(dto.getNextMaintenanceDue());
         }
+        if (dto.getFuelEfficiency() != null) {
+            vehicle.setFuelEfficiency(dto.getFuelEfficiency());
+        }
+        if (dto.getInsuranceProvider() != null) {
+            vehicle.setInsuranceProvider(dto.getInsuranceProvider());
+        }
+        if (dto.getInsuranceExpiryDate() != null) {
+            vehicle.setInsuranceExpiryDate(dto.getInsuranceExpiryDate());
+        }
 
-        // Handle driver assignment
+        // ===== HANDLE DRIVER ASSIGNMENT =====
         if (dto.getAssignedDriverId() != null) {
             if (dto.getAssignedDriverId() > 0) {
                 Driver driver = driverRepository.findById(dto.getAssignedDriverId())
@@ -228,27 +250,24 @@ public class VehicleService {
             }
         }
 
-        // Update timestamp
+        // ===== UPDATE TIMESTAMP AND RECALCULATE =====
         vehicle.setUpdatedAt(LocalDateTime.now());
-        
-        // Recalculate next service
         vehicle.calculateNextService();
 
-        log.info("Saving vehicle - registration: {}, make: {}, model: {}, vehicleType: {}, status: {}, fuelType: {}", 
+        log.info("Saving vehicle with values - registration: {}, make: {}, model: {}, vehicleType: {}, status: {}", 
             vehicle.getRegistrationNumber(), 
             vehicle.getMake(), 
             vehicle.getModel(), 
             vehicle.getVehicleType(), 
-            vehicle.getStatus(),
-            vehicle.getFuelType());
+            vehicle.getStatus());
 
         try {
             Vehicle saved = vehicleRepository.save(vehicle);
-            log.info("✅ Successfully saved vehicle ID: {}", saved.getId());
+            log.info("✅ Successfully updated vehicle ID: {}", saved.getId());
             return saved;
         } catch (Exception e) {
-            log.error("❌ Failed to save vehicle: {}", e.getMessage(), e);
-            throw e;
+            log.error("❌ Failed to update vehicle: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to update vehicle: " + e.getMessage(), e);
         }
     }
 
@@ -257,15 +276,5 @@ public class VehicleService {
         log.info("Deleting vehicle ID: {}", id);
         Vehicle vehicle = getVehicleById(id);
         vehicleRepository.delete(vehicle);
-    }
-
-    public List<Vehicle> getVehiclesByStatus(String status) {
-        log.debug("Fetching vehicles by status: {}", status);
-        return vehicleRepository.findByStatus(status);
-    }
-
-    public List<Vehicle> getActiveVehicles() {
-        log.debug("Fetching active vehicles");
-        return vehicleRepository.findByStatusIn(List.of("ACTIVE", "AVAILABLE"));
     }
 }
