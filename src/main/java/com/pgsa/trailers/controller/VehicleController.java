@@ -1,5 +1,6 @@
 package com.pgsa.trailers.controller;
 
+import com.pgsa.trailers.dto.VehicleDTO; 
 import com.pgsa.trailers.entity.assets.Vehicle;
 import com.pgsa.trailers.service.VehicleService;
 import lombok.RequiredArgsConstructor;
