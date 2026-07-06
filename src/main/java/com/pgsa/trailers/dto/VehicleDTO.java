@@ -21,4 +21,5 @@ public class VehicleDTO {
     private LocalDate lastServiceDate;
     private Integer serviceIntervalDays;
     private BigDecimal serviceIntervalKm;
+    private Long assignedDriverId;
 }
