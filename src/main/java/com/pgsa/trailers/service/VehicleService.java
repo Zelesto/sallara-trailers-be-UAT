@@ -1,12 +1,18 @@
 package com.pgsa.trailers.service;
 
+import com.pgsa.trailers.dto.VehicleDTO;
+import com.pgsa.trailers.entity.assets.Driver;
 import com.pgsa.trailers.entity.assets.Vehicle;
+import com.pgsa.trailers.enums.VehicleStatus;
+import com.pgsa.trailers.enums.VehicleType;
+import com.pgsa.trailers.repository.DriverRepository;
 import com.pgsa.trailers.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Slf4j
@@ -15,97 +21,117 @@ import java.util.List;
 public class VehicleService {
 
     private final VehicleRepository vehicleRepository;
+    private final DriverRepository driverRepository;
 
-    /**
-     * Get all vehicles
-     */
     public List<Vehicle> getAllVehicles() {
         log.debug("Fetching all vehicles");
         return vehicleRepository.findAll();
     }
 
-    /**
-     * Get vehicle by ID
-     */
     public Vehicle getVehicleById(Long id) {
         log.debug("Fetching vehicle by ID: {}", id);
         return vehicleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Vehicle not found with ID: " + id));
     }
 
-    /**
-     * Get vehicle by registration number
-     */
     public Vehicle getVehicleByRegistration(String registrationNumber) {
         log.debug("Fetching vehicle by registration: {}", registrationNumber);
         return vehicleRepository.findByRegistrationNumber(registrationNumber)
                 .orElseThrow(() -> new RuntimeException("Vehicle not found with registration: " + registrationNumber));
     }
 
-    /**
-     * Create a new vehicle
-     */
     @Transactional
     public Vehicle createVehicle(Vehicle vehicle) {
         log.info("Creating vehicle with registration: {}", vehicle.getRegistrationNumber());
 
-        // Check if vehicle with same registration already exists
         if (vehicleRepository.findByRegistrationNumber(vehicle.getRegistrationNumber()).isPresent()) {
             throw new RuntimeException("Vehicle with registration " + vehicle.getRegistrationNumber() + " already exists");
         }
 
+        vehicle.setCreatedAt(LocalDateTime.now());
+        vehicle.setUpdatedAt(LocalDateTime.now());
         return vehicleRepository.save(vehicle);
     }
 
-    /**
-     * Update vehicle
-     */
     @Transactional
-    public Vehicle updateVehicle(Long id, Vehicle vehicleDetails) {
-        log.info("Updating vehicle ID: {}", id);
+    public Vehicle updateVehicle(Long id, VehicleDTO dto) {
+        log.info("Updating vehicle ID: {} with DTO: {}", id, dto);
 
         Vehicle vehicle = getVehicleById(id);
 
-        // Update basic fields
-        vehicle.setRegistrationNumber(vehicleDetails.getRegistrationNumber());
-        vehicle.setVin(vehicleDetails.getVin());
-        vehicle.setMake(vehicleDetails.getMake());
-        vehicle.setModel(vehicleDetails.getModel());
-        vehicle.setYear(vehicleDetails.getYear());
-        vehicle.setFuelType(vehicleDetails.getFuelType());
-        vehicle.setCurrentMileage(vehicleDetails.getCurrentMileage());
-        vehicle.setAvgConsumption(vehicleDetails.getAvgConsumption());
-        vehicle.setCurrentOdometer(vehicleDetails.getCurrentOdometer());
-        vehicle.setStatus(vehicleDetails.getStatus());
+        // Update all fields - only if not null
+        updateField(dto.getRegistrationNumber(), vehicle::setRegistrationNumber);
+        updateField(dto.getVin(), vehicle::setVin);
+        updateField(dto.getMake(), vehicle::setMake);
+        updateField(dto.getModel(), vehicle::setModel);
+        updateField(dto.getYear(), vehicle::setYear);
+        updateField(dto.getFuelType(), vehicle::setFuelType);
+        updateField(dto.getCurrentMileage(), vehicle::setCurrentMileage);
+        updateField(dto.getStatus(), val -> vehicle.setStatus(VehicleStatus.valueOf(val)));
+        updateField(dto.getCreatedBy(), vehicle::setCreatedBy);
+        updateField(dto.getUpdatedBy(), vehicle::setUpdatedBy);
+        updateField(dto.getAvgConsumption(), vehicle::setAvgConsumption);
+        updateField(dto.getCurrentOdometer(), vehicle::setCurrentOdometer);
+        updateField(dto.getLastServiceDate(), vehicle::setLastServiceDate);
+        updateField(dto.getLastServiceOdometer(), vehicle::setLastServiceOdometer);
+        updateField(dto.getServiceIntervalDays(), vehicle::setServiceIntervalDays);
+        updateField(dto.getServiceIntervalKm(), vehicle::setServiceIntervalKm);
+        updateField(dto.getInsurancePolicyNumber(), vehicle::setInsurancePolicyNumber);
+        updateField(dto.getInsuranceExpiry(), vehicle::setInsuranceExpiry);
+        updateField(dto.getRoadworthyExpiry(), vehicle::setRoadworthyExpiry);
+        updateField(dto.getFleetNumber(), vehicle::setFleetNumber);
+        updateField(dto.getGpsTrackerId(), vehicle::setGpsTrackerId);
+        updateField(dto.getMaintenanceStatus(), vehicle::setMaintenanceStatus);
+        updateField(dto.getNextServiceDue(), vehicle::setNextServiceDue);
+        updateField(dto.getNextServiceOdometer(), vehicle::setNextServiceOdometer);
+        updateField(dto.getIncidentsLogged(), vehicle::setIncidentsLogged);
+        updateField(dto.getNotes(), vehicle::setNotes);
+        updateField(dto.getAuditTrail(), vehicle::setAuditTrail);
+        updateField(dto.getCategory(), vehicle::setCategory);
+        
+        if (dto.getVehicleType() != null) {
+            vehicle.setVehicleType(VehicleType.valueOf(dto.getVehicleType()));
+        }
+        
+        updateField(dto.getIsActive(), vehicle::setIsActive);
+        updateField(dto.getVersion(), vehicle::setVersion);
+        updateField(dto.getCurrentValue(), vehicle::setCurrentValue);
+        updateField(dto.getPurchaseDate(), vehicle::setPurchaseDate);
+        updateField(dto.getPurchasePrice(), vehicle::setPurchasePrice);
+        updateField(dto.getMaintenanceCost(), vehicle::setMaintenanceCost);
+        updateField(dto.getLastMaintenanceDate(), vehicle::setLastMaintenanceDate);
+        updateField(dto.getNextMaintenanceDue(), vehicle::setNextMaintenanceDue);
+        updateField(dto.getFuelEfficiency(), vehicle::setFuelEfficiency);
+        updateField(dto.getInsuranceProvider(), vehicle::setInsuranceProvider);
+        updateField(dto.getInsuranceExpiryDate(), vehicle::setInsuranceExpiryDate);
 
-        // Update service-related fields
-        vehicle.setLastServiceDate(vehicleDetails.getLastServiceDate());
-        vehicle.setLastServiceOdometer(vehicleDetails.getLastServiceOdometer());
-        vehicle.setServiceIntervalDays(vehicleDetails.getServiceIntervalDays());
-        vehicle.setServiceIntervalKm(vehicleDetails.getServiceIntervalKm());
-        vehicle.setNextServiceDue(vehicleDetails.getNextServiceDue());
-        vehicle.setNextServiceOdometer(vehicleDetails.getNextServiceOdometer());
-        vehicle.setMaintenanceStatus(vehicleDetails.getMaintenanceStatus());
+        // Handle driver assignment
+        if (dto.getAssignedDriverId() != null) {
+            if (dto.getAssignedDriverId() > 0) {
+                Driver driver = driverRepository.findById(dto.getAssignedDriverId())
+                    .orElseThrow(() -> new RuntimeException("Driver not found with id: " + dto.getAssignedDriverId()));
+                vehicle.setAssignedDriver(driver);
+            } else {
+                vehicle.setAssignedDriver(null);
+            }
+        }
 
-        // Update insurance and roadworthy fields
-        vehicle.setInsurancePolicyNumber(vehicleDetails.getInsurancePolicyNumber());
-        vehicle.setInsuranceExpiry(vehicleDetails.getInsuranceExpiry());
-        vehicle.setRoadworthyExpiry(vehicleDetails.getRoadworthyExpiry());
-
-        // Update other fields
-        vehicle.setFleetNumber(vehicleDetails.getFleetNumber());
-        vehicle.setAssignedDriver(vehicleDetails.getAssignedDriver());
-        vehicle.setGpsTrackerId(vehicleDetails.getGpsTrackerId());
-        vehicle.setIncidentsLogged(vehicleDetails.getIncidentsLogged());
-        vehicle.setNotes(vehicleDetails.getNotes());
-        vehicle.setAuditTrail(vehicleDetails.getAuditTrail());
+        // Update timestamp
+        vehicle.setUpdatedAt(LocalDateTime.now());
+        
+        // Recalculate next service
+        vehicle.calculateNextService();
 
         return vehicleRepository.save(vehicle);
     }
 
-    /**
-     * Delete vehicle
-     */
+    // Helper method to update field if value is not null
+    private <T> void updateField(T value, java.util.function.Consumer<T> setter) {
+        if (value != null) {
+            setter.accept(value);
+        }
+    }
+
     @Transactional
     public void deleteVehicle(Long id) {
         log.info("Deleting vehicle ID: {}", id);
@@ -113,17 +139,11 @@ public class VehicleService {
         vehicleRepository.delete(vehicle);
     }
 
-    /**
-     * Get vehicles by status
-     */
     public List<Vehicle> getVehiclesByStatus(String status) {
         log.debug("Fetching vehicles by status: {}", status);
         return vehicleRepository.findByStatus(status);
     }
 
-    /**
-     * Get active vehicles
-     */
     public List<Vehicle> getActiveVehicles() {
         log.debug("Fetching active vehicles");
         return vehicleRepository.findByStatusIn(List.of("ACTIVE", "AVAILABLE"));
