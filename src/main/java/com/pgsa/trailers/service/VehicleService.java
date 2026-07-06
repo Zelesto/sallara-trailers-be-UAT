@@ -111,8 +111,8 @@ public class VehicleService {
             vehicle.setServiceIntervalDays(vehicleDTO.getServiceIntervalDays());
         }
         if (vehicleDTO.getServiceIntervalKm() != null) {
-            vehicle.setServiceIntervalKm(vehicleDTO.getServiceIntervalKm());
-        }
+    vehicle.setServiceIntervalKm(vehicleDTO.getServiceIntervalKm().intValue());
+}
 
         // CRITICAL: Handle driver assignment properly
         if (vehicleDTO.getAssignedDriverId() != null) {
