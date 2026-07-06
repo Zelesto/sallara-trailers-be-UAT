@@ -80,18 +80,24 @@ public class VehicleController {
     /**
      * Update vehicle
      */
-    @PutMapping("/{id}")
-    public ResponseEntity<Vehicle> updateVehicle(@PathVariable Long id, @RequestBody Vehicle vehicle) {
-        log.info("PUT /api/vehicles/{} - Updating vehicle", id);
-        try {
-            Vehicle updatedVehicle = vehicleService.updateVehicle(id, vehicle);
-            return ResponseEntity.ok(updatedVehicle);
-        } catch (Exception e) {
-            log.error("Error updating vehicle {}: {}", id, e.getMessage(), e);
-            return ResponseEntity.internalServerError().build();
-        }
+   @PutMapping("/{id}")
+public ResponseEntity<Vehicle> updateVehicle(@PathVariable Long id, @RequestBody VehicleDTO vehicleDTO) {
+    log.info("PUT /api/vehicles/{} - Updating vehicle", id);
+    log.info("Received DTO: registrationNumber={}, make={}, model={}, vehicleType={}, fuelType={}", 
+        vehicleDTO.getRegistrationNumber(),
+        vehicleDTO.getMake(),
+        vehicleDTO.getModel(),
+        vehicleDTO.getVehicleType(),
+        vehicleDTO.getFuelType());
+    try {
+        Vehicle updatedVehicle = vehicleService.updateVehicle(id, vehicleDTO);
+        log.info("✅ Successfully updated vehicle: {}", updatedVehicle);
+        return ResponseEntity.ok(updatedVehicle);
+    } catch (Exception e) {
+        log.error("❌ Error updating vehicle {}: {}", id, e.getMessage(), e);
+        return ResponseEntity.internalServerError().build();
     }
-
+}
     /**
      * Delete vehicle
      */
