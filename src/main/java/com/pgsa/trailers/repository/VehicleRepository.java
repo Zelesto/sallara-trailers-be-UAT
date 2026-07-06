@@ -32,13 +32,13 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
     // Find vehicles by status (String)
     List<Vehicle> findByStatus(String status);
 
-    // Find vehicles by status (Enum)
+    // Find vehicles by status (Enum) - Using different method name
     List<Vehicle> findByVehicleStatus(VehicleStatus status);
 
-    // Find active vehicles by status list
+    // Find active vehicles by status list (String)
     List<Vehicle> findByStatusIn(List<String> statuses);
 
-    // Find active vehicles by status enum list
+    // Find active vehicles by status enum list - Using different method name
     List<Vehicle> findByVehicleStatusIn(List<VehicleStatus> statuses);
 
     // Find vehicles by vehicle type
@@ -50,7 +50,7 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
     // Find vehicles by model
     List<Vehicle> findByModelContainingIgnoreCase(String model);
 
-    // Search vehicles by registration, make, or model
+    // Search vehicles
     @Query("SELECT v FROM Vehicle v WHERE " +
            "LOWER(v.registrationNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(v.make) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
@@ -79,7 +79,7 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
     // Count vehicles by status
     long countByStatus(VehicleStatus status);
 
-    // Find vehicles with upcoming service (next 30 days)
+    // Find vehicles with upcoming service
     @Query("SELECT v FROM Vehicle v WHERE v.nextServiceDue BETWEEN CURRENT_DATE AND CURRENT_DATE + 30")
     List<Vehicle> findVehiclesWithUpcomingService();
 
@@ -100,10 +100,4 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
 
     // Find vehicles by fuel type
     List<Vehicle> findByFuelType(String fuelType);
-
-    // Find vehicles with low mileage (less than specified)
-    List<Vehicle> findByCurrentMileageLessThan(Double mileage);
-
-    // Find vehicles with high mileage (greater than specified)
-    List<Vehicle> findByCurrentMileageGreaterThan(Double mileage);
 }
