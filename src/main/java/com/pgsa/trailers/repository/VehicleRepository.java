@@ -8,35 +8,28 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
-import java.time.LocalDateTime;
-
 
 @Repository
 public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
 
-    // Find by registration number
+    // Basic finders
     Optional<Vehicle> findByRegistrationNumber(String registrationNumber);
     Optional<Vehicle> findByRegistrationNumberIgnoreCase(String registrationNumber);
-
-    // Find by VIN
     Optional<Vehicle> findByVin(String vin);
     Optional<Vehicle> findByVinIgnoreCase(String vin);
-
-    // Find by fleet number
     Optional<Vehicle> findByFleetNumber(String fleetNumber);
 
-    // ✅ KEEP ONLY ONE version of findByStatus
+    // Status finders
     List<Vehicle> findByStatus(String status);
-
-    // ✅ KEEP ONLY ONE version of findByStatusIn
     List<Vehicle> findByStatusIn(List<String> statuses);
 
-    // Find by vehicle type
+    // Vehicle type
     List<Vehicle> findByVehicleType(VehicleType vehicleType);
 
-    // Find by make/model
+    // Make/Model
     List<Vehicle> findByMakeContainingIgnoreCase(String make);
     List<Vehicle> findByModelContainingIgnoreCase(String model);
 
@@ -63,21 +56,13 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
     // Count
     long countByStatus(VehicleStatus status);
 
-    // Service related
-    @Query("SELECT v FROM Vehicle v WHERE v.nextServiceDue BETWEEN CURRENT_DATE AND CURRENT_DATE + 30")
-    List<Vehicle> findVehiclesWithUpcomingService();
+    // ✅ Service related - Using method names (NO @Query annotations)
+    List<Vehicle> findByNextServiceDueBetween(LocalDate start, LocalDate end);
+    List<Vehicle> findByNextServiceDueBefore(LocalDate date);
+    List<Vehicle> findByInsuranceExpiryBefore(LocalDate date);
+    List<Vehicle> findByRoadworthyExpiryBefore(LocalDate date);
 
-    @Query("SELECT v FROM Vehicle v WHERE v.nextServiceDue < CURRENT_DATE")
-    List<Vehicle> findVehiclesOverdueForService();
-
-    // Insurance and roadworthy
-    @Query("SELECT v FROM Vehicle v WHERE v.insuranceExpiry < CURRENT_DATE")
-    List<Vehicle> findVehiclesWithExpiredInsurance();
-
-    @Query("SELECT v FROM Vehicle v WHERE v.roadworthyExpiry < CURRENT_DATE")
-    List<Vehicle> findVehiclesWithExpiredRoadworthy();
-
-    // Other queries
+    // Year and fuel
     List<Vehicle> findByYearBetween(Integer startYear, Integer endYear);
     List<Vehicle> findByFuelType(String fuelType);
 }
