@@ -1,5 +1,6 @@
 package com.pgsa.trailers.controller;
 
+import com.pgsa.trailers.dto.VehicleDTO;  // ADD THIS IMPORT
 import com.pgsa.trailers.entity.assets.Vehicle;
 import com.pgsa.trailers.service.VehicleService;
 import lombok.RequiredArgsConstructor;
@@ -81,16 +82,16 @@ public class VehicleController {
      * Update vehicle
      */
     @PutMapping("/{id}")
-public ResponseEntity<Vehicle> updateVehicle(@PathVariable Long id, @RequestBody VehicleDTO vehicleDTO) {
-    log.info("PUT /api/vehicles/{} - Updating vehicle", id);
-    try {
-        Vehicle updatedVehicle = vehicleService.updateVehicle(id, vehicleDTO);
-        return ResponseEntity.ok(updatedVehicle);
-    } catch (Exception e) {
-        log.error("Error updating vehicle {}: {}", id, e.getMessage(), e);
-        return ResponseEntity.internalServerError().build();
+    public ResponseEntity<Vehicle> updateVehicle(@PathVariable Long id, @RequestBody VehicleDTO vehicleDTO) {
+        log.info("PUT /api/vehicles/{} - Updating vehicle", id);
+        try {
+            Vehicle updatedVehicle = vehicleService.updateVehicle(id, vehicleDTO);
+            return ResponseEntity.ok(updatedVehicle);
+        } catch (Exception e) {
+            log.error("Error updating vehicle {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
-}
 
     /**
      * Delete vehicle
