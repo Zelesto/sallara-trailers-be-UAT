@@ -16,41 +16,29 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
 
     // Find by registration number
     Optional<Vehicle> findByRegistrationNumber(String registrationNumber);
-    
-    // Find by registration number (case insensitive)
     Optional<Vehicle> findByRegistrationNumberIgnoreCase(String registrationNumber);
 
     // Find by VIN
     Optional<Vehicle> findByVin(String vin);
-    
-    // Find by VIN (case insensitive)
     Optional<Vehicle> findByVinIgnoreCase(String vin);
 
     // Find by fleet number
     Optional<Vehicle> findByFleetNumber(String fleetNumber);
 
-    // Find vehicles by status (String)
+    // ✅ KEEP ONLY ONE version of findByStatus
     List<Vehicle> findByStatus(String status);
 
-    // ✅ FIX: Use findByStatus for enum too (Spring can handle both)
-    List<Vehicle> findByStatus(VehicleStatus status);
-
-    // Find active vehicles by status list (String)
+    // ✅ KEEP ONLY ONE version of findByStatusIn
     List<Vehicle> findByStatusIn(List<String> statuses);
 
-    // ✅ FIX: Use findByStatusIn for enum list too
-    List<Vehicle> findByStatusIn(List<VehicleStatus> statuses);
-
-    // Find vehicles by vehicle type
+    // Find by vehicle type
     List<Vehicle> findByVehicleType(VehicleType vehicleType);
 
-    // Find vehicles by make
+    // Find by make/model
     List<Vehicle> findByMakeContainingIgnoreCase(String make);
-
-    // Find vehicles by model
     List<Vehicle> findByModelContainingIgnoreCase(String model);
 
-    // Search vehicles
+    // Search
     @Query("SELECT v FROM Vehicle v WHERE " +
            "LOWER(v.registrationNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(v.make) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
@@ -58,46 +46,36 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
            "LOWER(v.vin) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
     List<Vehicle> searchVehicles(@Param("searchTerm") String searchTerm);
 
-    // Find vehicles with assigned driver
+    // Driver related
     List<Vehicle> findByAssignedDriverIsNotNull();
-
-    // Find vehicles without assigned driver
     List<Vehicle> findByAssignedDriverIsNull();
-
-    // Find vehicles by assigned driver ID
     List<Vehicle> findByAssignedDriverId(Long driverId);
 
-    // Find vehicles by maintenance status
+    // Maintenance
     List<Vehicle> findByMaintenanceStatus(String maintenanceStatus);
 
-    // Find vehicles by isActive
+    // Active status
     List<Vehicle> findByIsActiveTrue();
-
-    // Find vehicles by isActive and status
     List<Vehicle> findByIsActiveTrueAndStatus(VehicleStatus status);
 
-    // Count vehicles by status
+    // Count
     long countByStatus(VehicleStatus status);
 
-    // Find vehicles with upcoming service
+    // Service related
     @Query("SELECT v FROM Vehicle v WHERE v.nextServiceDue BETWEEN CURRENT_DATE AND CURRENT_DATE + 30")
     List<Vehicle> findVehiclesWithUpcomingService();
 
-    // Find vehicles that are overdue for service
     @Query("SELECT v FROM Vehicle v WHERE v.nextServiceDue < CURRENT_DATE")
     List<Vehicle> findVehiclesOverdueForService();
 
-    // Find vehicles with expired insurance
+    // Insurance and roadworthy
     @Query("SELECT v FROM Vehicle v WHERE v.insuranceExpiry < CURRENT_DATE")
     List<Vehicle> findVehiclesWithExpiredInsurance();
 
-    // Find vehicles with expired roadworthy
     @Query("SELECT v FROM Vehicle v WHERE v.roadworthyExpiry < CURRENT_DATE")
     List<Vehicle> findVehiclesWithExpiredRoadworthy();
 
-    // Find vehicles by year range
+    // Other queries
     List<Vehicle> findByYearBetween(Integer startYear, Integer endYear);
-
-    // Find vehicles by fuel type
     List<Vehicle> findByFuelType(String fuelType);
 }
