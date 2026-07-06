@@ -50,8 +50,8 @@ public class Vehicle extends BaseEntity {
     private Integer year;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "vehicle_type", length = 20)
-    private VehicleType vehicleType;
+@Column(name = "vehicle_type", length = 20, nullable = false)
+private VehicleType vehicleType = VehicleType.TRUCK;  // Set default value
 
     @Column(name = "fuel_type", length = 20)
     private String fuelType;
