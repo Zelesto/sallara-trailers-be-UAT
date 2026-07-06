@@ -131,6 +131,26 @@ public class Vehicle extends BaseEntity {
     @Column(name = "current_value", precision = 15, scale = 2)
     private BigDecimal currentValue;
 
+    // ====== NEW FIELDS - ADD THESE ======
+    
+    @Column(name = "maintenance_cost", precision = 15, scale = 2)
+    private BigDecimal maintenanceCost;
+
+    @Column(name = "last_maintenance_date")
+    private LocalDate lastMaintenanceDate;
+
+    @Column(name = "next_maintenance_due")
+    private LocalDate nextMaintenanceDue;
+
+    @Column(name = "fuel_efficiency", precision = 12, scale = 2)
+    private BigDecimal fuelEfficiency;
+
+    @Column(name = "insurance_provider", length = 100)
+    private String insuranceProvider;
+
+    @Column(name = "insurance_expiry_date")
+    private LocalDate insuranceExpiryDate;
+
     // ====== Constructors ======
     public Vehicle() {
         this.status = VehicleStatus.AVAILABLE;
