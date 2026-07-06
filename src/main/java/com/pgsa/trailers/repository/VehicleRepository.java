@@ -33,13 +33,13 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
     List<Vehicle> findByStatus(String status);
 
     // Find vehicles by status (Enum)
-    List<Vehicle> findByStatus(VehicleStatus status);
+    List<Vehicle> findByVehicleStatus(VehicleStatus status);
 
     // Find active vehicles by status list
     List<Vehicle> findByStatusIn(List<String> statuses);
 
     // Find active vehicles by status enum list
-    List<Vehicle> findByStatusIn(List<VehicleStatus> statuses);
+    List<Vehicle> findByVehicleStatusIn(List<VehicleStatus> statuses);
 
     // Find vehicles by vehicle type
     List<Vehicle> findByVehicleType(VehicleType vehicleType);
