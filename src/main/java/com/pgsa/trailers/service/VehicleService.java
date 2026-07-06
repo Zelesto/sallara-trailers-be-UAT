@@ -15,6 +15,7 @@ import java.util.List;
 public class VehicleService {
 
     private final VehicleRepository vehicleRepository;
+    private final DriverRepository driverRepository;
 
     /**
      * Get all vehicles
