@@ -1,6 +1,10 @@
 package com.pgsa.trailers.service;
 
+import com.pgsa.trailers.dto.VehicleDTO;
+import com.pgsa.trailers.entity.assets.Driver;
 import com.pgsa.trailers.entity.assets.Vehicle;
+import com.pgsa.trailers.enums.VehicleStatus;
+import com.pgsa.trailers.repository.DriverRepository;
 import com.pgsa.trailers.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -62,128 +66,73 @@ public class VehicleService {
      * Update vehicle
      */
     @Transactional
-public Vehicle updateVehicle(Long id, VehicleDTO vehicleDTO) {
-    log.info("Updating vehicle ID: {} with DTO: {}", id, vehicleDTO);
+    public Vehicle updateVehicle(Long id, VehicleDTO vehicleDTO) {
+        log.info("Updating vehicle ID: {} with DTO: {}", id, vehicleDTO);
 
-    Vehicle vehicle = getVehicleById(id);
+        Vehicle vehicle = getVehicleById(id);
 
-    // Update basic fields - only if not null
-    if (vehicleDTO.getRegistration_number() != null) {
-        vehicle.setRegistrationNumber(vehicleDTO.getRegistration_number());
-    }
-    if (vehicleDTO.getVin() != null) {
-        vehicle.setVin(vehicleDTO.getVin());
-    }
-    if (vehicleDTO.getMake() != null) {
-        vehicle.setMake(vehicleDTO.getMake());
-    }
-    if (vehicleDTO.getModel() != null) {
-        vehicle.setModel(vehicleDTO.getModel());
-    }
-    if (vehicleDTO.getYear() != null) {
-        vehicle.setYear(vehicleDTO.getYear());
-    }
-    if (vehicleDTO.getFuelType() != null) {
-        vehicle.setFuelType(vehicleDTO.getFuelType());
-    }
-    if (vehicleDTO.getCurrentMileage() != null) {
-        vehicle.setCurrentMileage(vehicleDTO.getCurrentMileage());
-    }
-    if (vehicleDTO.getAvgConsumption() != null) {
-        vehicle.setAvgConsumption(vehicleDTO.getAvgConsumption());
-    }
-    if (vehicleDTO.getCurrentOdometer() != null) {
-        vehicle.setCurrentOdometer(vehicleDTO.getCurrentOdometer());
-    }
-    if (vehicleDTO.getStatus() != null) {
-        vehicle.setStatus(VehicleStatus.valueOf(vehicleDTO.getStatus()));
-    }
-
-    // Update service-related fields
-    if (vehicleDTO.getLastServiceDate() != null) {
-        vehicle.setLastServiceDate(vehicleDTO.getLastServiceDate());
-    }
-    if (vehicleDTO.getLastServiceOdometer() != null) {
-        vehicle.setLastServiceOdometer(vehicleDTO.getLastServiceOdometer());
-    }
-    if (vehicleDTO.getServiceIntervalDays() != null) {
-        vehicle.setServiceIntervalDays(vehicleDTO.getServiceIntervalDays());
-    }
-    if (vehicleDTO.getServiceIntervalKm() != null) {
-        vehicle.setServiceIntervalKm(vehicleDTO.getServiceIntervalKm());
-    }
-    if (vehicleDTO.getNextServiceDue() != null) {
-        vehicle.setNextServiceDue(vehicleDTO.getNextServiceDue());
-    }
-    if (vehicleDTO.getNextServiceOdometer() != null) {
-        vehicle.setNextServiceOdometer(vehicleDTO.getNextServiceOdometer());
-    }
-    if (vehicleDTO.getMaintenanceStatus() != null) {
-        vehicle.setMaintenanceStatus(vehicleDTO.getMaintenanceStatus());
-    }
-
-    // Update insurance and roadworthy fields
-    if (vehicleDTO.getInsurancePolicyNumber() != null) {
-        vehicle.setInsurancePolicyNumber(vehicleDTO.getInsurancePolicyNumber());
-    }
-    if (vehicleDTO.getInsuranceExpiry() != null) {
-        vehicle.setInsuranceExpiry(vehicleDTO.getInsuranceExpiry());
-    }
-    if (vehicleDTO.getRoadworthyExpiry() != null) {
-        vehicle.setRoadworthyExpiry(vehicleDTO.getRoadworthyExpiry());
-    }
-
-    // Update other fields
-    if (vehicleDTO.getFleetNumber() != null) {
-        vehicle.setFleetNumber(vehicleDTO.getFleetNumber());
-    }
-    if (vehicleDTO.getGpsTrackerId() != null) {
-        vehicle.setGpsTrackerId(vehicleDTO.getGpsTrackerId());
-    }
-    if (vehicleDTO.getIncidentsLogged() != null) {
-        vehicle.setIncidentsLogged(vehicleDTO.getIncidentsLogged());
-    }
-    if (vehicleDTO.getNotes() != null) {
-        vehicle.setNotes(vehicleDTO.getNotes());
-    }
-    if (vehicleDTO.getAuditTrail() != null) {
-        vehicle.setAuditTrail(vehicleDTO.getAuditTrail());
-    }
-    if (vehicleDTO.getCategory() != null) {
-        vehicle.setCategory(vehicleDTO.getCategory());
-    }
-    if (vehicleDTO.getVehicleType() != null) {
-        vehicle.setVehicleType(vehicleDTO.getVehicleType());
-    }
-    if (vehicleDTO.getPurchaseDate() != null) {
-        vehicle.setPurchaseDate(vehicleDTO.getPurchaseDate());
-    }
-    if (vehicleDTO.getPurchasePrice() != null) {
-        vehicle.setPurchasePrice(vehicleDTO.getPurchasePrice());
-    }
-    if (vehicleDTO.getCurrentValue() != null) {
-        vehicle.setCurrentValue(vehicleDTO.getCurrentValue());
-    }
-
-    // CRITICAL: Handle driver assignment properly
-    if (vehicleDTO.getAssignedDriverId() != null) {
-        if (vehicleDTO.getAssignedDriverId() > 0) {
-            // Find and assign the driver
-            Driver driver = driverRepository.findById(vehicleDTO.getAssignedDriverId())
-                .orElseThrow(() -> new RuntimeException("Driver not found with id: " + vehicleDTO.getAssignedDriverId()));
-            vehicle.setAssignedDriver(driver);
-        } else {
-            // If ID is 0 or negative, unassign the driver
-            vehicle.setAssignedDriver(null);
+        // Update basic fields - only if not null
+        if (vehicleDTO.getRegistration_number() != null) {
+            vehicle.setRegistrationNumber(vehicleDTO.getRegistration_number());
         }
+        if (vehicleDTO.getVin() != null) {
+            vehicle.setVin(vehicleDTO.getVin());
+        }
+        if (vehicleDTO.getMake() != null) {
+            vehicle.setMake(vehicleDTO.getMake());
+        }
+        if (vehicleDTO.getModel() != null) {
+            vehicle.setModel(vehicleDTO.getModel());
+        }
+        if (vehicleDTO.getYear() != null) {
+            vehicle.setYear(vehicleDTO.getYear());
+        }
+        if (vehicleDTO.getFuelType() != null) {
+            vehicle.setFuelType(vehicleDTO.getFuelType());
+        }
+        if (vehicleDTO.getCurrentMileage() != null) {
+            vehicle.setCurrentMileage(vehicleDTO.getCurrentMileage());
+        }
+        if (vehicleDTO.getAvgConsumption() != null) {
+            vehicle.setAvgConsumption(vehicleDTO.getAvgConsumption());
+        }
+        if (vehicleDTO.getCurrentOdometer() != null) {
+            vehicle.setCurrentOdometer(vehicleDTO.getCurrentOdometer());
+        }
+        if (vehicleDTO.getStatus() != null) {
+            vehicle.setStatus(VehicleStatus.valueOf(vehicleDTO.getStatus()));
+        }
+
+        // Update service-related fields
+        if (vehicleDTO.getLastServiceDate() != null) {
+            vehicle.setLastServiceDate(vehicleDTO.getLastServiceDate());
+        }
+        if (vehicleDTO.getServiceIntervalDays() != null) {
+            vehicle.setServiceIntervalDays(vehicleDTO.getServiceIntervalDays());
+        }
+        if (vehicleDTO.getServiceIntervalKm() != null) {
+            vehicle.setServiceIntervalKm(vehicleDTO.getServiceIntervalKm());
+        }
+
+        // CRITICAL: Handle driver assignment properly
+        if (vehicleDTO.getAssignedDriverId() != null) {
+            if (vehicleDTO.getAssignedDriverId() > 0) {
+                // Find and assign the driver
+                Driver driver = driverRepository.findById(vehicleDTO.getAssignedDriverId())
+                    .orElseThrow(() -> new RuntimeException("Driver not found with id: " + vehicleDTO.getAssignedDriverId()));
+                vehicle.setAssignedDriver(driver);
+            } else {
+                // If ID is 0 or negative, unassign the driver
+                vehicle.setAssignedDriver(null);
+            }
+        }
+        // If assignedDriverId is null, don't change the driver assignment
+
+        // Recalculate next service date based on updated values
+        vehicle.calculateNextService();
+
+        return vehicleRepository.save(vehicle);
     }
-    // If assignedDriverId is null, don't change the driver assignment
-
-    // Recalculate next service date based on updated values
-    vehicle.calculateNextService();
-
-    return vehicleRepository.save(vehicle);
-}
 
     /**
      * Delete vehicle
