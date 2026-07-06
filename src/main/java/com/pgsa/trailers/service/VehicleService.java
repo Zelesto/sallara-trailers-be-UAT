@@ -56,8 +56,16 @@ public class VehicleService {
     @Transactional
     public Vehicle updateVehicle(Long id, VehicleDTO dto) {
         log.info("Updating vehicle ID: {} with DTO: {}", id, dto);
+        
+        // Log the DTO values that matter
+        log.info("DTO - make: {}, model: {}, vehicleType: {}, fuelType: {}, status: {}", 
+            dto.getMake(), dto.getModel(), dto.getVehicleType(), dto.getFuelType(), dto.getStatus());
 
         Vehicle vehicle = getVehicleById(id);
+        
+        // Log current vehicle values
+        log.info("Current vehicle - make: {}, model: {}, vehicleType: {}, fuelType: {}, status: {}", 
+            vehicle.getMake(), vehicle.getModel(), vehicle.getVehicleType(), vehicle.getFuelType(), vehicle.getStatus());
 
         // Update all fields - only if not null
         updateField(dto.getRegistrationNumber(), vehicle::setRegistrationNumber);
@@ -67,7 +75,17 @@ public class VehicleService {
         updateField(dto.getYear(), vehicle::setYear);
         updateField(dto.getFuelType(), vehicle::setFuelType);
         updateField(dto.getCurrentMileage(), vehicle::setCurrentMileage);
-        updateField(dto.getStatus(), val -> vehicle.setStatus(VehicleStatus.valueOf(val)));
+        
+        // Handle status enum conversion
+        if (dto.getStatus() != null) {
+            try {
+                vehicle.setStatus(VehicleStatus.valueOf(dto.getStatus()));
+                log.info("Set status to: {}", vehicle.getStatus());
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid status value: {}, keeping current: {}", dto.getStatus(), vehicle.getStatus());
+            }
+        }
+        
         updateField(dto.getCreatedBy(), vehicle::setCreatedBy);
         updateField(dto.getUpdatedBy(), vehicle::setUpdatedBy);
         updateField(dto.getAvgConsumption(), vehicle::setAvgConsumption);
@@ -89,8 +107,19 @@ public class VehicleService {
         updateField(dto.getAuditTrail(), vehicle::setAuditTrail);
         updateField(dto.getCategory(), vehicle::setCategory);
         
+        // ✅ CRITICAL FIX: Handle vehicleType enum conversion with better logging
         if (dto.getVehicleType() != null) {
-            vehicle.setVehicleType(VehicleType.valueOf(dto.getVehicleType()));
+            try {
+                VehicleType vehicleType = VehicleType.valueOf(dto.getVehicleType().toUpperCase());
+                vehicle.setVehicleType(vehicleType);
+                log.info("✅ Set vehicle type to: {}", vehicleType);
+            } catch (IllegalArgumentException e) {
+                log.warn("❌ Invalid vehicle type: {}, keeping current value: {}", 
+                    dto.getVehicleType(), vehicle.getVehicleType());
+                // Keep existing value - don't set to null
+            }
+        } else {
+            log.info("Vehicle type is null in DTO, keeping current value: {}", vehicle.getVehicleType());
         }
         
         updateField(dto.getIsActive(), vehicle::setIsActive);
@@ -111,8 +140,10 @@ public class VehicleService {
                 Driver driver = driverRepository.findById(dto.getAssignedDriverId())
                     .orElseThrow(() -> new RuntimeException("Driver not found with id: " + dto.getAssignedDriverId()));
                 vehicle.setAssignedDriver(driver);
+                log.info("Assigned driver: {}", driver.getId());
             } else {
                 vehicle.setAssignedDriver(null);
+                log.info("Unassigned driver");
             }
         }
 
@@ -122,7 +153,23 @@ public class VehicleService {
         // Recalculate next service
         vehicle.calculateNextService();
 
-        return vehicleRepository.save(vehicle);
+        // Log before saving
+        log.info("Saving vehicle - registration: {}, make: {}, model: {}, vehicleType: {}, status: {}, fuelType: {}", 
+            vehicle.getRegistrationNumber(), 
+            vehicle.getMake(), 
+            vehicle.getModel(), 
+            vehicle.getVehicleType(), 
+            vehicle.getStatus(),
+            vehicle.getFuelType());
+
+        try {
+            Vehicle saved = vehicleRepository.save(vehicle);
+            log.info("✅ Successfully saved vehicle ID: {}", saved.getId());
+            return saved;
+        } catch (Exception e) {
+            log.error("❌ Failed to save vehicle: {}", e.getMessage(), e);
+            throw e;
+        }
     }
 
     // Helper method to update field if value is not null
