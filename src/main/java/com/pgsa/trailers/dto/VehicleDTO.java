@@ -9,7 +9,7 @@ import java.util.Map;
 @Data
 public class VehicleDTO {
     private Long id;
-    private String registrationNumber;
+    private String registration_number;
     private String vin;
     private String make;
     private String model;
