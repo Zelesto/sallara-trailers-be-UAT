@@ -321,6 +321,9 @@ public class DriverService {
         if (request.getTrainingCompleted() != null) {
             driver.setTrainingCompleted(request.getTrainingCompleted());
         }
+        if (request.getTrainingCertificates() != null) {
+        driver.setTrainingCertificates(request.getTrainingCertificates());
+        }
         if (request.getMedicalClearanceDate() != null) {
             driver.setMedicalClearanceDate(request.getMedicalClearanceDate());
         }
@@ -350,35 +353,38 @@ public class DriverService {
     }
 
     private DriverDTO convertToDTO(Driver driver) {
-        DriverDTO dto = new DriverDTO();
-        dto.setId(driver.getId());
-        dto.setFirstName(driver.getFirstName());
-        dto.setLastName(driver.getLastName());
-        dto.setLicenseNumber(driver.getLicenseNumber());
-        dto.setLicenseType(driver.getLicenseType());
-        dto.setLicenseExpiry(driver.getLicenseExpiry());
-        dto.setHireDate(driver.getHireDate());
-        dto.setPhoneNumber(driver.getPhoneNumber());
-        dto.setEmail(driver.getEmail());
-        dto.setStatus(driver.getStatus() != null ? driver.getStatus().name() : null);
-        dto.setTerminationDate(driver.getTerminationDate());
-        dto.setTerminationReason(driver.getTerminationReason());
-        dto.setEmploymentType(driver.getEmploymentType());
-        dto.setShiftPattern(driver.getShiftPattern());
-        dto.setAssignedVehicleId(driver.getAssignedVehicleId());
-        dto.setTrainingCompleted(driver.getTrainingCompleted());
-        dto.setTrainingCertificates(driver.getTrainingCertificates());
-        dto.setMedicalClearanceDate(driver.getMedicalClearanceDate());
-        dto.setNextMedicalDue(driver.getNextMedicalDue());
-        dto.setIncidentsLogged(driver.getIncidentsLogged());
-        dto.setTotalTrips(driver.getTotalTrips());
-        dto.setTotalKmTravelled(driver.getTotalKmTravelled());
-        dto.setTotalHoursActive(driver.getTotalHoursActive());
-        dto.setPerformanceScore(driver.getPerformanceScore());
-        dto.setNotes(driver.getNotes());
-        dto.setIsActive(driver.getIsActive());
-        dto.setVersion(driver.getVersion());
-        dto.setAppUserId(driver.getAppUser() != null ? driver.getAppUser().getId() : null);
-        return dto;
-    }
+    DriverDTO dto = new DriverDTO();
+    dto.setId(driver.getId());
+    dto.setFirstName(driver.getFirstName());
+    dto.setLastName(driver.getLastName());
+    dto.setLicenseNumber(driver.getLicenseNumber());
+    dto.setLicenseType(driver.getLicenseType());
+    dto.setLicenseExpiry(driver.getLicenseExpiry());
+    dto.setHireDate(driver.getHireDate());
+    dto.setPhoneNumber(driver.getPhoneNumber());
+    dto.setEmail(driver.getEmail());
+    dto.setStatus(driver.getStatus() != null ? driver.getStatus().name() : null);
+    dto.setTerminationDate(driver.getTerminationDate());
+    dto.setTerminationReason(driver.getTerminationReason());
+    dto.setEmploymentType(driver.getEmploymentType());
+    dto.setShiftPattern(driver.getShiftPattern());
+    dto.setAssignedVehicleId(driver.getAssignedVehicleId());
+    dto.setTrainingCompleted(driver.getTrainingCompleted());
+    
+    // ⭐ FIX: Convert trainingCertificates to Map (already a Map)
+    dto.setTrainingCertificates(driver.getTrainingCertificates());
+    
+    dto.setMedicalClearanceDate(driver.getMedicalClearanceDate());
+    dto.setNextMedicalDue(driver.getNextMedicalDue());
+    dto.setIncidentsLogged(driver.getIncidentsLogged());
+    dto.setTotalTrips(driver.getTotalTrips());
+    dto.setTotalKmTravelled(driver.getTotalKmTravelled());
+    dto.setTotalHoursActive(driver.getTotalHoursActive());
+    dto.setPerformanceScore(driver.getPerformanceScore());
+    dto.setNotes(driver.getNotes());
+    dto.setIsActive(driver.getIsActive());
+    dto.setVersion(driver.getVersion());
+    dto.setAppUserId(driver.getAppUser() != null ? driver.getAppUser().getId() : null);
+    return dto;
+}
 }
