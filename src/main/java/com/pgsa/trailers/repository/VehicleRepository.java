@@ -22,9 +22,9 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
     Optional<Vehicle> findByVinIgnoreCase(String vin);
     Optional<Vehicle> findByFleetNumber(String fleetNumber);
 
-    // Status finders
-    List<Vehicle> findByStatus(String status);
-    List<Vehicle> findByStatusIn(List<String> statuses);
+    // Status finders - FIXED: Use VehicleStatus enum
+    List<Vehicle> findByStatus(VehicleStatus status);
+    List<Vehicle> findByStatusIn(List<VehicleStatus> statuses);
 
     // Vehicle type
     List<Vehicle> findByVehicleType(VehicleType vehicleType);
@@ -38,7 +38,8 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
            "LOWER(v.registrationNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(v.make) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(v.model) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(v.vin) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
+           "LOWER(v.vin) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(v.fleetNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
     List<Vehicle> searchVehicles(@Param("searchTerm") String searchTerm);
 
     // Driver related
@@ -56,7 +57,7 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
     // Count
     long countByStatus(VehicleStatus status);
 
-    // ✅ Service related - Using method names (NO @Query annotations)
+    // Service related
     List<Vehicle> findByNextServiceDueBetween(LocalDate start, LocalDate end);
     List<Vehicle> findByNextServiceDueBefore(LocalDate date);
     List<Vehicle> findByInsuranceExpiryBefore(LocalDate date);
