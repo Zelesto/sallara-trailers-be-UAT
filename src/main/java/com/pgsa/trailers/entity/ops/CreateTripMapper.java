@@ -135,9 +135,9 @@ public class CreateTripMapper {
         auditMap.put("status", request.getStatus() != null ? request.getStatus().name() : "DRAFT");
         
         // If the request has auditTrail as a String, parse it or add it as a note
-        if (request.getAuditTrail() != null && !request.getAuditTrail().isEmpty()) {
-            auditMap.put("note", request.getAuditTrail());
-        }
+        //if (request.getAuditTrail() != null && !request.getAuditTrail().isEmpty()) {
+         //   auditMap.put("note", request.getAuditTrail());
+        //}
         trip.setAuditTrail(auditMap);
 
         // ======================== DEFAULT VALUES ========================
