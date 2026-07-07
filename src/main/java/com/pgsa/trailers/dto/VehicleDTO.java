@@ -8,8 +8,9 @@ import java.util.Map;
 
 @Data
 public class VehicleDTO {
+    // Basic fields - using camelCase to match entity
     private Long id;
-    private String registration_number;
+    private String registrationNumber;
     private String vin;
     private String make;
     private String model;
@@ -38,7 +39,7 @@ public class VehicleDTO {
     private String notes;
     private Map<String, Object> auditTrail;
     private String category;
-    private String vehicleType;
+    private String vehicleType; // Will be converted to enum
     private Boolean isActive;
     private Integer version;
     private BigDecimal currentValue;
