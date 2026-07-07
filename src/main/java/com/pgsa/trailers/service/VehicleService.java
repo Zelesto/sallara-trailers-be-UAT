@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Slf4j
@@ -31,10 +30,21 @@ public class VehicleService {
         return vehicleRepository.findAll();
     }
 
+    public List<Vehicle> getAllActiveVehicles() {
+        log.debug("Fetching all active vehicles");
+        return vehicleRepository.findByIsActiveTrue();
+    }
+
     public Vehicle getVehicleById(Long id) {
         log.debug("Fetching vehicle by ID: {}", id);
         return vehicleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Vehicle not found with ID: " + id));
+    }
+
+    public Vehicle getActiveVehicleById(Long id) {
+        log.debug("Fetching active vehicle by ID: {}", id);
+        return vehicleRepository.findByIdAndIsActiveTrue(id)
+                .orElseThrow(() -> new RuntimeException("Active vehicle not found with ID: " + id));
     }
 
     public Vehicle getVehicleByRegistration(String registrationNumber) {
@@ -43,14 +53,14 @@ public class VehicleService {
                 .orElseThrow(() -> new RuntimeException("Vehicle not found with registration: " + registrationNumber));
     }
 
-    public List<Vehicle> getVehiclesByStatus(String status) {
+    public List<Vehicle> getVehiclesByStatus(VehicleStatus status) {
         log.debug("Fetching vehicles by status: {}", status);
         return vehicleRepository.findByStatus(status);
     }
 
     public List<Vehicle> getActiveVehicles() {
         log.debug("Fetching active vehicles");
-        return vehicleRepository.findByStatusIn(List.of("ACTIVE", "AVAILABLE"));
+        return vehicleRepository.findByStatusIn(List.of(VehicleStatus.ACTIVE, VehicleStatus.AVAILABLE));
     }
 
     public List<Vehicle> searchVehicles(String searchTerm) {
@@ -65,7 +75,9 @@ public class VehicleService {
 
     public List<Vehicle> getAvailableVehicles() {
         log.debug("Fetching available vehicles");
-        return vehicleRepository.findByAssignedDriverIsNull();
+        return vehicleRepository.findByAssignedDriverIsNullAndStatusIn(
+            List.of(VehicleStatus.AVAILABLE, VehicleStatus.ACTIVE)
+        );
     }
 
     public List<Vehicle> getVehiclesWithUpcomingService() {
@@ -96,8 +108,15 @@ public class VehicleService {
     public Vehicle createVehicle(Vehicle vehicle) {
         log.info("Creating vehicle with registration: {}", vehicle.getRegistrationNumber());
 
+        // Check for duplicates
         if (vehicleRepository.findByRegistrationNumber(vehicle.getRegistrationNumber()).isPresent()) {
             throw new RuntimeException("Vehicle with registration " + vehicle.getRegistrationNumber() + " already exists");
+        }
+        if (vehicle.getVin() != null && vehicleRepository.findByVin(vehicle.getVin()).isPresent()) {
+            throw new RuntimeException("Vehicle with VIN " + vehicle.getVin() + " already exists");
+        }
+        if (vehicle.getFleetNumber() != null && vehicleRepository.findByFleetNumber(vehicle.getFleetNumber()).isPresent()) {
+            throw new RuntimeException("Vehicle with fleet number " + vehicle.getFleetNumber() + " already exists");
         }
 
         // Ensure defaults are set
@@ -110,27 +129,32 @@ public class VehicleService {
         if (vehicle.getVersion() == null) {
             vehicle.setVersion(0);
         }
+        if (vehicle.getIncidentsLogged() == null) {
+            vehicle.setIncidentsLogged(0);
+        }
         
         vehicle.calculateNextService();
-        return vehicleRepository.save(vehicle);
+        
+        Vehicle saved = vehicleRepository.save(vehicle);
+        log.info("✅ Successfully created vehicle with ID: {}", saved.getId());
+        return saved;
     }
 
     // ====== Update Methods ======
     
     @Transactional
     public Vehicle updateVehicle(Long id, VehicleDTO dto) {
-        log.info("Updating vehicle ID: {} with DTO", id);
+        log.info("Updating vehicle ID: {}", id);
         
         Vehicle vehicle = getVehicleById(id);
         
         // Map DTO to Entity
         mapDtoToEntity(dto, vehicle);
         
-        // Update timestamp
-        vehicle.setUpdatedAt(LocalDateTime.now());
+        // Recalculate service
         vehicle.calculateNextService();
 
-        log.info("Saving vehicle with values - registration: {}, make: {}, model: {}, vehicleType: {}, status: {}", 
+        log.info("Saving vehicle - registration: {}, make: {}, model: {}, vehicleType: {}, status: {}", 
             vehicle.getRegistrationNumber(), 
             vehicle.getMake(), 
             vehicle.getModel(), 
@@ -154,6 +178,65 @@ public class VehicleService {
         log.info("Deleting vehicle ID: {}", id);
         Vehicle vehicle = getVehicleById(id);
         vehicleRepository.delete(vehicle);
+        log.info("✅ Successfully deleted vehicle ID: {}", id);
+    }
+
+    @Transactional
+    public void softDeleteVehicle(Long id) {
+        log.info("Soft deleting vehicle ID: {}", id);
+        Vehicle vehicle = getVehicleById(id);
+        vehicle.softDelete();
+        vehicle.setStatus(VehicleStatus.INACTIVE);
+        vehicleRepository.save(vehicle);
+        log.info("✅ Successfully soft deleted vehicle ID: {}", id);
+    }
+
+    @Transactional
+    public void restoreVehicle(Long id) {
+        log.info("Restoring vehicle ID: {}", id);
+        Vehicle vehicle = getVehicleById(id);
+        vehicle.restore();
+        if (vehicle.getStatus() == VehicleStatus.INACTIVE) {
+            vehicle.setStatus(VehicleStatus.AVAILABLE);
+        }
+        vehicleRepository.save(vehicle);
+        log.info("✅ Successfully restored vehicle ID: {}", id);
+    }
+
+    // ====== Business Operations ======
+    
+    @Transactional
+    public void assignDriverToVehicle(Long vehicleId, Long driverId) {
+        log.info("Assigning driver {} to vehicle {}", driverId, vehicleId);
+        Vehicle vehicle = getActiveVehicleById(vehicleId);
+        Driver driver = driverRepository.findById(driverId)
+                .orElseThrow(() -> new RuntimeException("Driver not found with ID: " + driverId));
+        
+        if (!driver.isActive()) {
+            throw new RuntimeException("Driver is not active");
+        }
+        
+        vehicle.assignDriver(driver);
+        vehicleRepository.save(vehicle);
+        log.info("✅ Driver {} assigned to vehicle {}", driverId, vehicleId);
+    }
+
+    @Transactional
+    public void unassignDriverFromVehicle(Long vehicleId) {
+        log.info("Unassigning driver from vehicle {}", vehicleId);
+        Vehicle vehicle = getActiveVehicleById(vehicleId);
+        vehicle.unassignDriver();
+        vehicleRepository.save(vehicle);
+        log.info("✅ Driver unassigned from vehicle {}", vehicleId);
+    }
+
+    @Transactional
+    public void updateOdometer(Long vehicleId, BigDecimal newOdometer) {
+        log.info("Updating odometer for vehicle {} to {}", vehicleId, newOdometer);
+        Vehicle vehicle = getActiveVehicleById(vehicleId);
+        vehicle.updateOdometer(newOdometer);
+        vehicleRepository.save(vehicle);
+        log.info("✅ Odometer updated for vehicle {}", vehicleId);
     }
 
     // ====== Helper Methods ======
@@ -201,7 +284,6 @@ public class VehicleService {
                 log.info("✅ Set vehicle type to: {}", vehicleType);
             } catch (IllegalArgumentException e) {
                 log.error("❌ Invalid vehicle type: '{}'", dto.getVehicleType());
-                // Keep existing value or set default
                 if (vehicle.getVehicleType() == null) {
                     vehicle.setVehicleType(VehicleType.TRUCK);
                 }
