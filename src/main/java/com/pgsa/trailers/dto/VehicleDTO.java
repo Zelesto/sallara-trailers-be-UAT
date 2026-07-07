@@ -1,5 +1,7 @@
 package com.pgsa.trailers.dto;
 
+import com.pgsa.trailers.entity.assets.Vehicle;
+
 import lombok.Data;
 
 import java.math.BigDecimal;
