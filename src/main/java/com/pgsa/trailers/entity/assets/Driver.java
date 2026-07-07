@@ -3,12 +3,16 @@ package com.pgsa.trailers.entity.assets;
 import com.pgsa.trailers.config.BaseEntity;
 import com.pgsa.trailers.enums.DriverStatus;
 import com.pgsa.trailers.entity.security.AppUser;
+import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.Type;
 
 import java.time.LocalDate;
 import java.time.Period;
+import java.util.HashMap;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -65,10 +69,62 @@ public class Driver extends BaseEntity {
     @Column(name = "termination_reason", length = 255)
     private String terminationReason;
 
+    // ====== ADDITIONAL FIELDS FROM DATABASE ======
+    
+    @Column(name = "employment_type", length = 50)
+    private String employmentType;
+
+    @Column(name = "shift_pattern", length = 50)
+    private String shiftPattern;
+
+    @Column(name = "assigned_vehicle_id")
+    private Long assignedVehicleId;
+
+    @Column(name = "training_completed")
+    private Boolean trainingCompleted = false;
+
+    @Column(name = "training_certificates", columnDefinition = "TEXT")
+    private String trainingCertificates;
+
+    @Column(name = "medical_clearance_date")
+    private LocalDate medicalClearanceDate;
+
+    @Column(name = "next_medical_due")
+    private LocalDate nextMedicalDue;
+
+    @Column(name = "incidents_logged")
+    private Integer incidentsLogged = 0;
+
+    @Column(name = "total_trips")
+    private Integer totalTrips = 0;
+
+    @Column(name = "total_km_travelled", precision = 12, scale = 2)
+    private BigDecimal totalKmTravelled;
+
+    @Column(name = "total_hours_active", precision = 12, scale = 2)
+    private BigDecimal totalHoursActive;
+
+    @Column(name = "performance_score", precision = 5, scale = 2)
+    private BigDecimal performanceScore;
+
+    @Column(name = "notes", columnDefinition = "TEXT")
+    private String notes;
+
+    // ====== AUDIT TRAIL WITH HIBERNATE TYPES ======
+    @Type(JsonType.class)
+    @Column(name = "audit_trail", columnDefinition = "jsonb")
+    private Map<String, Object> auditTrail = new HashMap<>();
+
     // ========== CONSTRUCTORS ==========
 
     public Driver() {
         this.status = DriverStatus.ACTIVE;
+        this.incidentsLogged = 0;
+        this.totalTrips = 0;
+        this.trainingCompleted = false;
+        this.auditTrail = new HashMap<>();
+        this.setIsActive(true);
+        this.setVersion(0);
     }
 
     // ========== HELPER METHODS ==========
@@ -103,7 +159,7 @@ public class Driver extends BaseEntity {
      * Check if driver is active
      */
     public boolean isActive() {
-        return status == DriverStatus.ACTIVE;
+        return status == DriverStatus.ACTIVE && super.isActive();
     }
 
     /**
@@ -113,7 +169,8 @@ public class Driver extends BaseEntity {
         return isActive() && 
                !isLicenseExpired() && 
                status != DriverStatus.SUSPENDED &&
-               status != DriverStatus.ON_LEAVE;
+               status != DriverStatus.ON_LEAVE &&
+               assignedVehicleId == null;
     }
 
     /**
@@ -130,9 +187,9 @@ public class Driver extends BaseEntity {
      * Get driver's age (if date of birth is available in AppUser)
      */
     public Integer getAge() {
-      //  if (appUser != null && appUser.getDateOfBirth() != null) {
-      //      return Period.between(appUser.getDateOfBirth(), LocalDate.now()).getYears();
-      //  }
+        if (appUser != null && appUser.getDateOfBirth() != null) {
+            return Period.between(appUser.getDateOfBirth(), LocalDate.now()).getYears();
+        }
         return null;
     }
 
@@ -180,6 +237,7 @@ public class Driver extends BaseEntity {
         this.status = DriverStatus.ACTIVE;
         this.terminationDate = null;
         this.terminationReason = null;
+        this.setIsActive(true);
     }
 
     /**
@@ -189,6 +247,7 @@ public class Driver extends BaseEntity {
         this.status = DriverStatus.INACTIVE;
         this.terminationDate = LocalDate.now();
         this.terminationReason = reason;
+        this.setIsActive(false);
     }
 
     /**
@@ -205,6 +264,7 @@ public class Driver extends BaseEntity {
     public void reinstate() {
         this.status = DriverStatus.ACTIVE;
         this.terminationReason = null;
+        this.setIsActive(true);
     }
 
     /**
@@ -221,7 +281,79 @@ public class Driver extends BaseEntity {
         return isActive() &&
                 !isLicenseExpired() &&
                 status != DriverStatus.SUSPENDED &&
-                status != DriverStatus.ON_LEAVE;
+                status != DriverStatus.ON_LEAVE &&
+                assignedVehicleId == null;
+    }
+
+    /**
+     * Assign vehicle to driver
+     */
+    public void assignVehicle(Long vehicleId) {
+        this.assignedVehicleId = vehicleId;
+    }
+
+    /**
+     * Unassign vehicle from driver
+     */
+    public void unassignVehicle() {
+        this.assignedVehicleId = null;
+    }
+
+    /**
+     * Increment trips count
+     */
+    public void incrementTrips() {
+        this.totalTrips = (totalTrips == null ? 0 : totalTrips) + 1;
+    }
+
+    /**
+     * Increment incidents count
+     */
+    public void incrementIncidents() {
+        this.incidentsLogged = (incidentsLogged == null ? 0 : incidentsLogged) + 1;
+    }
+
+    /**
+     * Update total kilometers travelled
+     */
+    public void addKilometers(BigDecimal km) {
+        if (km != null) {
+            if (this.totalKmTravelled == null) {
+                this.totalKmTravelled = BigDecimal.ZERO;
+            }
+            this.totalKmTravelled = this.totalKmTravelled.add(km);
+        }
+    }
+
+    /**
+     * Update total hours active
+     */
+    public void addActiveHours(BigDecimal hours) {
+        if (hours != null) {
+            if (this.totalHoursActive == null) {
+                this.totalHoursActive = BigDecimal.ZERO;
+            }
+            this.totalHoursActive = this.totalHoursActive.add(hours);
+        }
+    }
+
+    /**
+     * Check if medical clearance is valid
+     */
+    public boolean isMedicalClearanceValid() {
+        return nextMedicalDue == null || !nextMedicalDue.isBefore(LocalDate.now());
+    }
+
+    /**
+     * Check if medical clearance is expiring within given days
+     */
+    public boolean isMedicalClearanceExpiringWithinDays(int days) {
+        if (nextMedicalDue == null) {
+            return false;
+        }
+        LocalDate warningDate = LocalDate.now().plusDays(days);
+        return !nextMedicalDue.isBefore(LocalDate.now()) &&
+                !nextMedicalDue.isAfter(warningDate);
     }
 
     // ========== EQUALS & HASHCODE ==========
@@ -258,6 +390,39 @@ public class Driver extends BaseEntity {
                 ", licenseNumber='" + licenseNumber + '\'' +
                 ", status=" + status +
                 ", appUserId=" + (appUser != null ? appUser.getId() : "null") +
+                ", isActive=" + getIsActive() +
                 '}';
+    }
+
+    // ========== LIFECYCLE HOOKS ==========
+
+    @PrePersist
+    protected void onCreate() {
+        if (status == null) {
+            status = DriverStatus.ACTIVE;
+        }
+        if (incidentsLogged == null) {
+            incidentsLogged = 0;
+        }
+        if (totalTrips == null) {
+            totalTrips = 0;
+        }
+        if (trainingCompleted == null) {
+            trainingCompleted = false;
+        }
+        if (auditTrail == null) {
+            auditTrail = new HashMap<>();
+        }
+        if (getIsActive() == null) {
+            setIsActive(true);
+        }
+        if (getVersion() == null) {
+            setVersion(0);
+        }
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        // Any pre-update logic
     }
 }
