@@ -2,11 +2,13 @@ package com.pgsa.trailers.service;
 
 import com.pgsa.trailers.dto.DriverDTO;
 import com.pgsa.trailers.dto.DriverRequest;
+import com.pgsa.trailers.dto.UserRequest;
 import com.pgsa.trailers.entity.assets.Driver;
 import com.pgsa.trailers.entity.security.AppUser;
 import com.pgsa.trailers.enums.DriverStatus;
 import com.pgsa.trailers.repository.DriverRepository;
 import com.pgsa.trailers.repository.AppUserRepository;
+import com.pgsa.trailers.service.security.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,7 @@ public class DriverService {
 
     private final DriverRepository driverRepository;
     private final AppUserRepository appUserRepository;
+    private final UserService userService;
 
     // ====== CREATE ======
     
@@ -94,7 +97,11 @@ public class DriverService {
         Driver driver = driverRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Driver not found with ID: " + id));
         
-        // Only update fields that are present in the request
+        log.info("Current driver - ID: {}, Name: {}, License: {}, AppUser ID: {}", 
+            driver.getId(), driver.getFullName(), driver.getLicenseNumber(), 
+            driver.getAppUser() != null ? driver.getAppUser().getId() : "null");
+        
+        // Update basic fields
         if (request.getFirstName() != null) {
             driver.setFirstName(request.getFirstName().trim());
         }
@@ -151,17 +158,33 @@ public class DriverService {
             driver.setNotes(request.getNotes().trim());
         }
         
-        // Handle AppUser update if needed
+        // ⭐ CRITICAL: Handle AppUser update
         if (request.getAppUserId() != null) {
+            // If appUserId is provided, use it
             AppUser appUser = appUserRepository.findById(request.getAppUserId())
                     .orElseThrow(() -> new RuntimeException("AppUser not found with ID: " + request.getAppUserId()));
             driver.setAppUser(appUser);
+            log.info("Updated AppUser to ID: {}", appUser.getId());
+        } else {
+            // If no appUserId provided, check if we need to update the AppUser's email
+            if (request.getEmail() != null && driver.getAppUser() != null) {
+                AppUser appUser = driver.getAppUser();
+                if (!appUser.getEmail().equals(request.getEmail())) {
+                    // Update the AppUser's email
+                    appUser.setEmail(request.getEmail());
+                    appUserRepository.save(appUser);
+                    log.info("Updated AppUser email to: {}", request.getEmail());
+                }
+            }
+            // Keep existing AppUser
+            log.info("Keeping existing AppUser ID: {}", 
+                driver.getAppUser() != null ? driver.getAppUser().getId() : "null");
         }
         
         driver.setUpdatedAt(LocalDateTime.now());
         
         Driver saved = driverRepository.save(driver);
-        log.info("✅ Successfully updated driver ID: {}", saved.getId());
+        log.info("✅ Successfully updated driver ID: {}, Name: {}", saved.getId(), saved.getFullName());
         return convertToDTO(saved);
     }
 
@@ -247,6 +270,10 @@ public class DriverService {
         if (request.getLicenseNumber() == null || request.getLicenseNumber().trim().isEmpty()) {
             throw new RuntimeException("License number is required");
         }
+        // For creation, we need either appUserId or password to create one
+        if (request.getAppUserId() == null && (request.getPassword() == null || request.getPassword().isEmpty())) {
+            throw new RuntimeException("Either appUserId or password is required");
+        }
     }
 
     private void mapRequestToEntity(DriverRequest request, Driver driver) {
@@ -303,31 +330,20 @@ public class DriverService {
     }
 
     private AppUser createAppUser(DriverRequest request) {
-        AppUser appUser = new AppUser();
+        // Create a UserRequest to use the existing UserService
+        UserRequest userRequest = new UserRequest();
+        userRequest.setUsername(request.getEmail() != null ? request.getEmail() : request.getLicenseNumber());
+        userRequest.setEmail(request.getEmail());
+        userRequest.setPassword(request.getPassword());
+        userRequest.setEnabled(true);
         
-        // Set basic fields - use only methods that exist on AppUser
-        String username = request.getEmail() != null ? request.getEmail() : request.getLicenseNumber();
-        appUser.setUsername(username);
-        appUser.setEmail(request.getEmail());
+        // Set default role (USER role)
+        Set<Long> roleIds = new HashSet<>();
+        roleIds.add(2L); // Assuming USER role has ID 2, adjust as needed
+        userRequest.setRoleIds(roleIds);
         
-        // Set active status - use the correct method name
-        // If your AppUser has setActive, use it, otherwise use setIsActive
-        try {
-            appUser.setActive(true);
-        } catch (NoSuchMethodError e) {
-            // If setActive doesn't exist, try setIsActive
-            try {
-                appUser.setIsActive(true);
-            } catch (NoSuchMethodError e2) {
-                // If neither exists, just log and continue
-                log.warn("AppUser does not have setActive or setIsActive method");
-            }
-        }
-        
-        appUser.setCreatedAt(LocalDateTime.now());
-        appUser.setUpdatedAt(LocalDateTime.now());
-        
-        return appUserRepository.save(appUser);
+        // Use UserService to create the user
+        return userService.createUserEntity(userRequest);
     }
 
     private DriverDTO convertToDTO(Driver driver) {
