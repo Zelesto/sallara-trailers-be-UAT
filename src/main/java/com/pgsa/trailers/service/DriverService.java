@@ -9,6 +9,7 @@ import com.pgsa.trailers.repository.DriverRepository;
 import com.pgsa.trailers.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,7 @@ public class DriverService {
 
     private final DriverRepository driverRepository;
     private final AppUserRepository appUserRepository;
+    private final PasswordEncoder passwordEncoder;  // Add this if you have it
 
     // ====== CREATE ======
     
@@ -120,30 +122,6 @@ public class DriverService {
                 .orElseThrow(() -> new RuntimeException("Driver not found with ID: " + id));
         driverRepository.delete(driver);
         log.info("✅ Successfully deleted driver ID: {}", id);
-    }
-
-    @Transactional
-    public void softDeleteDriver(Long id) {
-        log.info("Soft deleting driver ID: {}", id);
-        Driver driver = driverRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Driver not found with ID: " + id));
-        driver.setIsActive(false);
-        driver.setStatus(DriverStatus.INACTIVE);
-        driver.setUpdatedAt(LocalDateTime.now());
-        driverRepository.save(driver);
-        log.info("✅ Successfully soft deleted driver ID: {}", id);
-    }
-
-    @Transactional
-    public void restoreDriver(Long id) {
-        log.info("Restoring driver ID: {}", id);
-        Driver driver = driverRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Driver not found with ID: " + id));
-        driver.setIsActive(true);
-        driver.setStatus(DriverStatus.ACTIVE);
-        driver.setUpdatedAt(LocalDateTime.now());
-        driverRepository.save(driver);
-        log.info("✅ Successfully restored driver ID: {}", id);
     }
 
     // ====== BUSINESS OPERATIONS ======
@@ -252,18 +230,22 @@ public class DriverService {
 
     private AppUser createAppUser(DriverRequest request) {
         AppUser appUser = new AppUser();
+        
+        // Set basic fields - use only methods that exist on AppUser
         appUser.setUsername(request.getEmail() != null ? request.getEmail() : request.getLicenseNumber());
         appUser.setEmail(request.getEmail());
-        appUser.setFirstName(request.getFirstName());
-        appUser.setLastName(request.getLastName());
-        // Set password if provided
+        
+        // Set password if provided and encode it
         if (request.getPassword() != null && !request.getPassword().isEmpty()) {
-            // Encode password here
-            appUser.setPassword(request.getPassword());
+            // If you have PasswordEncoder
+            appUser.setPassword(passwordEncoder.encode(request.getPassword()));
         }
-        appUser.setIsActive(true);
+        
+        // Set active status
+        appUser.setActive(true);
         appUser.setCreatedAt(LocalDateTime.now());
         appUser.setUpdatedAt(LocalDateTime.now());
+        
         return appUserRepository.save(appUser);
     }
 
