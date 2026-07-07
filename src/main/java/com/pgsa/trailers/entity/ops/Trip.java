@@ -4,9 +4,11 @@ package com.pgsa.trailers.entity.ops;
 import com.pgsa.trailers.entity.assets.Driver;
 import com.pgsa.trailers.entity.assets.Vehicle;
 import com.pgsa.trailers.enums.TripStatus;
+import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.Type;
 import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedBy;
@@ -15,6 +17,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -321,8 +325,10 @@ public class Trip {
     @Column(name = "last_status_update")
     private LocalDateTime lastStatusUpdate;
 
-    @Column(name = "audit_trail", columnDefinition = "TEXT")
-    private String auditTrail;
+    // ⭐ FIX: Use JsonType for JSONB column
+    @Type(JsonType.class)
+    @Column(name = "audit_trail", columnDefinition = "jsonb")
+    private Map<String, Object> auditTrail = new HashMap<>();
 
     /* ========================
        Metrics
