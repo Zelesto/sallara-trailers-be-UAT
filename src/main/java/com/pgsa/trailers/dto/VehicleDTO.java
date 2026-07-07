@@ -98,8 +98,8 @@ public class VehicleDTO {
     
     @JsonProperty("notes")
     private String notes;
-    
-    @JsonProperty("audit_trail")
+
+    @JsonIgnore
     private Map<String, Object> auditTrail;
     
     @JsonProperty("category")
@@ -176,7 +176,7 @@ public class VehicleDTO {
         dto.setNextServiceOdometer(vehicle.getNextServiceOdometer());
         dto.setIncidentsLogged(vehicle.getIncidentsLogged());
         dto.setNotes(vehicle.getNotes());
-        dto.setAuditTrail(vehicle.getAuditTrail());
+        //dto.setAuditTrail(vehicle.getAuditTrail());
         dto.setCategory(vehicle.getCategory());
         dto.setVehicleType(vehicle.getVehicleType() != null ? vehicle.getVehicleType().name() : null);
         dto.setIsActive(vehicle.getIsActive());
