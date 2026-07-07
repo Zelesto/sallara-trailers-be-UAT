@@ -111,9 +111,9 @@ public class Vehicle extends BaseEntity {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
-    @Convert(converter = JsonConverter.class)
-    @Column(name = "audit_trail", columnDefinition = "jsonb")
-    private Map<String, Object> auditTrail;
+   // @Convert(converter = JsonConverter.class)
+    //@Column(name = "audit_trail", columnDefinition = "jsonb")
+    //private Map<String, Object> auditTrail;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
