@@ -1,8 +1,10 @@
 package com.pgsa.trailers.helpers;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.AttributeConverter;
+import jakarta.persistence.Converter;
 import org.postgresql.util.PGobject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -12,7 +14,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Component
-public class JsonConverter implements AttributeConverter<Map<String, Object>, Object> { // FIX: Specify types
+@Converter(autoApply = true)  // This automatically applies to all JSONB fields
+public class JsonConverter implements AttributeConverter<Map<String, Object>, Object> {
 
     private static ObjectMapper objectMapper;
 
@@ -23,24 +26,25 @@ public class JsonConverter implements AttributeConverter<Map<String, Object>, Ob
 
     @Override
     public Object convertToDatabaseColumn(Map<String, Object> attribute) {
-        if (attribute == null) {
+        if (attribute == null || attribute.isEmpty()) {
             return null;
         }
         try {
             String json = objectMapper.writeValueAsString(attribute);
-
+            
             PGobject pgObject = new PGobject();
-            pgObject.setType("json");
+            pgObject.setType("jsonb");  // Changed from "json" to "jsonb" for PostgreSQL
             pgObject.setValue(json);
             return pgObject;
-
+            
         } catch (Exception e) {
             throw new IllegalArgumentException("Error converting to JSON", e);
         }
     }
 
     @Override
-    public Map<String, Object> convertToEntityAttribute(Object dbData) { // FIX: Return Map type
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> convertToEntityAttribute(Object dbData) {
         if (dbData == null) {
             return new HashMap<>();
         }
@@ -52,17 +56,19 @@ public class JsonConverter implements AttributeConverter<Map<String, Object>, Ob
                 json = ((PGobject) dbData).getValue();
             } else if (dbData instanceof String) {
                 json = (String) dbData;
+            } else if (dbData instanceof Map) {
+                // If it's already a Map, return it
+                return (Map<String, Object>) dbData;
             } else {
                 throw new IllegalArgumentException("Unsupported database type: " + dbData.getClass());
             }
 
-            if (json == null || json.isEmpty()) {
+            if (json == null || json.isEmpty() || "null".equals(json)) {
                 return new HashMap<>();
             }
 
-            // FIX: Use TypeReference to deserialize as Map<String, Object>
-            return objectMapper.readValue(json,
-                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+            // Use TypeReference to deserialize as Map<String, Object>
+            return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
 
         } catch (Exception e) {
             throw new IllegalArgumentException("Error converting JSON to object", e);
