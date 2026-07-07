@@ -188,11 +188,11 @@ public class FuelSlipService {
                 manualVehicle.setMake("MANUAL_ENTRY");
                 manualVehicle.setModel("UNKNOWN");
 
-                Map<String, Object> auditMap = new HashMap<>();
-                auditMap.put("createdBy", "fuel_slip_service");
-                auditMap.put("note", "Manual entry for fuel slip");
-                auditMap.put("createdAt", LocalDateTime.now().toString());
-                manualVehicle.setAuditTrail(auditMap);
+                //Map<String, Object> auditMap = new HashMap<>();
+                //auditMap.put("createdBy", "fuel_slip_service");
+                //auditMap.put("note", "Manual entry for fuel slip");
+                //auditMap.put("createdAt", LocalDateTime.now().toString());
+                //manualVehicle.setAuditTrail(auditMap);
 
                 manualVehicle.setStatus(VehicleStatus.ACTIVE);
                 manualVehicle.setCreatedAt(LocalDateTime.now());
