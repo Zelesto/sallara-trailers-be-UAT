@@ -1,5 +1,6 @@
 package com.pgsa.trailers.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore; 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.pgsa.trailers.entity.assets.Vehicle;
