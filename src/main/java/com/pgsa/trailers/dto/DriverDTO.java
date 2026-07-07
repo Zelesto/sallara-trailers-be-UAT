@@ -86,7 +86,7 @@ public class DriverDTO {
     @JsonProperty("notes")
     private String notes;
     
-    @JsonIgnore  // ⭐ CRITICAL: Ignore audit_trail from frontend
+    @JsonIgnore
     private Map<String, Object> auditTrail;
     
     @JsonProperty("is_active")
