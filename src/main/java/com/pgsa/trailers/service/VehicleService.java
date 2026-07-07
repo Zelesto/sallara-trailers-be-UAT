@@ -372,8 +372,13 @@ public class VehicleService {
             vehicle.setNotes(dto.getNotes().trim());
         }
         if (dto.getAuditTrail() != null) {
-            vehicle.setAuditTrail(dto.getAuditTrail());
+        vehicle.setAuditTrail(dto.getAuditTrail());
+    } else {
+        // Set empty map instead of null to avoid JSONB issues
+        if (vehicle.getAuditTrail() == null) {
+            vehicle.setAuditTrail(new HashMap<>());
         }
+    }
         if (dto.getCategory() != null) {
             vehicle.setCategory(dto.getCategory().trim());
         }
