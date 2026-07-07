@@ -24,6 +24,8 @@ public class VehicleService {
     private final VehicleRepository vehicleRepository;
     private final DriverRepository driverRepository;
 
+    // ====== Query Methods ======
+    
     public List<Vehicle> getAllVehicles() {
         log.debug("Fetching all vehicles");
         return vehicleRepository.findAll();
@@ -88,6 +90,8 @@ public class VehicleService {
         return vehicleRepository.findByRoadworthyExpiryBefore(LocalDate.now());
     }
 
+    // ====== Create Methods ======
+    
     @Transactional
     public Vehicle createVehicle(Vehicle vehicle) {
         log.info("Creating vehicle with registration: {}", vehicle.getRegistrationNumber());
@@ -96,23 +100,66 @@ public class VehicleService {
             throw new RuntimeException("Vehicle with registration " + vehicle.getRegistrationNumber() + " already exists");
         }
 
-        vehicle.setCreatedAt(LocalDateTime.now());
-        vehicle.setUpdatedAt(LocalDateTime.now());
+        // Ensure defaults are set
+        if (vehicle.getStatus() == null) {
+            vehicle.setStatus(VehicleStatus.ACTIVE);
+        }
+        if (vehicle.getIsActive() == null) {
+            vehicle.setIsActive(true);
+        }
+        if (vehicle.getVersion() == null) {
+            vehicle.setVersion(0);
+        }
+        
+        vehicle.calculateNextService();
         return vehicleRepository.save(vehicle);
     }
 
+    // ====== Update Methods ======
+    
     @Transactional
     public Vehicle updateVehicle(Long id, VehicleDTO dto) {
-        log.info("Updating vehicle ID: {} with DTO: {}", id, dto);
+        log.info("Updating vehicle ID: {} with DTO", id);
         
         Vehicle vehicle = getVehicleById(id);
         
-        log.info("DTO fields - registrationNumber: {}, make: {}, model: {}, vehicleType: {}, fuelType: {}, status: {}, year: {}, vin: {}", 
-            dto.getRegistrationNumber(), dto.getMake(), dto.getModel(), 
-            dto.getVehicleType(), dto.getFuelType(), dto.getStatus(), 
-            dto.getYear(), dto.getVin());
+        // Map DTO to Entity
+        mapDtoToEntity(dto, vehicle);
+        
+        // Update timestamp
+        vehicle.setUpdatedAt(LocalDateTime.now());
+        vehicle.calculateNextService();
 
-        // Update basic fields
+        log.info("Saving vehicle with values - registration: {}, make: {}, model: {}, vehicleType: {}, status: {}", 
+            vehicle.getRegistrationNumber(), 
+            vehicle.getMake(), 
+            vehicle.getModel(), 
+            vehicle.getVehicleType(), 
+            vehicle.getStatus());
+
+        try {
+            Vehicle saved = vehicleRepository.save(vehicle);
+            log.info("✅ Successfully updated vehicle ID: {}", saved.getId());
+            return saved;
+        } catch (Exception e) {
+            log.error("❌ Failed to update vehicle: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to update vehicle: " + e.getMessage(), e);
+        }
+    }
+
+    // ====== Delete Methods ======
+    
+    @Transactional
+    public void deleteVehicle(Long id) {
+        log.info("Deleting vehicle ID: {}", id);
+        Vehicle vehicle = getVehicleById(id);
+        vehicleRepository.delete(vehicle);
+    }
+
+    // ====== Helper Methods ======
+    
+    private void mapDtoToEntity(VehicleDTO dto, Vehicle vehicle) {
+        // Basic fields
         if (dto.getRegistrationNumber() != null) {
             vehicle.setRegistrationNumber(dto.getRegistrationNumber());
         }
@@ -154,10 +201,14 @@ public class VehicleService {
                 log.info("✅ Set vehicle type to: {}", vehicleType);
             } catch (IllegalArgumentException e) {
                 log.error("❌ Invalid vehicle type: '{}'", dto.getVehicleType());
+                // Keep existing value or set default
+                if (vehicle.getVehicleType() == null) {
+                    vehicle.setVehicleType(VehicleType.TRUCK);
+                }
             }
         }
         
-        // Update other fields
+        // Numeric and date fields
         if (dto.getAvgConsumption() != null) {
             vehicle.setAvgConsumption(dto.getAvgConsumption());
         }
@@ -258,32 +309,5 @@ public class VehicleService {
                 log.info("Unassigned driver");
             }
         }
-
-        // Update timestamp and recalculate
-        vehicle.setUpdatedAt(LocalDateTime.now());
-        vehicle.calculateNextService();
-
-        log.info("Saving vehicle with values - registration: {}, make: {}, model: {}, vehicleType: {}, status: {}", 
-            vehicle.getRegistrationNumber(), 
-            vehicle.getMake(), 
-            vehicle.getModel(), 
-            vehicle.getVehicleType(), 
-            vehicle.getStatus());
-
-        try {
-            Vehicle saved = vehicleRepository.save(vehicle);
-            log.info("✅ Successfully updated vehicle ID: {}", saved.getId());
-            return saved;
-        } catch (Exception e) {
-            log.error("❌ Failed to update vehicle: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to update vehicle: " + e.getMessage(), e);
-        }
-    }
-
-    @Transactional
-    public void deleteVehicle(Long id) {
-        log.info("Deleting vehicle ID: {}", id);
-        Vehicle vehicle = getVehicleById(id);
-        vehicleRepository.delete(vehicle);
     }
 }
