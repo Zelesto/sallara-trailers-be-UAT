@@ -9,11 +9,11 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.Type;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.HashMap;
 import java.util.Map;
-import java.math.BigDecimal;
 
 @Getter
 @Setter
@@ -188,9 +188,10 @@ public class Driver extends BaseEntity {
      * Get driver's age (if date of birth is available in AppUser)
      */
     public Integer getAge() {
-        if (appUser != null && appUser.getDateOfBirth() != null) {
-            return Period.between(appUser.getDateOfBirth(), LocalDate.now()).getYears();
-        }
+        // Temporarily disabled - AppUser may not have dateOfBirth
+        // if (appUser != null && appUser.getDateOfBirth() != null) {
+        //     return Period.between(appUser.getDateOfBirth(), LocalDate.now()).getYears();
+        // }
         return null;
     }
 
