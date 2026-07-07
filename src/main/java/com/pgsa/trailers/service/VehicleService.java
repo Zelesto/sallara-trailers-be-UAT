@@ -12,8 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -142,6 +140,30 @@ public class VehicleService {
         return saved;
     }
 
+    @Transactional
+    public Vehicle createVehicleFromDTO(VehicleDTO dto) {
+        log.info("Creating vehicle from DTO with registration: {}", dto.getRegistrationNumber());
+        
+        Vehicle vehicle = new Vehicle();
+        mapDtoToEntity(dto, vehicle);
+        
+        // Check for duplicates
+        if (vehicleRepository.findByRegistrationNumber(vehicle.getRegistrationNumber()).isPresent()) {
+            throw new RuntimeException("Vehicle with registration " + vehicle.getRegistrationNumber() + " already exists");
+        }
+        if (vehicle.getVin() != null && vehicleRepository.findByVin(vehicle.getVin()).isPresent()) {
+            throw new RuntimeException("Vehicle with VIN " + vehicle.getVin() + " already exists");
+        }
+        if (vehicle.getFleetNumber() != null && vehicleRepository.findByFleetNumber(vehicle.getFleetNumber()).isPresent()) {
+            throw new RuntimeException("Vehicle with fleet number " + vehicle.getFleetNumber() + " already exists");
+        }
+        
+        vehicle.calculateNextService();
+        Vehicle saved = vehicleRepository.save(vehicle);
+        log.info("✅ Successfully created vehicle from DTO with ID: {}", saved.getId());
+        return saved;
+    }
+
     // ====== Update Methods ======
     
     @Transactional
@@ -246,50 +268,56 @@ public class VehicleService {
     private void mapDtoToEntity(VehicleDTO dto, Vehicle vehicle) {
         // Basic fields
         if (dto.getRegistrationNumber() != null) {
-            vehicle.setRegistrationNumber(dto.getRegistrationNumber());
+            vehicle.setRegistrationNumber(dto.getRegistrationNumber().trim());
         }
         if (dto.getVin() != null) {
-            vehicle.setVin(dto.getVin());
+            vehicle.setVin(dto.getVin().trim());
         }
         if (dto.getMake() != null) {
-            vehicle.setMake(dto.getMake());
+            vehicle.setMake(dto.getMake().trim());
         }
         if (dto.getModel() != null) {
-            vehicle.setModel(dto.getModel());
+            vehicle.setModel(dto.getModel().trim());
         }
         if (dto.getYear() != null) {
             vehicle.setYear(dto.getYear());
         }
         if (dto.getFuelType() != null) {
-            vehicle.setFuelType(dto.getFuelType());
+            vehicle.setFuelType(dto.getFuelType().trim());
         }
         if (dto.getCurrentMileage() != null) {
             vehicle.setCurrentMileage(dto.getCurrentMileage());
         }
         
-        // Handle status enum
-        if (dto.getStatus() != null) {
+        // Handle status enum - always set if provided
+        if (dto.getStatus() != null && !dto.getStatus().isEmpty()) {
             try {
                 vehicle.setStatus(VehicleStatus.valueOf(dto.getStatus().toUpperCase()));
                 log.info("✅ Set status to: {}", vehicle.getStatus());
             } catch (IllegalArgumentException e) {
                 log.warn("❌ Invalid status: {}, keeping current: {}", dto.getStatus(), vehicle.getStatus());
+                if (vehicle.getStatus() == null) {
+                    vehicle.setStatus(VehicleStatus.ACTIVE);
+                }
             }
+        } else if (vehicle.getStatus() == null) {
+            // Set default if null
+            vehicle.setStatus(VehicleStatus.ACTIVE);
         }
         
-        // Handle vehicle type enum
+        // Handle vehicle type enum - always set if provided
         if (dto.getVehicleType() != null && !dto.getVehicleType().isEmpty()) {
             try {
                 String vehicleTypeStr = dto.getVehicleType().trim().toUpperCase();
-                VehicleType vehicleType = VehicleType.valueOf(vehicleTypeStr);
-                vehicle.setVehicleType(vehicleType);
-                log.info("✅ Set vehicle type to: {}", vehicleType);
+                vehicle.setVehicleType(VehicleType.valueOf(vehicleTypeStr));
+                log.info("✅ Set vehicle type to: {}", vehicle.getVehicleType());
             } catch (IllegalArgumentException e) {
-                log.error("❌ Invalid vehicle type: '{}'", dto.getVehicleType());
-                if (vehicle.getVehicleType() == null) {
-                    vehicle.setVehicleType(VehicleType.TRUCK);
-                }
+                log.error("❌ Invalid vehicle type: '{}', using default TRUCK", dto.getVehicleType());
+                vehicle.setVehicleType(VehicleType.TRUCK);
             }
+        } else if (vehicle.getVehicleType() == null) {
+            // Set default if null
+            vehicle.setVehicleType(VehicleType.TRUCK);
         }
         
         // Numeric and date fields
@@ -312,7 +340,7 @@ public class VehicleService {
             vehicle.setServiceIntervalKm(dto.getServiceIntervalKm());
         }
         if (dto.getInsurancePolicyNumber() != null) {
-            vehicle.setInsurancePolicyNumber(dto.getInsurancePolicyNumber());
+            vehicle.setInsurancePolicyNumber(dto.getInsurancePolicyNumber().trim());
         }
         if (dto.getInsuranceExpiry() != null) {
             vehicle.setInsuranceExpiry(dto.getInsuranceExpiry());
@@ -321,13 +349,13 @@ public class VehicleService {
             vehicle.setRoadworthyExpiry(dto.getRoadworthyExpiry());
         }
         if (dto.getFleetNumber() != null) {
-            vehicle.setFleetNumber(dto.getFleetNumber());
+            vehicle.setFleetNumber(dto.getFleetNumber().trim());
         }
         if (dto.getGpsTrackerId() != null) {
             vehicle.setGpsTrackerId(dto.getGpsTrackerId());
         }
         if (dto.getMaintenanceStatus() != null) {
-            vehicle.setMaintenanceStatus(dto.getMaintenanceStatus());
+            vehicle.setMaintenanceStatus(dto.getMaintenanceStatus().trim());
         }
         if (dto.getNextServiceDue() != null) {
             vehicle.setNextServiceDue(dto.getNextServiceDue());
@@ -339,13 +367,13 @@ public class VehicleService {
             vehicle.setIncidentsLogged(dto.getIncidentsLogged());
         }
         if (dto.getNotes() != null) {
-            vehicle.setNotes(dto.getNotes());
+            vehicle.setNotes(dto.getNotes().trim());
         }
         if (dto.getAuditTrail() != null) {
             vehicle.setAuditTrail(dto.getAuditTrail());
         }
         if (dto.getCategory() != null) {
-            vehicle.setCategory(dto.getCategory());
+            vehicle.setCategory(dto.getCategory().trim());
         }
         if (dto.getIsActive() != null) {
             vehicle.setIsActive(dto.getIsActive());
@@ -375,7 +403,7 @@ public class VehicleService {
             vehicle.setFuelEfficiency(dto.getFuelEfficiency());
         }
         if (dto.getInsuranceProvider() != null) {
-            vehicle.setInsuranceProvider(dto.getInsuranceProvider());
+            vehicle.setInsuranceProvider(dto.getInsuranceProvider().trim());
         }
         if (dto.getInsuranceExpiryDate() != null) {
             vehicle.setInsuranceExpiryDate(dto.getInsuranceExpiryDate());
