@@ -127,3 +127,96 @@ public class DriverController {
     @PutMapping("/{id}/assign-vehicle/{vehicleId}")
     public ResponseEntity<?> assignVehicle(@PathVariable Long id, @PathVariable Long vehicleId) {
         log.info("PUT /api/drivers/{}/assign-vehicle/{}", id, vehicleId);
+        try {
+            driverService.assignVehicle(id, vehicleId);
+            return ResponseEntity.ok().body("Vehicle assigned successfully");
+        } catch (RuntimeException e) {
+            log.error("Error assigning vehicle: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            log.error("Error assigning vehicle: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body("Failed to assign vehicle: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/{id}/unassign-vehicle")
+    public ResponseEntity<?> unassignVehicle(@PathVariable Long id) {
+        log.info("PUT /api/drivers/{}/unassign-vehicle", id);
+        try {
+            driverService.unassignVehicle(id);
+            return ResponseEntity.ok().body("Vehicle unassigned successfully");
+        } catch (RuntimeException e) {
+            log.error("Error unassigning vehicle: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            log.error("Error unassigning vehicle: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body("Failed to unassign vehicle: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/{id}/status/{status}")
+    public ResponseEntity<?> updateStatus(@PathVariable Long id, @PathVariable String status) {
+        log.info("PUT /api/drivers/{}/status/{}", id, status);
+        try {
+            DriverStatus driverStatus = DriverStatus.valueOf(status.toUpperCase());
+            driverService.updateStatus(id, driverStatus);
+            return ResponseEntity.ok().body("Status updated successfully");
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid status: {}", status);
+            return ResponseEntity.badRequest().body("Invalid status: " + status);
+        } catch (RuntimeException e) {
+            log.error("Error updating status: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            log.error("Error updating status: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body("Failed to update status: " + e.getMessage());
+        }
+    }
+
+    // ====== DELETE Endpoints ======
+    
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteDriver(@PathVariable Long id) {
+        log.info("DELETE /api/drivers/{} - Deleting driver", id);
+        try {
+            driverService.deleteDriver(id);
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
+            log.error("Driver not found with ID {}: {}", id, e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            log.error("Error deleting driver {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.internalServerError().body("Failed to delete driver: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/{id}/soft")
+    public ResponseEntity<?> softDeleteDriver(@PathVariable Long id) {
+        log.info("DELETE /api/drivers/{}/soft - Soft deleting driver", id);
+        try {
+            driverService.softDeleteDriver(id);
+            return ResponseEntity.ok().body("Driver soft deleted successfully");
+        } catch (RuntimeException e) {
+            log.error("Driver not found with ID {}: {}", id, e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            log.error("Error soft deleting driver {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.internalServerError().body("Failed to soft delete driver: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/{id}/restore")
+    public ResponseEntity<?> restoreDriver(@PathVariable Long id) {
+        log.info("PUT /api/drivers/{}/restore - Restoring driver", id);
+        try {
+            driverService.restoreDriver(id);
+            return ResponseEntity.ok().body("Driver restored successfully");
+        } catch (RuntimeException e) {
+            log.error("Driver not found with ID {}: {}", id, e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            log.error("Error restoring driver {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.internalServerError().body("Failed to restore driver: " + e.getMessage());
+        }
+    }
+}
