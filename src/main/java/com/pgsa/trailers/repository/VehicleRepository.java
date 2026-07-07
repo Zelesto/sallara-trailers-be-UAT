@@ -15,25 +15,29 @@ import java.util.Optional;
 @Repository
 public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
 
-    // Basic finders
+    // ====== Basic Finders ======
     Optional<Vehicle> findByRegistrationNumber(String registrationNumber);
     Optional<Vehicle> findByRegistrationNumberIgnoreCase(String registrationNumber);
     Optional<Vehicle> findByVin(String vin);
     Optional<Vehicle> findByVinIgnoreCase(String vin);
     Optional<Vehicle> findByFleetNumber(String fleetNumber);
+    
+    // Active status with finders
+    Optional<Vehicle> findByIdAndIsActiveTrue(Long id);
+    List<Vehicle> findByIsActiveTrue();
 
-    // Status finders - FIXED: Use VehicleStatus enum
+    // ====== Status Finders ======
     List<Vehicle> findByStatus(VehicleStatus status);
     List<Vehicle> findByStatusIn(List<VehicleStatus> statuses);
 
-    // Vehicle type
+    // ====== Vehicle Type ======
     List<Vehicle> findByVehicleType(VehicleType vehicleType);
 
-    // Make/Model
+    // ====== Make/Model ======
     List<Vehicle> findByMakeContainingIgnoreCase(String make);
     List<Vehicle> findByModelContainingIgnoreCase(String model);
 
-    // Search
+    // ====== Search ======
     @Query("SELECT v FROM Vehicle v WHERE " +
            "LOWER(v.registrationNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(v.make) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
@@ -42,28 +46,26 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
            "LOWER(v.fleetNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
     List<Vehicle> searchVehicles(@Param("searchTerm") String searchTerm);
 
-    // Driver related
+    // ====== Driver Related ======
     List<Vehicle> findByAssignedDriverIsNotNull();
     List<Vehicle> findByAssignedDriverIsNull();
+    List<Vehicle> findByAssignedDriverIsNullAndStatusIn(List<VehicleStatus> statuses);
     List<Vehicle> findByAssignedDriverId(Long driverId);
 
-    // Maintenance
+    // ====== Maintenance ======
     List<Vehicle> findByMaintenanceStatus(String maintenanceStatus);
 
-    // Active status
-    List<Vehicle> findByIsActiveTrue();
-    List<Vehicle> findByIsActiveTrueAndStatus(VehicleStatus status);
-
-    // Count
-    long countByStatus(VehicleStatus status);
-
-    // Service related
+    // ====== Service Related ======
     List<Vehicle> findByNextServiceDueBetween(LocalDate start, LocalDate end);
     List<Vehicle> findByNextServiceDueBefore(LocalDate date);
     List<Vehicle> findByInsuranceExpiryBefore(LocalDate date);
     List<Vehicle> findByRoadworthyExpiryBefore(LocalDate date);
 
-    // Year and fuel
+    // ====== Year and Fuel ======
     List<Vehicle> findByYearBetween(Integer startYear, Integer endYear);
     List<Vehicle> findByFuelType(String fuelType);
+
+    // ====== Counts ======
+    long countByStatus(VehicleStatus status);
+    long countByIsActiveTrue();
 }
