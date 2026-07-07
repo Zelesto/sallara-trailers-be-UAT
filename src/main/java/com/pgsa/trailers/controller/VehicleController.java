@@ -180,15 +180,15 @@ public class VehicleController {
     // ====== POST Endpoints ======
     
     @PostMapping
-    public ResponseEntity<?> createVehicle(@RequestBody Vehicle vehicle) {
-        log.info("POST /api/vehicles - Creating vehicle: {}", vehicle.getRegistrationNumber());
+    public ResponseEntity<?> createVehicle(@RequestBody VehicleDTO vehicleDTO) {
+        log.info("POST /api/vehicles - Creating vehicle: {}", vehicleDTO.getRegistrationNumber());
         try {
             // Validate required fields
-            if (vehicle.getRegistrationNumber() == null || vehicle.getRegistrationNumber().isEmpty()) {
+            if (vehicleDTO.getRegistrationNumber() == null || vehicleDTO.getRegistrationNumber().isEmpty()) {
                 return ResponseEntity.badRequest().body("Registration number is required");
             }
             
-            Vehicle createdVehicle = vehicleService.createVehicle(vehicle);
+            Vehicle createdVehicle = vehicleService.createVehicleFromDTO(vehicleDTO);
             return ResponseEntity.status(HttpStatus.CREATED).body(createdVehicle);
         } catch (RuntimeException e) {
             log.error("Error creating vehicle: {}", e.getMessage());
@@ -204,6 +204,12 @@ public class VehicleController {
     @PutMapping("/{id}")
     public ResponseEntity<?> updateVehicle(@PathVariable Long id, @RequestBody VehicleDTO vehicleDTO) {
         log.info("PUT /api/vehicles/{} - Updating vehicle", id);
+        log.info("Received DTO: registrationNumber={}, make={}, model={}, vehicleType={}, status={}", 
+            vehicleDTO.getRegistrationNumber(),
+            vehicleDTO.getMake(),
+            vehicleDTO.getModel(),
+            vehicleDTO.getVehicleType(),
+            vehicleDTO.getStatus());
         
         try {
             Vehicle updatedVehicle = vehicleService.updateVehicle(id, vehicleDTO);
