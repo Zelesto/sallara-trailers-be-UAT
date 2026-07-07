@@ -85,9 +85,9 @@ public class Driver extends BaseEntity {
     private Boolean trainingCompleted = false;
 
     // ⭐ FIX: Change this to use JsonType since the column is JSON type
-    @Type(JsonType.class)
-    @Column(name = "training_certificates", columnDefinition = "jsonb")
-    private Map<String, Object> trainingCertificates = new HashMap<>();
+    //@Type(JsonType.class)
+    //@Column(name = "training_certificates", columnDefinition = "jsonb")
+    //private Map<String, Object> trainingCertificates = new HashMap<>();
 
     @Column(name = "medical_clearance_date")
     private LocalDate medicalClearanceDate;
