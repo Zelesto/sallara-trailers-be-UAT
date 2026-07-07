@@ -321,9 +321,7 @@ public class DriverService {
         if (request.getTrainingCompleted() != null) {
             driver.setTrainingCompleted(request.getTrainingCompleted());
         }
-        if (request.getTrainingCertificates() != null) {
-        driver.setTrainingCertificates(request.getTrainingCertificates());
-        }
+       
         if (request.getMedicalClearanceDate() != null) {
             driver.setMedicalClearanceDate(request.getMedicalClearanceDate());
         }
@@ -371,8 +369,7 @@ public class DriverService {
     dto.setAssignedVehicleId(driver.getAssignedVehicleId());
     dto.setTrainingCompleted(driver.getTrainingCompleted());
     
-    // ⭐ FIX: Convert trainingCertificates to Map (already a Map)
-    dto.setTrainingCertificates(driver.getTrainingCertificates());
+    
     
     dto.setMedicalClearanceDate(driver.getMedicalClearanceDate());
     dto.setNextMedicalDue(driver.getNextMedicalDue());
