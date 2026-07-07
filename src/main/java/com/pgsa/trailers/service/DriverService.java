@@ -9,7 +9,6 @@ import com.pgsa.trailers.repository.DriverRepository;
 import com.pgsa.trailers.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,7 +23,6 @@ public class DriverService {
 
     private final DriverRepository driverRepository;
     private final AppUserRepository appUserRepository;
-    private final PasswordEncoder passwordEncoder;  // Add this if you have it
 
     // ====== CREATE ======
     
@@ -96,8 +94,62 @@ public class DriverService {
         Driver driver = driverRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Driver not found with ID: " + id));
         
-        // Map request to entity (without audit_trail)
-        mapRequestToEntity(request, driver);
+        // Only update fields that are present in the request
+        if (request.getFirstName() != null) {
+            driver.setFirstName(request.getFirstName().trim());
+        }
+        if (request.getLastName() != null) {
+            driver.setLastName(request.getLastName().trim());
+        }
+        if (request.getEmail() != null) {
+            driver.setEmail(request.getEmail().trim());
+        }
+        if (request.getPhoneNumber() != null) {
+            driver.setPhoneNumber(request.getPhoneNumber().trim());
+        }
+        if (request.getLicenseNumber() != null) {
+            // Check if license number changed and is unique
+            if (!driver.getLicenseNumber().equals(request.getLicenseNumber())) {
+                if (driverRepository.findByLicenseNumber(request.getLicenseNumber()).isPresent()) {
+                    throw new RuntimeException("License number " + request.getLicenseNumber() + " already exists");
+                }
+                driver.setLicenseNumber(request.getLicenseNumber().trim());
+            }
+        }
+        if (request.getLicenseType() != null) {
+            driver.setLicenseType(request.getLicenseType().trim());
+        }
+        if (request.getLicenseExpiry() != null) {
+            driver.setLicenseExpiry(request.getLicenseExpiry());
+        }
+        if (request.getHireDate() != null) {
+            driver.setHireDate(request.getHireDate());
+        }
+        if (request.getStatus() != null) {
+            try {
+                driver.setStatus(DriverStatus.valueOf(request.getStatus().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid status: {}, keeping current", request.getStatus());
+            }
+        }
+        if (request.getEmploymentType() != null) {
+            driver.setEmploymentType(request.getEmploymentType().trim());
+        }
+        if (request.getShiftPattern() != null) {
+            driver.setShiftPattern(request.getShiftPattern().trim());
+        }
+        if (request.getTrainingCompleted() != null) {
+            driver.setTrainingCompleted(request.getTrainingCompleted());
+        }
+        if (request.getMedicalClearanceDate() != null) {
+            driver.setMedicalClearanceDate(request.getMedicalClearanceDate());
+        }
+        if (request.getNextMedicalDue() != null) {
+            driver.setNextMedicalDue(request.getNextMedicalDue());
+        }
+        if (request.getNotes() != null) {
+            driver.setNotes(request.getNotes().trim());
+        }
         
         // Handle AppUser update if needed
         if (request.getAppUserId() != null) {
@@ -122,6 +174,30 @@ public class DriverService {
                 .orElseThrow(() -> new RuntimeException("Driver not found with ID: " + id));
         driverRepository.delete(driver);
         log.info("✅ Successfully deleted driver ID: {}", id);
+    }
+
+    @Transactional
+    public void softDeleteDriver(Long id) {
+        log.info("Soft deleting driver ID: {}", id);
+        Driver driver = driverRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Driver not found with ID: " + id));
+        driver.setIsActive(false);
+        driver.setStatus(DriverStatus.INACTIVE);
+        driver.setUpdatedAt(LocalDateTime.now());
+        driverRepository.save(driver);
+        log.info("✅ Successfully soft deleted driver ID: {}", id);
+    }
+
+    @Transactional
+    public void restoreDriver(Long id) {
+        log.info("Restoring driver ID: {}", id);
+        Driver driver = driverRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Driver not found with ID: " + id));
+        driver.setIsActive(true);
+        driver.setStatus(DriverStatus.ACTIVE);
+        driver.setUpdatedAt(LocalDateTime.now());
+        driverRepository.save(driver);
+        log.info("✅ Successfully restored driver ID: {}", id);
     }
 
     // ====== BUSINESS OPERATIONS ======
@@ -202,7 +278,8 @@ public class DriverService {
             try {
                 driver.setStatus(DriverStatus.valueOf(request.getStatus().toUpperCase()));
             } catch (IllegalArgumentException e) {
-                log.warn("Invalid status: {}, keeping current", request.getStatus());
+                log.warn("Invalid status: {}, using ACTIVE", request.getStatus());
+                driver.setStatus(DriverStatus.ACTIVE);
             }
         }
         if (request.getEmploymentType() != null) {
@@ -223,26 +300,30 @@ public class DriverService {
         if (request.getNotes() != null) {
             driver.setNotes(request.getNotes().trim());
         }
-        
-        // ⭐ CRITICAL: DO NOT map audit_trail from request
-        // Keep the existing audit_trail in the database
     }
 
     private AppUser createAppUser(DriverRequest request) {
         AppUser appUser = new AppUser();
         
         // Set basic fields - use only methods that exist on AppUser
-        appUser.setUsername(request.getEmail() != null ? request.getEmail() : request.getLicenseNumber());
+        String username = request.getEmail() != null ? request.getEmail() : request.getLicenseNumber();
+        appUser.setUsername(username);
         appUser.setEmail(request.getEmail());
         
-        // Set password if provided and encode it
-        if (request.getPassword() != null && !request.getPassword().isEmpty()) {
-            // If you have PasswordEncoder
-            appUser.setPassword(passwordEncoder.encode(request.getPassword()));
+        // Set active status - use the correct method name
+        // If your AppUser has setActive, use it, otherwise use setIsActive
+        try {
+            appUser.setActive(true);
+        } catch (NoSuchMethodError e) {
+            // If setActive doesn't exist, try setIsActive
+            try {
+                appUser.setIsActive(true);
+            } catch (NoSuchMethodError e2) {
+                // If neither exists, just log and continue
+                log.warn("AppUser does not have setActive or setIsActive method");
+            }
         }
         
-        // Set active status
-        appUser.setActive(true);
         appUser.setCreatedAt(LocalDateTime.now());
         appUser.setUpdatedAt(LocalDateTime.now());
         
@@ -279,7 +360,6 @@ public class DriverService {
         dto.setIsActive(driver.getIsActive());
         dto.setVersion(driver.getVersion());
         dto.setAppUserId(driver.getAppUser() != null ? driver.getAppUser().getId() : null);
-        // ⭐ DO NOT set auditTrail in DTO
         return dto;
     }
 }
