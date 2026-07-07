@@ -171,5 +171,5 @@ public class CreateTripRequest {
     /* ========================
        AUDIT
        ======================== */
-    private String auditTrail;
+   // private String auditTrail;
 }
