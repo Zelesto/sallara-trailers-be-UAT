@@ -59,8 +59,9 @@ public class DriverDTO {
     @JsonProperty("training_completed")
     private Boolean trainingCompleted;
     
+    // ⭐ FIX: Change to Map for JSON type
     @JsonProperty("training_certificates")
-    private String trainingCertificates;
+    private Map<String, Object> trainingCertificates;
     
     @JsonProperty("medical_clearance_date")
     private LocalDate medicalClearanceDate;
