@@ -8,6 +8,8 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -124,7 +126,19 @@ public class CreateTripMapper {
         trip.setCheckpoints(request.getCheckpoints());
 
         // ======================== AUDIT ========================
-        trip.setAuditTrail(request.getAuditTrail());
+        // ⭐ FIX: Convert String to Map for auditTrail
+        Map<String, Object> auditMap = new HashMap<>();
+        auditMap.put("action", "TRIP_CREATED");
+        auditMap.put("timestamp", LocalDateTime.now());
+        auditMap.put("createdBy", "system");
+        auditMap.put("tripType", request.getTripType());
+        auditMap.put("status", request.getStatus() != null ? request.getStatus().name() : "DRAFT");
+        
+        // If the request has auditTrail as a String, parse it or add it as a note
+        if (request.getAuditTrail() != null && !request.getAuditTrail().isEmpty()) {
+            auditMap.put("note", request.getAuditTrail());
+        }
+        trip.setAuditTrail(auditMap);
 
         // ======================== DEFAULT VALUES ========================
         trip.setLastStatusUpdate(LocalDateTime.now());
