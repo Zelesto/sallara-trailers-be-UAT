@@ -3,6 +3,9 @@ package com.pgsa.trailers.enums;
 public enum VehicleType {
     TRUCK,
     TRAILER,
+    CAR,
     VAN,
-    CAR
+    BUS,
+    MOTORCYCLE,
+    HEAVY_EQUIPMENT
 }
