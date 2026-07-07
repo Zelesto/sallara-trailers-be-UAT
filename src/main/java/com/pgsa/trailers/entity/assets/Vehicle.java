@@ -10,7 +10,6 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Map;
 
 @Getter
@@ -153,8 +152,8 @@ public class Vehicle extends BaseEntity {
     public Vehicle() {
         this.status = VehicleStatus.ACTIVE;
         this.incidentsLogged = 0;
-        this.isActive = true;
-        this.version = 0;
+        this.setIsActive(true);
+        this.setVersion(0);
     }
 
     // ====== Business Methods ======
@@ -169,11 +168,12 @@ public class Vehicle extends BaseEntity {
     }
 
     public boolean isActive() {
-        return status == VehicleStatus.ACTIVE || status == VehicleStatus.AVAILABLE;
+        return (status == VehicleStatus.ACTIVE || status == VehicleStatus.AVAILABLE) && 
+               super.isActive();
     }
 
     public boolean isAvailable() {
-        return (status == VehicleStatus.AVAILABLE || status == VehicleStatus.ACTIVE) &&
+        return isActive() &&
                 assignedDriver == null &&
                 isInsuranceValid() &&
                 isRoadworthyValid() &&
@@ -260,11 +260,11 @@ public class Vehicle extends BaseEntity {
         if (incidentsLogged == null) {
             incidentsLogged = 0;
         }
-        if (isActive == null) {
-            isActive = true;
+        if (getIsActive() == null) {
+            setIsActive(true);
         }
-        if (version == null) {
-            version = 0;
+        if (getVersion() == null) {
+            setVersion(0);
         }
         calculateNextService();
     }
