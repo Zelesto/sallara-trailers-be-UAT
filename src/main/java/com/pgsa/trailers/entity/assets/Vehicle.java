@@ -50,8 +50,8 @@ public class Vehicle extends BaseEntity {
     private Integer year;
 
     @Enumerated(EnumType.STRING)
-@Column(name = "vehicle_type", length = 20, nullable = false)
-private VehicleType vehicleType = VehicleType.TRUCK;  // Set default value
+    @Column(name = "vehicle_type", length = 20, nullable = false)
+    private VehicleType vehicleType = VehicleType.TRUCK;
 
     @Column(name = "fuel_type", length = 20)
     private String fuelType;
@@ -117,7 +117,7 @@ private VehicleType vehicleType = VehicleType.TRUCK;  // Set default value
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
-    private VehicleStatus status = VehicleStatus.AVAILABLE;
+    private VehicleStatus status = VehicleStatus.ACTIVE;
 
     @Column(name = "category", length = 50)
     private String category;
@@ -131,8 +131,6 @@ private VehicleType vehicleType = VehicleType.TRUCK;  // Set default value
     @Column(name = "current_value", precision = 15, scale = 2)
     private BigDecimal currentValue;
 
-    // ====== NEW FIELDS - ADD THESE ======
-    
     @Column(name = "maintenance_cost", precision = 15, scale = 2)
     private BigDecimal maintenanceCost;
 
@@ -153,8 +151,10 @@ private VehicleType vehicleType = VehicleType.TRUCK;  // Set default value
 
     // ====== Constructors ======
     public Vehicle() {
-        this.status = VehicleStatus.AVAILABLE;
+        this.status = VehicleStatus.ACTIVE;
         this.incidentsLogged = 0;
+        this.isActive = true;
+        this.version = 0;
     }
 
     // ====== Business Methods ======
@@ -255,10 +255,16 @@ private VehicleType vehicleType = VehicleType.TRUCK;  // Set default value
     @PrePersist
     protected void onCreate() {
         if (status == null) {
-            status = VehicleStatus.AVAILABLE;
+            status = VehicleStatus.ACTIVE;
         }
         if (incidentsLogged == null) {
             incidentsLogged = 0;
+        }
+        if (isActive == null) {
+            isActive = true;
+        }
+        if (version == null) {
+            version = 0;
         }
         calculateNextService();
     }
