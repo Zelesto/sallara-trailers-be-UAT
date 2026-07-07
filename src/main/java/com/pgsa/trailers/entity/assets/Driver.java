@@ -84,8 +84,10 @@ public class Driver extends BaseEntity {
     @Column(name = "training_completed")
     private Boolean trainingCompleted = false;
 
-    @Column(name = "training_certificates", columnDefinition = "TEXT")
-    private String trainingCertificates;
+    // ⭐ FIX: Change this to use JsonType since the column is JSON type
+    @Type(JsonType.class)
+    @Column(name = "training_certificates", columnDefinition = "jsonb")
+    private Map<String, Object> trainingCertificates = new HashMap<>();
 
     @Column(name = "medical_clearance_date")
     private LocalDate medicalClearanceDate;
@@ -123,6 +125,7 @@ public class Driver extends BaseEntity {
         this.incidentsLogged = 0;
         this.totalTrips = 0;
         this.trainingCompleted = false;
+        this.trainingCertificates = new HashMap<>();
         this.auditTrail = new HashMap<>();
         this.setIsActive(true);
         this.setVersion(0);
@@ -188,10 +191,6 @@ public class Driver extends BaseEntity {
      * Get driver's age (if date of birth is available in AppUser)
      */
     public Integer getAge() {
-        // Temporarily disabled - AppUser may not have dateOfBirth
-        // if (appUser != null && appUser.getDateOfBirth() != null) {
-        //     return Period.between(appUser.getDateOfBirth(), LocalDate.now()).getYears();
-        // }
         return null;
     }
 
@@ -411,6 +410,9 @@ public class Driver extends BaseEntity {
         }
         if (trainingCompleted == null) {
             trainingCompleted = false;
+        }
+        if (trainingCertificates == null) {
+            trainingCertificates = new HashMap<>();
         }
         if (auditTrail == null) {
             auditTrail = new HashMap<>();
