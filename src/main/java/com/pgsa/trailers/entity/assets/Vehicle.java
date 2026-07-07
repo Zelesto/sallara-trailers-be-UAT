@@ -3,14 +3,15 @@ package com.pgsa.trailers.entity.assets;
 import com.pgsa.trailers.config.BaseEntity;
 import com.pgsa.trailers.enums.VehicleStatus;
 import com.pgsa.trailers.enums.VehicleType;
-import com.pgsa.trailers.helpers.JsonConverter;
+import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.Type;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.Map;
 
 @Getter
@@ -111,9 +112,10 @@ public class Vehicle extends BaseEntity {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
-   // @Convert(converter = JsonConverter.class)
-    //@Column(name = "audit_trail", columnDefinition = "jsonb")
-    //private Map<String, Object> auditTrail;
+    // ====== AUDIT TRAIL WITH HIBERNATE TYPES ======
+    @Type(JsonType.class)
+    @Column(name = "audit_trail", columnDefinition = "jsonb")
+    private Map<String, Object> auditTrail = new HashMap<>();
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
@@ -153,6 +155,7 @@ public class Vehicle extends BaseEntity {
     public Vehicle() {
         this.status = VehicleStatus.ACTIVE;
         this.incidentsLogged = 0;
+        this.auditTrail = new HashMap<>();
         this.setIsActive(true);
         this.setVersion(0);
     }
@@ -260,6 +263,9 @@ public class Vehicle extends BaseEntity {
         }
         if (incidentsLogged == null) {
             incidentsLogged = 0;
+        }
+        if (auditTrail == null) {
+            auditTrail = new HashMap<>();
         }
         if (getIsActive() == null) {
             setIsActive(true);
