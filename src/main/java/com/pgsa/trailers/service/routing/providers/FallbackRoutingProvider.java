@@ -14,7 +14,7 @@ import java.util.Map;
 public class FallbackRoutingProvider implements RoutingProvider {
 
     private static final double EARTH_RADIUS_KM = 6371.0;
-    private static final double ROAD_FACTOR = 1.4; // 40% more than straight line
+    private static final double ROAD_FACTOR = 1.3; // 30% more than straight line for short distances
     
     @Override
     public String name() {
@@ -38,20 +38,25 @@ public class FallbackRoutingProvider implements RoutingProvider {
         log.info("🔄 Using fallback routing for {} -> {} (vehicle: {})", 
             originLabel, destLabel, vehicleType);
 
-        double distance = haversineDistance(
+        // Calculate straight-line distance using Haversine formula
+        double straightDistance = haversineDistance(
             origin.getLat(), origin.getLng(),
             destination.getLat(), destination.getLng()
         );
 
         // Apply road factor to estimate actual driving distance
-        double roadDistance = distance * ROAD_FACTOR;
+        // For short distances, road factor is higher (more turns, local roads)
+        double roadFactor = straightDistance < 50 ? 1.5 : ROAD_FACTOR;
+        double roadDistance = straightDistance * roadFactor;
         
-        // Average speed based on vehicle type
-        double avgSpeed = getAverageSpeed(vehicleType);
+        // Average speed based on vehicle type and distance
+        double avgSpeed = getAverageSpeed(vehicleType, roadDistance);
         double duration = roadDistance / avgSpeed;
 
-        log.info("✅ Fallback route calculated: {} km, {} hours", 
-            Math.round(roadDistance), Math.round(duration));
+        log.info("✅ Fallback route calculated: {} km straight, {} km road, {} hours", 
+            String.format("%.1f", straightDistance),
+            String.format("%.1f", roadDistance),
+            String.format("%.1f", duration));
 
         return new RoutingResult(
             origin,
@@ -78,20 +83,31 @@ public class FallbackRoutingProvider implements RoutingProvider {
         return EARTH_RADIUS_KM * c;
     }
 
-    private double getAverageSpeed(String vehicleType) {
-        if (vehicleType == null) return 60.0;
-        
-        String type = vehicleType.toUpperCase();
-        
-        // Map vehicle types to average speeds (km/h)
-        if (type.contains("TRUCK") || type.contains("HGV") || type.contains("HEAVY")) {
-            return 60.0; // Trucks average 60 km/h
-        } else if (type.contains("VAN") || type.contains("MEDIUM")) {
-            return 70.0; // Vans average 70 km/h
-        } else if (type.contains("CAR") || type.contains("LIGHT")) {
-            return 80.0; // Cars average 80 km/h
+    private double getAverageSpeed(String vehicleType, double distanceKm) {
+        // Base speed by vehicle type
+        double baseSpeed;
+        if (vehicleType == null) {
+            baseSpeed = 60.0;
         } else {
-            return 65.0; // Default
+            String type = vehicleType.toUpperCase();
+            if (type.contains("TRUCK") || type.contains("HGV") || type.contains("HEAVY")) {
+                baseSpeed = 60.0;
+            } else if (type.contains("VAN") || type.contains("MEDIUM")) {
+                baseSpeed = 70.0;
+            } else if (type.contains("CAR") || type.contains("LIGHT")) {
+                baseSpeed = 80.0;
+            } else {
+                baseSpeed = 65.0;
+            }
+        }
+        
+        // Adjust for distance (shorter trips have lower average speed due to city driving)
+        if (distanceKm < 50) {
+            return baseSpeed * 0.6; // City driving, lower average speed
+        } else if (distanceKm < 200) {
+            return baseSpeed * 0.8;
+        } else {
+            return baseSpeed; // Highway driving
         }
     }
 }
