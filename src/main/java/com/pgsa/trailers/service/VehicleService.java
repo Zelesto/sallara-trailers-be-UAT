@@ -4,10 +4,7 @@ import com.pgsa.trailers.dto.VehicleDTO;
 import com.pgsa.trailers.entity.assets.Driver;
 import com.pgsa.trailers.entity.assets.Vehicle;
 import com.pgsa.trailers.enums.VehicleStatus;
-<<<<<<< HEAD
 import com.pgsa.trailers.enums.VehicleType;
-=======
->>>>>>> 22cb06bce9627db382efdb06a7f1a83560a01d5a
 import com.pgsa.trailers.repository.DriverRepository;
 import com.pgsa.trailers.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
@@ -149,7 +146,6 @@ public class VehicleService {
     }
 
     @Transactional
-<<<<<<< HEAD
     public Vehicle createVehicleFromDTO(VehicleDTO dto) {
         log.info("Creating vehicle from DTO with registration: {}", dto.getRegistrationNumber());
         
@@ -171,74 +167,6 @@ public class VehicleService {
         Vehicle saved = vehicleRepository.save(vehicle);
         log.info("✅ Successfully created vehicle from DTO with ID: {}", saved.getId());
         return saved;
-=======
-    public Vehicle updateVehicle(Long id, VehicleDTO vehicleDTO) {
-        log.info("Updating vehicle ID: {} with DTO: {}", id, vehicleDTO);
-
-        Vehicle vehicle = getVehicleById(id);
-
-        // Update basic fields - only if not null
-        if (vehicleDTO.getRegistration_number() != null) {
-            vehicle.setRegistrationNumber(vehicleDTO.getRegistration_number());
-        }
-        if (vehicleDTO.getVin() != null) {
-            vehicle.setVin(vehicleDTO.getVin());
-        }
-        if (vehicleDTO.getMake() != null) {
-            vehicle.setMake(vehicleDTO.getMake());
-        }
-        if (vehicleDTO.getModel() != null) {
-            vehicle.setModel(vehicleDTO.getModel());
-        }
-        if (vehicleDTO.getYear() != null) {
-            vehicle.setYear(vehicleDTO.getYear());
-        }
-        if (vehicleDTO.getFuelType() != null) {
-            vehicle.setFuelType(vehicleDTO.getFuelType());
-        }
-        if (vehicleDTO.getCurrentMileage() != null) {
-            vehicle.setCurrentMileage(vehicleDTO.getCurrentMileage());
-        }
-        if (vehicleDTO.getAvgConsumption() != null) {
-            vehicle.setAvgConsumption(vehicleDTO.getAvgConsumption());
-        }
-        if (vehicleDTO.getCurrentOdometer() != null) {
-            vehicle.setCurrentOdometer(vehicleDTO.getCurrentOdometer());
-        }
-        if (vehicleDTO.getStatus() != null) {
-            vehicle.setStatus(VehicleStatus.valueOf(vehicleDTO.getStatus()));
-        }
-
-        // Update service-related fields
-        if (vehicleDTO.getLastServiceDate() != null) {
-            vehicle.setLastServiceDate(vehicleDTO.getLastServiceDate());
-        }
-        if (vehicleDTO.getServiceIntervalDays() != null) {
-            vehicle.setServiceIntervalDays(vehicleDTO.getServiceIntervalDays());
-        }
-        if (vehicleDTO.getServiceIntervalKm() != null) {
-    vehicle.setServiceIntervalKm(vehicleDTO.getServiceIntervalKm().intValue());
-}
-
-        // CRITICAL: Handle driver assignment properly
-        if (vehicleDTO.getAssignedDriverId() != null) {
-            if (vehicleDTO.getAssignedDriverId() > 0) {
-                // Find and assign the driver
-                Driver driver = driverRepository.findById(vehicleDTO.getAssignedDriverId())
-                    .orElseThrow(() -> new RuntimeException("Driver not found with id: " + vehicleDTO.getAssignedDriverId()));
-                vehicle.setAssignedDriver(driver);
-            } else {
-                // If ID is 0 or negative, unassign the driver
-                vehicle.setAssignedDriver(null);
-            }
-        }
-        // If assignedDriverId is null, don't change the driver assignment
-
-        // Recalculate next service date based on updated values
-        vehicle.calculateNextService();
-
-        return vehicleRepository.save(vehicle);
->>>>>>> 22cb06bce9627db382efdb06a7f1a83560a01d5a
     }
 
     // ====== Update Methods ======
@@ -303,7 +231,6 @@ public class VehicleService {
         vehicleRepository.save(vehicle);
         log.info("✅ Successfully restored vehicle ID: {}", id);
     }
-<<<<<<< HEAD
 
     // ====== Business Operations ======
     
@@ -498,6 +425,4 @@ public class VehicleService {
             }
         }
     }
-=======
->>>>>>> 22cb06bce9627db382efdb06a7f1a83560a01d5a
 }
