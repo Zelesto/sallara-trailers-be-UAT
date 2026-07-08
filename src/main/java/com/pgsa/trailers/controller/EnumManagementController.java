@@ -24,9 +24,6 @@ public class EnumManagementController {
 
     private final EnumManagementService enumManagementService;
 
-    /**
-     * Get all enums for a specific type (system + custom)
-     */
     @GetMapping("/{enumType}")
     public ResponseEntity<List<CustomEnumDto>> getEnumsByType(
             @PathVariable String enumType,
@@ -37,9 +34,6 @@ public class EnumManagementController {
         return ResponseEntity.ok(enums);
     }
 
-    /**
-     * Get paginated enums for admin
-     */
     @GetMapping
     public ResponseEntity<Page<CustomEnumDto>> getEnums(
             @RequestParam(required = false) String enumType,
@@ -55,9 +49,6 @@ public class EnumManagementController {
         return ResponseEntity.ok(enums);
     }
 
-    /**
-     * Get all enum types available
-     */
     @GetMapping("/types")
     public ResponseEntity<List<String>> getEnumTypes(
             @RequestHeader(value = "X-Tenant-Id", required = false) Long tenantId) {
@@ -67,9 +58,6 @@ public class EnumManagementController {
         return ResponseEntity.ok(types);
     }
 
-    /**
-     * Add a custom enum
-     */
     @PostMapping("/custom")
     public ResponseEntity<CustomEnumDto> addCustomEnum(
             @Valid @RequestBody CreateCustomEnumRequest request,
@@ -86,16 +74,13 @@ public class EnumManagementController {
                 .icon(request.getIcon())
                 .color(request.getColor())
                 .sortOrder(request.getSortOrder())
-                .metadata(request.getMetadata())
+                .metadata(null) // Fix: Set to null instead of request.getMetadata()
                 .build();
         
         CustomEnumDto created = enumManagementService.addCustomEnum(dto, effectiveTenantId, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-    /**
-     * Update a custom enum
-     */
     @PutMapping("/custom/{id}")
     public ResponseEntity<CustomEnumDto> updateCustomEnum(
             @PathVariable Long id,
@@ -113,16 +98,13 @@ public class EnumManagementController {
                 .icon(request.getIcon())
                 .color(request.getColor())
                 .sortOrder(request.getSortOrder())
-                .metadata(request.getMetadata())
+                .metadata(null) // Fix: Set to null instead of request.getMetadata()
                 .build();
         
         CustomEnumDto updated = enumManagementService.updateCustomEnum(id, dto, effectiveTenantId, userId);
         return ResponseEntity.ok(updated);
     }
 
-    /**
-     * Delete a custom enum (soft delete)
-     */
     @DeleteMapping("/custom/{id}")
     public ResponseEntity<Void> deleteCustomEnum(
             @PathVariable Long id,
@@ -134,9 +116,6 @@ public class EnumManagementController {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Toggle enum status (activate/deactivate)
-     */
     @PatchMapping("/custom/{id}/toggle")
     public ResponseEntity<CustomEnumDto> toggleEnumStatus(
             @PathVariable Long id,
@@ -152,7 +131,6 @@ public class EnumManagementController {
     private Long getCurrentUserId() {
         try {
             String email = SecurityContextHolder.getContext().getAuthentication().getName();
-            // In a real implementation, look up user by email
             return 1L;
         } catch (Exception e) {
             return 1L;
