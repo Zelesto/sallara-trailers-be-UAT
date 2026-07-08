@@ -180,7 +180,8 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     // ======================== SEARCH QUERIES ========================
 
 
-    @Query("SELECT t FROM Trip t WHERE " +
+   // ⭐ Safe search that handles null/empty search terms - FIXED
+@Query("SELECT t FROM Trip t WHERE " +
        "(:searchTerm IS NULL OR :searchTerm = '' OR " +
        "LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
        "LOWER(t.originCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
@@ -188,14 +189,14 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
        "LOWER(t.customerName) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
 Page<Trip> searchTripsSafe(@Param("searchTerm") String searchTerm, Pageable pageable);
 
-    
-    // ⭐ Search trips with pagination - FIXED: removed duplicate method
-    @Query("SELECT t FROM Trip t WHERE " +
-           "LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(t.originCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(t.destinationCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(t.customerName) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
-    Page<Trip> searchTrips(@Param("searchTerm") String searchTerm, Pageable pageable);
+// ⭐ Also fix the main searchTrips method
+@Query("SELECT t FROM Trip t WHERE " +
+       "(:searchTerm IS NULL OR :searchTerm = '' OR " +
+       "LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+       "LOWER(t.originCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+       "LOWER(t.destinationCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+       "LOWER(t.customerName) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
+Page<Trip> searchTrips(@Param("searchTerm") String searchTerm, Pageable pageable);
     
     // ⭐ Search trips with default sorting by ID descending (no pagination)
     @Query("SELECT t FROM Trip t WHERE " +
