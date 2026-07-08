@@ -25,12 +25,8 @@ public class EnumManagementController {
     private final EnumManagementService enumManagementService;
 
     @GetMapping("/{enumType}")
-    public ResponseEntity<List<CustomEnumDto>> getEnumsByType(
-            @PathVariable String enumType,
-            @RequestHeader(value = "X-Tenant-Id", required = false) Long tenantId) {
-        
-        Long effectiveTenantId = tenantId != null ? tenantId : 1L;
-        List<CustomEnumDto> enums = enumManagementService.getEnumsByType(enumType, effectiveTenantId);
+    public ResponseEntity<List<CustomEnumDto>> getEnumsByType(@PathVariable String enumType) {
+        List<CustomEnumDto> enums = enumManagementService.getEnumsByType(enumType);
         return ResponseEntity.ok(enums);
     }
 
@@ -40,30 +36,21 @@ public class EnumManagementController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir,
-            @RequestHeader(value = "X-Tenant-Id", required = false) Long tenantId) {
+            @RequestParam(defaultValue = "desc") String sortDir) {
         
-        Long effectiveTenantId = tenantId != null ? tenantId : 1L;
         Pageable pageable = PageRequest.of(page, size, Sort.Direction.fromString(sortDir), sortBy);
-        Page<CustomEnumDto> enums = enumManagementService.getEnumsPaginated(enumType, effectiveTenantId, pageable);
+        Page<CustomEnumDto> enums = enumManagementService.getEnumsPaginated(enumType, pageable);
         return ResponseEntity.ok(enums);
     }
 
     @GetMapping("/types")
-    public ResponseEntity<List<String>> getEnumTypes(
-            @RequestHeader(value = "X-Tenant-Id", required = false) Long tenantId) {
-        
-        Long effectiveTenantId = tenantId != null ? tenantId : 1L;
-        List<String> types = enumManagementService.getEnumTypes(effectiveTenantId);
+    public ResponseEntity<List<String>> getEnumTypes() {
+        List<String> types = enumManagementService.getEnumTypes();
         return ResponseEntity.ok(types);
     }
 
     @PostMapping("/custom")
-    public ResponseEntity<CustomEnumDto> addCustomEnum(
-            @Valid @RequestBody CreateCustomEnumRequest request,
-            @RequestHeader(value = "X-Tenant-Id", required = false) Long tenantId) {
-        
-        Long effectiveTenantId = tenantId != null ? tenantId : 1L;
+    public ResponseEntity<CustomEnumDto> addCustomEnum(@Valid @RequestBody CreateCustomEnumRequest request) {
         Long userId = getCurrentUserId();
         
         CustomEnumDto dto = CustomEnumDto.builder()
@@ -74,20 +61,18 @@ public class EnumManagementController {
                 .icon(request.getIcon())
                 .color(request.getColor())
                 .sortOrder(request.getSortOrder())
-                .metadata(null) // Fix: Set to null instead of request.getMetadata()
+                .metadata(request.getMetadata())
                 .build();
         
-        CustomEnumDto created = enumManagementService.addCustomEnum(dto, effectiveTenantId, userId);
+        CustomEnumDto created = enumManagementService.addCustomEnum(dto, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @PutMapping("/custom/{id}")
     public ResponseEntity<CustomEnumDto> updateCustomEnum(
             @PathVariable Long id,
-            @Valid @RequestBody CreateCustomEnumRequest request,
-            @RequestHeader(value = "X-Tenant-Id", required = false) Long tenantId) {
+            @Valid @RequestBody CreateCustomEnumRequest request) {
         
-        Long effectiveTenantId = tenantId != null ? tenantId : 1L;
         Long userId = getCurrentUserId();
         
         CustomEnumDto dto = CustomEnumDto.builder()
@@ -98,39 +83,36 @@ public class EnumManagementController {
                 .icon(request.getIcon())
                 .color(request.getColor())
                 .sortOrder(request.getSortOrder())
-                .metadata(null) // Fix: Set to null instead of request.getMetadata()
+                .metadata(request.getMetadata())
                 .build();
         
-        CustomEnumDto updated = enumManagementService.updateCustomEnum(id, dto, effectiveTenantId, userId);
+        CustomEnumDto updated = enumManagementService.updateCustomEnum(id, dto, userId);
         return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/custom/{id}")
     public ResponseEntity<Void> deleteCustomEnum(
             @PathVariable Long id,
-            @RequestParam String enumType,
-            @RequestHeader(value = "X-Tenant-Id", required = false) Long tenantId) {
+            @RequestParam String enumType) {
         
-        Long effectiveTenantId = tenantId != null ? tenantId : 1L;
-        enumManagementService.deleteCustomEnum(id, enumType, effectiveTenantId);
+        enumManagementService.deleteCustomEnum(id, enumType);
         return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/custom/{id}/toggle")
     public ResponseEntity<CustomEnumDto> toggleEnumStatus(
             @PathVariable Long id,
-            @RequestParam String enumType,
-            @RequestHeader(value = "X-Tenant-Id", required = false) Long tenantId) {
+            @RequestParam String enumType) {
         
-        Long effectiveTenantId = tenantId != null ? tenantId : 1L;
         Long userId = getCurrentUserId();
-        CustomEnumDto updated = enumManagementService.toggleEnumStatus(id, enumType, effectiveTenantId, userId);
+        CustomEnumDto updated = enumManagementService.toggleEnumStatus(id, enumType, userId);
         return ResponseEntity.ok(updated);
     }
 
     private Long getCurrentUserId() {
         try {
             String email = SecurityContextHolder.getContext().getAuthentication().getName();
+            // In a real implementation, look up user by email
             return 1L;
         } catch (Exception e) {
             return 1L;
