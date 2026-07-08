@@ -3,7 +3,7 @@ package com.pgsa.trailers.service;
 
 import com.pgsa.trailers.dto.CustomEnumDto;
 import com.pgsa.trailers.entity.enums.CustomEnum;
-import com.pgsa.trailers.enums.EnumCategory;
+import com.pgsa.trailers.enums.*;
 import com.pgsa.trailers.repository.CustomEnumRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,26 +26,36 @@ public class EnumManagementService {
 
     @Cacheable(value = "enums", key = "#enumType")
     public List<CustomEnumDto> getEnumsByType(String enumType) {
-        EnumCategory category = EnumCategory.fromCode(enumType);
-        if (category == null) {
-            throw new IllegalArgumentException("Invalid enum type: " + enumType);
+        try {
+            EnumCategory category = EnumCategory.fromCode(enumType);
+            if (category == null) {
+                log.warn("Invalid enum type requested: {}", enumType);
+                return Collections.emptyList();
+            }
+
+            List<CustomEnumDto> systemEnums = getSystemEnums(category);
+
+            List<CustomEnum> customEnums = customEnumRepository
+                    .findActiveByEnumTypeOrderBySortOrder(enumType);
+            
+            if (customEnums == null) {
+                customEnums = Collections.emptyList();
+            }
+
+            List<CustomEnumDto> allEnums = new ArrayList<>();
+            allEnums.addAll(systemEnums);
+            allEnums.addAll(customEnums.stream()
+                    .map(this::toDto)
+                    .collect(Collectors.toList()));
+
+            allEnums.sort(Comparator.comparing(CustomEnumDto::getSortOrder)
+                    .thenComparing(CustomEnumDto::getDisplayName));
+
+            return allEnums;
+        } catch (Exception e) {
+            log.error("Error getting enums for type {}: {}", enumType, e.getMessage(), e);
+            return Collections.emptyList();
         }
-
-        List<CustomEnumDto> systemEnums = getSystemEnums(category);
-
-        List<CustomEnum> customEnums = customEnumRepository
-                .findActiveByEnumTypeOrderBySortOrder(enumType);
-
-        List<CustomEnumDto> allEnums = new ArrayList<>();
-        allEnums.addAll(systemEnums);
-        allEnums.addAll(customEnums.stream()
-                .map(this::toDto)
-                .collect(Collectors.toList()));
-
-        allEnums.sort(Comparator.comparing(CustomEnumDto::getSortOrder)
-                .thenComparing(CustomEnumDto::getDisplayName));
-
-        return allEnums;
     }
 
     private List<CustomEnumDto> getSystemEnums(EnumCategory category) {
@@ -53,72 +63,53 @@ public class EnumManagementService {
 
         switch (category) {
             case VEHICLE_TYPE:
-                String[][] vehicleTypes = {
-                    {"TRUCK", "Truck", "🚛", "#4CAF50"},
-                    {"TRAILER", "Trailer", "🚌", "#2196F3"},
-                    {"CAR", "Car", "🚗", "#9C27B0"},
-                    {"VAN", "Van", "🚐", "#FF9800"},
-                    {"BUS", "Bus", "🚍", "#F44336"},
-                    {"MOTORCYCLE", "Motorcycle", "🏍️", "#607D8B"},
-                    {"HEAVY_EQUIPMENT", "Heavy Equipment", "🏗️", "#795548"},
-                    {"OTHER", "Other", "📋", "#757575"}
-                };
-                for (String[] type : vehicleTypes) {
+                for (VehicleType type : VehicleType.values()) {
                     systemEnums.add(createSystemEnumDto(
-                            category.getCode(), type[0], type[1], type[2], type[3], "System vehicle type"
+                            category.getCode(), 
+                            type.name(), 
+                            type.name(), // Use enum name as display name
+                            getIconForVehicleType(type),
+                            getColorForVehicleType(type),
+                            "System vehicle type"
                     ));
                 }
                 break;
 
             case VEHICLE_STATUS:
-                String[][] vehicleStatuses = {
-                    {"AVAILABLE", "Available", "✅", "#4CAF50"},
-                    {"ASSIGNED", "Assigned", "🔄", "#FF9800"},
-                    {"IN_USE", "In Use", "🚛", "#2196F3"},
-                    {"MAINTENANCE", "Maintenance", "🔧", "#FF9800"},
-                    {"REPAIR", "Repair", "🔴", "#F44336"},
-                    {"OUT_OF_SERVICE", "Out of Service", "❌", "#9E9E9E"},
-                    {"RETIRED", "Retired", "📋", "#757575"},
-                    {"SOLD", "Sold", "💰", "#9C27B0"},
-                    {"DECOMMISSIONED", "Decommissioned", "⚫", "#424242"}
-                };
-                for (String[] status : vehicleStatuses) {
+                for (VehicleStatus status : VehicleStatus.values()) {
                     systemEnums.add(createSystemEnumDto(
-                            category.getCode(), status[0], status[1], status[2], status[3], "System vehicle status"
+                            category.getCode(),
+                            status.name(),
+                            status.name().replace("_", " "),
+                            getIconForVehicleStatus(status),
+                            getColorForVehicleStatus(status),
+                            "System vehicle status"
                     ));
                 }
                 break;
 
             case DRIVER_STATUS:
-                String[][] driverStatuses = {
-                    {"ACTIVE", "Active", "🟢", "#4CAF50"},
-                    {"INACTIVE", "Inactive", "⚪", "#9E9E9E"},
-                    {"SUSPENDED", "Suspended", "🟠", "#FF9800"},
-                    {"ON_LEAVE", "On Leave", "🔵", "#2196F3"},
-                    {"TERMINATED", "Terminated", "🔴", "#F44336"},
-                    {"AVAILABLE", "Available", "✅", "#4CAF50"},
-                    {"ASSIGNED", "Assigned", "🔄", "#FF9800"},
-                    {"RESTING", "Resting", "😴", "#9C27B0"}
-                };
-                for (String[] status : driverStatuses) {
+                for (DriverStatus status : DriverStatus.values()) {
                     systemEnums.add(createSystemEnumDto(
-                            category.getCode(), status[0], status[1], status[2], status[3], "System driver status"
+                            category.getCode(),
+                            status.name(),
+                            status.name().replace("_", " "),
+                            getIconForDriverStatus(status),
+                            getColorForDriverStatus(status),
+                            "System driver status"
                     ));
                 }
                 break;
 
             case LOAD_STATUS:
-                String[][] loadStatuses = {
-                    {"PENDING", "Pending", "⏳", "#FF9800"},
-                    {"LOADED", "Loaded", "📦", "#2196F3"},
-                    {"IN_TRANSIT", "In Transit", "🚚", "#4CAF50"},
-                    {"DELIVERED", "Delivered", "✅", "#13DEB9"},
-                    {"COMPLETED", "Completed", "🏁", "#0097A7"},
-                    {"CANCELLED", "Cancelled", "❌", "#F44336"}
-                };
-                for (String[] status : loadStatuses) {
+                for (LoadStatus status : LoadStatus.values()) {
                     systemEnums.add(createSystemEnumDto(
-                            category.getCode(), status[0], status[1], status[2], status[3], "System load status"
+                            category.getCode(),
+                            status.name(),
+                            status.name().replace("_", " "),
+                            getIconForLoadStatus(status),
+                            getColorForLoadStatus(status),
+                            "System load status"
                     ));
                 }
                 break;
@@ -128,6 +119,113 @@ public class EnumManagementService {
         }
 
         return systemEnums;
+    }
+
+    // Helper methods for icons and colors
+    private String getIconForVehicleType(VehicleType type) {
+        switch (type) {
+            case TRUCK: return "🚛";
+            case TRAILER: return "🚌";
+            case CAR: return "🚗";
+            case VAN: return "🚐";
+            case BUS: return "🚍";
+            case MOTORCYCLE: return "🏍️";
+            case HEAVY_EQUIPMENT: return "🏗️";
+            default: return "📋";
+        }
+    }
+
+    private String getColorForVehicleType(VehicleType type) {
+        switch (type) {
+            case TRUCK: return "#4CAF50";
+            case TRAILER: return "#2196F3";
+            case CAR: return "#9C27B0";
+            case VAN: return "#FF9800";
+            case BUS: return "#F44336";
+            case MOTORCYCLE: return "#607D8B";
+            case HEAVY_EQUIPMENT: return "#795548";
+            default: return "#757575";
+        }
+    }
+
+    private String getIconForVehicleStatus(VehicleStatus status) {
+        switch (status) {
+            case AVAILABLE: return "✅";
+            case ASSIGNED: return "🔄";
+            case IN_USE: return "🚛";
+            case MAINTENANCE: return "🔧";
+            case REPAIR: return "🔴";
+            case OUT_OF_SERVICE: return "❌";
+            case RETIRED: return "📋";
+            case SOLD: return "💰";
+            case DECOMMISSIONED: return "⚫";
+            case ACTIVE: return "🟢";
+            case INACTIVE: return "⚪";
+            default: return "📋";
+        }
+    }
+
+    private String getColorForVehicleStatus(VehicleStatus status) {
+        switch (status) {
+            case AVAILABLE: return "#4CAF50";
+            case ASSIGNED: return "#FF9800";
+            case IN_USE: return "#2196F3";
+            case MAINTENANCE: return "#FF9800";
+            case REPAIR: return "#F44336";
+            case OUT_OF_SERVICE: return "#9E9E9E";
+            case RETIRED: return "#757575";
+            case SOLD: return "#9C27B0";
+            case DECOMMISSIONED: return "#424242";
+            case ACTIVE: return "#4CAF50";
+            case INACTIVE: return "#9E9E9E";
+            default: return "#757575";
+        }
+    }
+
+    private String getIconForDriverStatus(DriverStatus status) {
+        switch (status) {
+            case ACTIVE: return "🟢";
+            case INACTIVE: return "⚪";
+            case SUSPENDED: return "🟠";
+            case ON_LEAVE: return "🔵";
+            case TERMINATED: return "🔴";
+            default: return "📋";
+        }
+    }
+
+    private String getColorForDriverStatus(DriverStatus status) {
+        switch (status) {
+            case ACTIVE: return "#4CAF50";
+            case INACTIVE: return "#9E9E9E";
+            case SUSPENDED: return "#FF9800";
+            case ON_LEAVE: return "#2196F3";
+            case TERMINATED: return "#F44336";
+            default: return "#757575";
+        }
+    }
+
+    private String getIconForLoadStatus(LoadStatus status) {
+        switch (status) {
+            case PENDING: return "⏳";
+            case LOADED: return "📦";
+            case IN_TRANSIT: return "🚚";
+            case DELIVERED: return "✅";
+            case COMPLETED: return "🏁";
+            case CANCELLED: return "❌";
+            default: return "📋";
+        }
+    }
+
+    private String getColorForLoadStatus(LoadStatus status) {
+        switch (status) {
+            case PENDING: return "#FF9800";
+            case LOADED: return "#2196F3";
+            case IN_TRANSIT: return "#4CAF50";
+            case DELIVERED: return "#13DEB9";
+            case COMPLETED: return "#0097A7";
+            case CANCELLED: return "#F44336";
+            default: return "#757575";
+        }
     }
 
     private CustomEnumDto createSystemEnumDto(String enumType, String value, String displayName,
@@ -270,28 +368,41 @@ public class EnumManagementService {
     }
 
     public Page<CustomEnumDto> getEnumsPaginated(String enumType, Pageable pageable) {
-        Page<CustomEnum> page;
-        if (enumType != null && !enumType.isEmpty()) {
-            page = customEnumRepository.findByEnumType(enumType, pageable);
-        } else {
-            page = customEnumRepository.findAll(pageable);
+        try {
+            Page<CustomEnum> page;
+            if (enumType != null && !enumType.isEmpty()) {
+                page = customEnumRepository.findByEnumType(enumType, pageable);
+            } else {
+                page = customEnumRepository.findAll(pageable);
+            }
+            return page.map(this::toDto);
+        } catch (Exception e) {
+            log.error("Error getting paginated enums: {}", e.getMessage(), e);
+            return Page.empty(pageable);
         }
-        return page.map(this::toDto);
     }
 
     public List<String> getEnumTypes() {
-        List<String> systemTypes = Arrays.stream(EnumCategory.values())
-                .map(EnumCategory::getCode)
-                .collect(Collectors.toList());
-        
-        List<String> customTypes = customEnumRepository.findDistinctEnumTypes();
-        if (customTypes == null) {
-            customTypes = Collections.emptyList();
+        try {
+            List<String> systemTypes = Arrays.stream(EnumCategory.values())
+                    .map(EnumCategory::getCode)
+                    .collect(Collectors.toList());
+            
+            List<String> customTypes = customEnumRepository.findDistinctEnumTypes();
+            if (customTypes == null) {
+                customTypes = Collections.emptyList();
+            }
+            
+            Set<String> allTypes = new HashSet<>(systemTypes);
+            allTypes.addAll(customTypes);
+            return new ArrayList<>(allTypes);
+        } catch (Exception e) {
+            log.error("Error getting enum types: {}", e.getMessage(), e);
+            // Return system types as fallback
+            return Arrays.stream(EnumCategory.values())
+                    .map(EnumCategory::getCode)
+                    .collect(Collectors.toList());
         }
-        
-        Set<String> allTypes = new HashSet<>(systemTypes);
-        allTypes.addAll(customTypes);
-        return new ArrayList<>(allTypes);
     }
 
     private void validateEnumValue(String value) {
