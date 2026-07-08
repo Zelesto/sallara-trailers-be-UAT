@@ -63,7 +63,6 @@ public class VehicleDTO {
     
     @JsonProperty("service_interval_days")
     private Integer serviceIntervalDays;
-<<<<<<< HEAD
     
     @JsonProperty("service_interval_km")
     private Integer serviceIntervalKm;
@@ -194,8 +193,4 @@ public class VehicleDTO {
         dto.setInsuranceExpiryDate(vehicle.getInsuranceExpiryDate());
         return dto;
     }
-=======
-    private Integer serviceIntervalKm;
-    private Long assignedDriverId;
->>>>>>> 22cb06bce9627db382efdb06a7f1a83560a01d5a
 }
