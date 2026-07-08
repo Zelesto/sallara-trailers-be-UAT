@@ -24,8 +24,8 @@ public class EnumManagementService {
 
     private final CustomEnumRepository customEnumRepository;
 
-    @Cacheable(value = "enums", key = "#enumType + '_' + #tenantId")
-    public List<CustomEnumDto> getEnumsByType(String enumType, Long tenantId) {
+    @Cacheable(value = "enums", key = "#enumType")
+    public List<CustomEnumDto> getEnumsByType(String enumType) {
         EnumCategory category = EnumCategory.fromCode(enumType);
         if (category == null) {
             throw new IllegalArgumentException("Invalid enum type: " + enumType);
@@ -34,7 +34,7 @@ public class EnumManagementService {
         List<CustomEnumDto> systemEnums = getSystemEnums(category);
 
         List<CustomEnum> customEnums = customEnumRepository
-                .findActiveByEnumTypeAndTenantId(enumType, tenantId);
+                .findActiveByEnumTypeOrderBySortOrder(enumType);
 
         List<CustomEnumDto> allEnums = new ArrayList<>();
         allEnums.addAll(systemEnums);
@@ -143,13 +143,13 @@ public class EnumManagementService {
                 .isSystem(true)
                 .isActive(true)
                 .sortOrder(0)
-                .metadata(new HashMap<>()) // Fix: Use empty Map instead of null
+                .metadata(new HashMap<>())
                 .build();
     }
 
     @Transactional
-    @CacheEvict(value = "enums", key = "#dto.enumType + '_' + #tenantId")
-    public CustomEnumDto addCustomEnum(CustomEnumDto dto, Long tenantId, Long userId) {
+    @CacheEvict(value = "enums", key = "#dto.enumType")
+    public CustomEnumDto addCustomEnum(CustomEnumDto dto, Long userId) {
         EnumCategory category = EnumCategory.fromCode(dto.getEnumType());
         if (category == null) {
             throw new IllegalArgumentException("Invalid enum type: " + dto.getEnumType());
@@ -162,8 +162,7 @@ public class EnumManagementService {
         validateEnumValue(dto.getValue());
 
         Optional<CustomEnum> existing = customEnumRepository
-                .findByEnumTypeAndTenantIdAndValueIgnoreCase(
-                        dto.getEnumType(), tenantId, dto.getValue());
+                .findByEnumTypeAndValueIgnoreCase(dto.getEnumType(), dto.getValue());
 
         if (existing.isPresent()) {
             throw new IllegalArgumentException("Enum value already exists: " + dto.getValue());
@@ -183,21 +182,19 @@ public class EnumManagementService {
         customEnum.setIsActive(true);
         customEnum.setIsSystem(false);
         customEnum.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 100);
-        customEnum.setTenantId(tenantId);
         customEnum.setCreatedBy(userId);
         customEnum.setUpdatedBy(userId);
-        customEnum.setMetadata(new HashMap<>()); // Fix: Use empty Map instead of null
+        customEnum.setMetadata(new HashMap<>());
 
         CustomEnum saved = customEnumRepository.save(customEnum);
-        log.info("Added custom enum: {} - {} for tenant: {}", 
-                dto.getEnumType(), dto.getValue(), tenantId);
+        log.info("Added custom enum: {} - {}", dto.getEnumType(), dto.getValue());
 
         return toDto(saved);
     }
 
     @Transactional
-    @CacheEvict(value = "enums", key = "#dto.enumType + '_' + #tenantId")
-    public CustomEnumDto updateCustomEnum(Long id, CustomEnumDto dto, Long tenantId, Long userId) {
+    @CacheEvict(value = "enums", key = "#dto.enumType")
+    public CustomEnumDto updateCustomEnum(Long id, CustomEnumDto dto, Long userId) {
         CustomEnum customEnum = customEnumRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Enum not found: " + id));
 
@@ -212,8 +209,7 @@ public class EnumManagementService {
 
         if (!customEnum.getValue().equalsIgnoreCase(dto.getValue())) {
             Optional<CustomEnum> existing = customEnumRepository
-                    .findByEnumTypeAndTenantIdAndValueIgnoreCase(
-                            customEnum.getEnumType(), tenantId, dto.getValue());
+                    .findByEnumTypeAndValueIgnoreCase(customEnum.getEnumType(), dto.getValue());
             
             if (existing.isPresent() && !existing.get().getId().equals(id)) {
                 throw new IllegalArgumentException("Enum value already exists: " + dto.getValue());
@@ -230,7 +226,6 @@ public class EnumManagementService {
         customEnum.setIcon(dto.getIcon());
         customEnum.setColor(dto.getColor());
         customEnum.setSortOrder(dto.getSortOrder());
-        customEnum.setMetadata(new HashMap<>()); // Fix: Use empty Map instead of null
         customEnum.setUpdatedBy(userId);
 
         CustomEnum updated = customEnumRepository.save(customEnum);
@@ -240,8 +235,8 @@ public class EnumManagementService {
     }
 
     @Transactional
-    @CacheEvict(value = "enums", key = "#enumType + '_' + #tenantId")
-    public void deleteCustomEnum(Long id, String enumType, Long tenantId) {
+    @CacheEvict(value = "enums", key = "#enumType")
+    public void deleteCustomEnum(Long id, String enumType) {
         CustomEnum customEnum = customEnumRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Enum not found: " + id));
 
@@ -255,8 +250,8 @@ public class EnumManagementService {
     }
 
     @Transactional
-    @CacheEvict(value = "enums", key = "#enumType + '_' + #tenantId")
-    public CustomEnumDto toggleEnumStatus(Long id, String enumType, Long tenantId, Long userId) {
+    @CacheEvict(value = "enums", key = "#enumType")
+    public CustomEnumDto toggleEnumStatus(Long id, String enumType, Long userId) {
         CustomEnum customEnum = customEnumRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Enum not found: " + id));
 
@@ -274,22 +269,25 @@ public class EnumManagementService {
         return toDto(updated);
     }
 
-    public Page<CustomEnumDto> getEnumsPaginated(String enumType, Long tenantId, Pageable pageable) {
+    public Page<CustomEnumDto> getEnumsPaginated(String enumType, Pageable pageable) {
         Page<CustomEnum> page;
         if (enumType != null && !enumType.isEmpty()) {
-            page = customEnumRepository.findByEnumTypeAndTenantId(enumType, tenantId, pageable);
+            page = customEnumRepository.findByEnumType(enumType, pageable);
         } else {
-            page = customEnumRepository.findAllByTenantId(tenantId, pageable);
+            page = customEnumRepository.findAll(pageable);
         }
         return page.map(this::toDto);
     }
 
-    public List<String> getEnumTypes(Long tenantId) {
+    public List<String> getEnumTypes() {
         List<String> systemTypes = Arrays.stream(EnumCategory.values())
                 .map(EnumCategory::getCode)
                 .collect(Collectors.toList());
         
-        List<String> customTypes = customEnumRepository.findDistinctEnumTypesByTenantId(tenantId);
+        List<String> customTypes = customEnumRepository.findDistinctEnumTypes();
+        if (customTypes == null) {
+            customTypes = Collections.emptyList();
+        }
         
         Set<String> allTypes = new HashSet<>(systemTypes);
         allTypes.addAll(customTypes);
@@ -328,7 +326,7 @@ public class EnumManagementService {
                 .isSystem(entity.getIsSystem())
                 .isActive(entity.getIsActive())
                 .sortOrder(entity.getSortOrder())
-                .metadata(entity.getMetadata() != null ? entity.getMetadata() : new HashMap<>()) // Fix: Handle null metadata
+                .metadata(entity.getMetadata() != null ? entity.getMetadata() : new HashMap<>())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
