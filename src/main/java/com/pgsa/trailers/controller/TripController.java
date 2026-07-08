@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import com.pgsa.trailers.dto.UpdateTripRequest;
 
 import jakarta.validation.Valid;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/trips")
