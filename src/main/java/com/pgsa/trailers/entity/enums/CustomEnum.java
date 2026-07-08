@@ -11,6 +11,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 
 @Getter
@@ -18,8 +19,8 @@ import java.util.Map;
 @Entity
 @Table(name = "custom_enums",
        uniqueConstraints = {
-           @UniqueConstraint(columnNames = {"enum_type", "tenant_id", "value"}),
-           @UniqueConstraint(columnNames = {"enum_type", "tenant_id", "display_name"})
+           @UniqueConstraint(columnNames = {"enum_type", "value"}),
+           @UniqueConstraint(columnNames = {"enum_type", "display_name"})
        })
 @EntityListeners(AuditingEntityListener.class)
 public class CustomEnum {
@@ -55,12 +56,9 @@ public class CustomEnum {
     @Column(name = "sort_order")
     private Integer sortOrder = 0;
 
-    @Column(name = "tenant_id")
-    private Long tenantId;
-
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "metadata", columnDefinition = "jsonb")
-    private Map<String, Object> metadata;
+    private Map<String, Object> metadata = new HashMap<>();
 
     @CreatedDate
     @Column(name = "created_at", updatable = false)
