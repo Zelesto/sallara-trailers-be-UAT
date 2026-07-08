@@ -186,7 +186,7 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
        "LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
        "LOWER(t.originCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
        "LOWER(t.destinationCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-       "LOWER(t.customerName) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
+       "LOWER(t.customer.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
 Page<Trip> searchTripsSafe(@Param("searchTerm") String searchTerm, Pageable pageable);
 
 // ⭐ Also fix the main searchTrips method
@@ -195,7 +195,7 @@ Page<Trip> searchTripsSafe(@Param("searchTerm") String searchTerm, Pageable page
        "LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
        "LOWER(t.originCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
        "LOWER(t.destinationCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-       "LOWER(t.customerName) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
+       "LOWER(t.customer.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
 Page<Trip> searchTrips(@Param("searchTerm") String searchTerm, Pageable pageable);
     
     // ⭐ Search trips with default sorting by ID descending (no pagination)
@@ -203,7 +203,7 @@ Page<Trip> searchTrips(@Param("searchTerm") String searchTerm, Pageable pageable
            "LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(t.originCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(t.destinationCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(t.customerName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) " +
+           "LOWER(t.customer.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) " +
            "ORDER BY t.id DESC")
     List<Trip> searchTripsOrderByIdDesc(@Param("searchTerm") String searchTerm);
     
@@ -213,10 +213,10 @@ Page<Trip> searchTrips(@Param("searchTerm") String searchTerm, Pageable pageable
            "LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(t.originCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(t.destinationCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(t.customerName) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) " +
+           "LOWER(t.customer.name) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) " +
            "AND (:status IS NULL OR t.status = :status) " +
            "AND (:city IS NULL OR LOWER(t.originCity) = LOWER(:city) OR LOWER(t.destinationCity) = LOWER(:city)) " +
-           "AND (:customer IS NULL OR LOWER(t.customerName) = LOWER(:customer))")
+           "AND (:customer IS NULL OR LOWER(t.customer.name) = LOWER(:customer))")
     Page<Trip> findWithFilters(@Param("searchTerm") String searchTerm,
                                @Param("status") TripStatus status,
                                @Param("city") String city,
@@ -229,10 +229,10 @@ Page<Trip> searchTrips(@Param("searchTerm") String searchTerm, Pageable pageable
            "LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(t.originCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(t.destinationCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(t.customerName) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) " +
+           "LOWER(t.customer.name) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) " +
            "AND (:status IS NULL OR t.status = :status) " +
            "AND (:city IS NULL OR LOWER(t.originCity) = LOWER(:city) OR LOWER(t.destinationCity) = LOWER(:city)) " +
-           "AND (:customer IS NULL OR LOWER(t.customerName) = LOWER(:customer)) " +
+           "AND (:customer IS NULL OR LOWER(t.customer.name) = LOWER(:customer)) " +
            "ORDER BY t.id DESC")
     Page<Trip> findWithFiltersOrderByIdDesc(@Param("searchTerm") String searchTerm,
                                             @Param("status") TripStatus status,
