@@ -4,17 +4,23 @@ package com.pgsa.trailers.entity.enums;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Getter
 @Setter
 @Entity
-@Table(name = "custom_enums", 
-       uniqueConstraints = @UniqueConstraint(columnNames = {"tenant_id", "enum_type", "value"}))
+@Table(name = "custom_enums",
+       uniqueConstraints = {
+           @UniqueConstraint(columnNames = {"enum_type", "tenant_id", "value"}),
+           @UniqueConstraint(columnNames = {"enum_type", "tenant_id", "display_name"})
+       })
 @EntityListeners(AuditingEntityListener.class)
 public class CustomEnum {
 
@@ -23,7 +29,7 @@ public class CustomEnum {
     private Long id;
 
     @Column(name = "enum_type", nullable = false, length = 50)
-    private String enumType; // e.g., "INVENTORY_TYPE", "FUEL_STATION", "PAYMENT_TYPE"
+    private String enumType;
 
     @Column(name = "value", nullable = false, length = 100)
     private String value;
@@ -31,7 +37,7 @@ public class CustomEnum {
     @Column(name = "display_name", nullable = false, length = 100)
     private String displayName;
 
-    @Column(name = "description", length = 255)
+    @Column(name = "description", length = 500)
     private String description;
 
     @Column(name = "icon", length = 50)
@@ -44,16 +50,17 @@ public class CustomEnum {
     private Boolean isActive = true;
 
     @Column(name = "is_system", nullable = false)
-    private Boolean isSystem = false; // True for built-in enums
+    private Boolean isSystem = false;
 
     @Column(name = "sort_order")
     private Integer sortOrder = 0;
 
     @Column(name = "tenant_id")
-    private Long tenantId; // For multi-tenant support
+    private Long tenantId;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "metadata", columnDefinition = "jsonb")
-    private String metadata; // Additional JSON data
+    private Map<String, Object> metadata;
 
     @CreatedDate
     @Column(name = "created_at", updatable = false)
