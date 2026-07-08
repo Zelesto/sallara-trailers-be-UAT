@@ -25,6 +25,16 @@ public interface CustomEnumRepository extends JpaRepository<CustomEnum, Long> {
                                                  @Param("tenantId") Long tenantId,
                                                  Pageable pageable);
 
+    @Query("SELECT c FROM CustomEnum c WHERE c.enumType = :enumType " +
+           "AND c.tenantId = :tenantId AND c.isActive = true " +
+           "ORDER BY c.sortOrder ASC, c.displayName ASC")
+    List<CustomEnum> findActiveByEnumTypeAndTenantId(@Param("enumType") String enumType,
+                                                       @Param("tenantId") Long tenantId);
+
+    @Query("SELECT c FROM CustomEnum c WHERE c.tenantId = :tenantId")
+    Page<CustomEnum> findAllByTenantId(@Param("tenantId") Long tenantId, Pageable pageable);
+    
+
     List<CustomEnum> findByEnumTypeAndTenantIdOrderBySortOrderAsc(String enumType, Long tenantId);
 
     @Query("SELECT DISTINCT c.enumType FROM CustomEnum c WHERE c.tenantId = :tenantId")
