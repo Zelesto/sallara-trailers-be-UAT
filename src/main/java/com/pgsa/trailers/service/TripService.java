@@ -548,6 +548,103 @@ public class TripService {
 
         return tripResponseMapper.toResponse(saved);
     }
+
+    // Add these methods to TripService.java after the existing methods
+
+/* ========================
+   SEARCH
+   ======================== */
+
+/**
+ * Search trips with pagination
+ * @param searchTerm The search term (can be null or empty)
+ * @param pageable Pagination information
+ * @return Page of TripResponse
+ */
+@Transactional(readOnly = true)
+public Page<TripResponse> searchTrips(String searchTerm, Pageable pageable) {
+    log.debug("Searching trips with term: {}", searchTerm);
+    
+    // If search term is null or empty, return all trips sorted by ID descending
+    if (searchTerm == null || searchTerm.trim().isEmpty()) {
+        return tripRepository.findAllOrderByIdDesc(pageable)
+                .map(tripResponseMapper::toResponse);
+    }
+    
+    // Otherwise, search with the term
+    return tripRepository.searchTrips(searchTerm.trim(), pageable)
+            .map(tripResponseMapper::toResponse);
+}
+
+/**
+ * Search trips with filters (status, city, customer)
+ * @param searchTerm The search term (can be null)
+ * @param status Filter by status (can be null)
+ * @param city Filter by city (can be null)
+ * @param customer Filter by customer (can be null)
+ * @param pageable Pagination information
+ * @return Page of TripResponse
+ */
+@Transactional(readOnly = true)
+public Page<TripResponse> searchTripsWithFilters(
+        String searchTerm, 
+        TripStatus status, 
+        String city, 
+        String customer,
+        Pageable pageable) {
+    
+    log.debug("Searching trips with filters - term: {}, status: {}, city: {}, customer: {}", 
+            searchTerm, status, city, customer);
+    
+    return tripRepository.findWithFiltersOrderByIdDesc(searchTerm, status, city, customer, pageable)
+            .map(tripResponseMapper::toResponse);
+}
+
+/**
+ * Search trips without pagination (for dropdowns, autocomplete, etc.)
+ * @param searchTerm The search term (can be null or empty)
+ * @return List of TripResponse
+ */
+@Transactional(readOnly = true)
+public List<TripResponse> searchTripsSimple(String searchTerm) {
+    log.debug("Simple search trips with term: {}", searchTerm);
+    
+    if (searchTerm == null || searchTerm.trim().isEmpty()) {
+        return tripRepository.findAllOrderByIdDesc()
+                .stream()
+                .map(tripResponseMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+    
+    return tripRepository.searchTripsOrderByIdDesc(searchTerm.trim())
+            .stream()
+            .map(tripResponseMapper::toResponse)
+            .collect(Collectors.toList());
+}
+
+/**
+ * Get active trips (PLANNED, ASSIGNED, IN_PROGRESS, ACTIVE)
+ * @return List of TripResponse
+ */
+@Transactional(readOnly = true)
+public List<TripResponse> getActiveTrips() {
+    return tripRepository.findActiveTripsOrderByIdDesc()
+            .stream()
+            .map(tripResponseMapper::toResponse)
+            .collect(Collectors.toList());
+}
+
+/**
+ * Get currently running trips (IN_PROGRESS, ACTIVE)
+ * @return List of TripResponse
+ */
+@Transactional(readOnly = true)
+public List<TripResponse> getCurrentlyRunningTrips() {
+    return tripRepository.findCurrentlyRunningTripsOrderByIdDesc()
+            .stream()
+            .map(tripResponseMapper::toResponse)
+            .collect(Collectors.toList());
+}
     
     /* ========================
        PRIVATE HELPERS
