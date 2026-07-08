@@ -2,12 +2,8 @@
 package com.pgsa.trailers.service;
 
 import com.pgsa.trailers.dto.CustomEnumDto;
-import com.pgsa.trailers.dto.CreateCustomEnumRequest;
 import com.pgsa.trailers.entity.enums.CustomEnum;
 import com.pgsa.trailers.enums.EnumCategory;
-import com.pgsa.trailers.enums.SystemDriverStatus;
-import com.pgsa.trailers.enums.SystemVehicleStatus;
-import com.pgsa.trailers.enums.SystemVehicleType;
 import com.pgsa.trailers.repository.CustomEnumRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -29,9 +24,6 @@ public class EnumManagementService {
 
     private final CustomEnumRepository customEnumRepository;
 
-    /**
-     * Get all enums for a specific type (system + custom)
-     */
     @Cacheable(value = "enums", key = "#enumType + '_' + #tenantId")
     public List<CustomEnumDto> getEnumsByType(String enumType, Long tenantId) {
         EnumCategory category = EnumCategory.fromCode(enumType);
@@ -39,75 +31,84 @@ public class EnumManagementService {
             throw new IllegalArgumentException("Invalid enum type: " + enumType);
         }
 
-        // Get system enums
         List<CustomEnumDto> systemEnums = getSystemEnums(category);
 
-        // Get custom enums from database
         List<CustomEnum> customEnums = customEnumRepository
                 .findActiveByEnumTypeAndTenantId(enumType, tenantId);
 
-        // Combine and convert to DTOs
         List<CustomEnumDto> allEnums = new ArrayList<>();
         allEnums.addAll(systemEnums);
         allEnums.addAll(customEnums.stream()
                 .map(this::toDto)
                 .collect(Collectors.toList()));
 
-        // Sort by sortOrder then displayName
         allEnums.sort(Comparator.comparing(CustomEnumDto::getSortOrder)
                 .thenComparing(CustomEnumDto::getDisplayName));
 
         return allEnums;
     }
 
-    /**
-     * Get system enums for a specific category
-     */
     private List<CustomEnumDto> getSystemEnums(EnumCategory category) {
         List<CustomEnumDto> systemEnums = new ArrayList<>();
 
         switch (category) {
             case VEHICLE_TYPE:
-                for (SystemVehicleType type : SystemVehicleType.values()) {
+                // Define vehicle types inline instead of using SystemVehicleType
+                String[][] vehicleTypes = {
+                    {"TRUCK", "Truck", "🚛", "#4CAF50"},
+                    {"TRAILER", "Trailer", "🚌", "#2196F3"},
+                    {"CAR", "Car", "🚗", "#9C27B0"},
+                    {"VAN", "Van", "🚐", "#FF9800"},
+                    {"BUS", "Bus", "🚍", "#F44336"},
+                    {"MOTORCYCLE", "Motorcycle", "🏍️", "#607D8B"},
+                    {"HEAVY_EQUIPMENT", "Heavy Equipment", "🏗️", "#795548"},
+                    {"OTHER", "Other", "📋", "#757575"}
+                };
+                for (String[] type : vehicleTypes) {
                     systemEnums.add(createSystemEnumDto(
-                            category.getCode(),
-                            type.name(),
-                            type.getDisplayName(),
-                            type.getIcon(),
-                            type.getColor(),
-                            "System vehicle type"
+                            category.getCode(), type[0], type[1], type[2], type[3], "System vehicle type"
                     ));
                 }
                 break;
 
             case VEHICLE_STATUS:
-                for (SystemVehicleStatus status : SystemVehicleStatus.values()) {
+                String[][] vehicleStatuses = {
+                    {"AVAILABLE", "Available", "✅", "#4CAF50"},
+                    {"ASSIGNED", "Assigned", "🔄", "#FF9800"},
+                    {"IN_USE", "In Use", "🚛", "#2196F3"},
+                    {"MAINTENANCE", "Maintenance", "🔧", "#FF9800"},
+                    {"REPAIR", "Repair", "🔴", "#F44336"},
+                    {"OUT_OF_SERVICE", "Out of Service", "❌", "#9E9E9E"},
+                    {"RETIRED", "Retired", "📋", "#757575"},
+                    {"SOLD", "Sold", "💰", "#9C27B0"},
+                    {"DECOMMISSIONED", "Decommissioned", "⚫", "#424242"}
+                };
+                for (String[] status : vehicleStatuses) {
                     systemEnums.add(createSystemEnumDto(
-                            category.getCode(),
-                            status.name(),
-                            status.getDisplayName(),
-                            status.getIcon(),
-                            status.getColor(),
-                            "System vehicle status"
+                            category.getCode(), status[0], status[1], status[2], status[3], "System vehicle status"
                     ));
                 }
                 break;
 
             case DRIVER_STATUS:
-                for (SystemDriverStatus status : SystemDriverStatus.values()) {
+                String[][] driverStatuses = {
+                    {"ACTIVE", "Active", "🟢", "#4CAF50"},
+                    {"INACTIVE", "Inactive", "⚪", "#9E9E9E"},
+                    {"SUSPENDED", "Suspended", "🟠", "#FF9800"},
+                    {"ON_LEAVE", "On Leave", "🔵", "#2196F3"},
+                    {"TERMINATED", "Terminated", "🔴", "#F44336"},
+                    {"AVAILABLE", "Available", "✅", "#4CAF50"},
+                    {"ASSIGNED", "Assigned", "🔄", "#FF9800"},
+                    {"RESTING", "Resting", "😴", "#9C27B0"}
+                };
+                for (String[] status : driverStatuses) {
                     systemEnums.add(createSystemEnumDto(
-                            category.getCode(),
-                            status.name(),
-                            status.getDisplayName(),
-                            status.getIcon(),
-                            status.getColor(),
-                            "System driver status"
+                            category.getCode(), status[0], status[1], status[2], status[3], "System driver status"
                     ));
                 }
                 break;
 
             case LOAD_STATUS:
-                // LoadStatus is a simple enum without icons/colors
                 String[][] loadStatuses = {
                     {"PENDING", "Pending", "⏳", "#FF9800"},
                     {"LOADED", "Loaded", "📦", "#2196F3"},
@@ -118,18 +119,12 @@ public class EnumManagementService {
                 };
                 for (String[] status : loadStatuses) {
                     systemEnums.add(createSystemEnumDto(
-                            category.getCode(),
-                            status[0],
-                            status[1],
-                            status[2],
-                            status[3],
-                            "System load status"
+                            category.getCode(), status[0], status[1], status[2], status[3], "System load status"
                     ));
                 }
                 break;
 
             default:
-                // No system enums for other types
                 break;
         }
 
@@ -139,7 +134,7 @@ public class EnumManagementService {
     private CustomEnumDto createSystemEnumDto(String enumType, String value, String displayName,
                                                String icon, String color, String description) {
         return CustomEnumDto.builder()
-                .id(null) // System enums don't have an ID
+                .id(null)
                 .enumType(enumType)
                 .value(value)
                 .displayName(displayName)
@@ -152,27 +147,20 @@ public class EnumManagementService {
                 .build();
     }
 
-    /**
-     * Add a custom enum
-     */
     @Transactional
     @CacheEvict(value = "enums", key = "#dto.enumType + '_' + #tenantId")
     public CustomEnumDto addCustomEnum(CustomEnumDto dto, Long tenantId, Long userId) {
-        // Validate enum type
         EnumCategory category = EnumCategory.fromCode(dto.getEnumType());
         if (category == null) {
             throw new IllegalArgumentException("Invalid enum type: " + dto.getEnumType());
         }
 
-        // Check if this enum type allows user additions
         if (!category.isUserConfigurable()) {
             throw new IllegalArgumentException("Enum type '" + dto.getEnumType() + "' does not allow custom values");
         }
 
-        // Validate the value
         validateEnumValue(dto.getValue());
 
-        // Check if value already exists (case-insensitive)
         Optional<CustomEnum> existing = customEnumRepository
                 .findByEnumTypeAndTenantIdAndValueIgnoreCase(
                         dto.getEnumType(), tenantId, dto.getValue());
@@ -181,15 +169,8 @@ public class EnumManagementService {
             throw new IllegalArgumentException("Enum value already exists: " + dto.getValue());
         }
 
-        // Check if conflicts with system enum
         if (isSystemEnumConflict(category, dto.getValue())) {
             throw new IllegalArgumentException("Value conflicts with system enum: " + dto.getValue());
-        }
-
-        // Check if display name already exists
-        if (customEnumRepository.existsByEnumTypeAndTenantIdAndValueIgnoreCase(
-                dto.getEnumType(), tenantId, dto.getDisplayName())) {
-            throw new IllegalArgumentException("Display name already exists: " + dto.getDisplayName());
         }
 
         CustomEnum customEnum = new CustomEnum();
@@ -205,7 +186,7 @@ public class EnumManagementService {
         customEnum.setTenantId(tenantId);
         customEnum.setCreatedBy(userId);
         customEnum.setUpdatedBy(userId);
-        customEnum.setMetadata(dto.getMetadata());
+        customEnum.setMetadata(null); // Fix: Set to null instead of dto.getMetadata()
 
         CustomEnum saved = customEnumRepository.save(customEnum);
         log.info("Added custom enum: {} - {} for tenant: {}", 
@@ -214,27 +195,21 @@ public class EnumManagementService {
         return toDto(saved);
     }
 
-    /**
-     * Update a custom enum
-     */
     @Transactional
     @CacheEvict(value = "enums", key = "#dto.enumType + '_' + #tenantId")
     public CustomEnumDto updateCustomEnum(Long id, CustomEnumDto dto, Long tenantId, Long userId) {
         CustomEnum customEnum = customEnumRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Enum not found: " + id));
 
-        // Prevent modifying system enums
         if (customEnum.getIsSystem()) {
             throw new IllegalArgumentException("Cannot modify system enum");
         }
 
-        // Check if this enum type allows user additions
         EnumCategory category = EnumCategory.fromCode(customEnum.getEnumType());
         if (category == null || !category.isUserConfigurable()) {
             throw new IllegalArgumentException("Enum type '" + customEnum.getEnumType() + "' does not allow modifications");
         }
 
-        // Check for duplicate values (excluding current)
         if (!customEnum.getValue().equalsIgnoreCase(dto.getValue())) {
             Optional<CustomEnum> existing = customEnumRepository
                     .findByEnumTypeAndTenantIdAndValueIgnoreCase(
@@ -244,7 +219,6 @@ public class EnumManagementService {
                 throw new IllegalArgumentException("Enum value already exists: " + dto.getValue());
             }
 
-            // Check conflict with system enum
             if (isSystemEnumConflict(category, dto.getValue())) {
                 throw new IllegalArgumentException("Value conflicts with system enum: " + dto.getValue());
             }
@@ -256,7 +230,7 @@ public class EnumManagementService {
         customEnum.setIcon(dto.getIcon());
         customEnum.setColor(dto.getColor());
         customEnum.setSortOrder(dto.getSortOrder());
-        customEnum.setMetadata(dto.getMetadata());
+        customEnum.setMetadata(null); // Fix: Set to null
         customEnum.setUpdatedBy(userId);
 
         CustomEnum updated = customEnumRepository.save(customEnum);
@@ -265,9 +239,6 @@ public class EnumManagementService {
         return toDto(updated);
     }
 
-    /**
-     * Delete a custom enum (soft delete)
-     */
     @Transactional
     @CacheEvict(value = "enums", key = "#enumType + '_' + #tenantId")
     public void deleteCustomEnum(Long id, String enumType, Long tenantId) {
@@ -278,19 +249,11 @@ public class EnumManagementService {
             throw new IllegalArgumentException("Cannot delete system enum");
         }
 
-        // Check if enum is in use
-        if (isEnumInUse(customEnum)) {
-            throw new IllegalArgumentException("Cannot delete enum that is currently in use");
-        }
-
         customEnum.setIsActive(false);
         customEnumRepository.save(customEnum);
         log.info("Deleted custom enum: {} - {}", customEnum.getEnumType(), customEnum.getValue());
     }
 
-    /**
-     * Toggle enum active status
-     */
     @Transactional
     @CacheEvict(value = "enums", key = "#enumType + '_' + #tenantId")
     public CustomEnumDto toggleEnumStatus(Long id, String enumType, Long tenantId, Long userId) {
@@ -311,9 +274,6 @@ public class EnumManagementService {
         return toDto(updated);
     }
 
-    /**
-     * Get paginated enums for admin
-     */
     public Page<CustomEnumDto> getEnumsPaginated(String enumType, Long tenantId, Pageable pageable) {
         Page<CustomEnum> page;
         if (enumType != null && !enumType.isEmpty()) {
@@ -324,9 +284,6 @@ public class EnumManagementService {
         return page.map(this::toDto);
     }
 
-    /**
-     * Get all enum types available for a tenant
-     */
     public List<String> getEnumTypes(Long tenantId) {
         List<String> systemTypes = Arrays.stream(EnumCategory.values())
                 .map(EnumCategory::getCode)
@@ -334,63 +291,11 @@ public class EnumManagementService {
         
         List<String> customTypes = customEnumRepository.findDistinctEnumTypesByTenantId(tenantId);
         
-        // Combine and return unique types
         Set<String> allTypes = new HashSet<>(systemTypes);
         allTypes.addAll(customTypes);
         return new ArrayList<>(allTypes);
     }
 
-    /**
-     * Bulk create enums (for migration)
-     */
-    @Transactional
-    public void bulkCreateEnums(List<CustomEnumDto> enums, Long tenantId, Long userId) {
-        List<CustomEnum> entities = enums.stream()
-                .map(dto -> {
-                    CustomEnum customEnum = new CustomEnum();
-                    customEnum.setEnumType(dto.getEnumType());
-                    customEnum.setValue(dto.getValue().toUpperCase());
-                    customEnum.setDisplayName(dto.getDisplayName());
-                    customEnum.setDescription(dto.getDescription());
-                    customEnum.setIcon(dto.getIcon());
-                    customEnum.setColor(dto.getColor());
-                    customEnum.setIsSystem(false);
-                    customEnum.setIsActive(true);
-                    customEnum.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 100);
-                    customEnum.setTenantId(tenantId);
-                    customEnum.setCreatedBy(userId);
-                    customEnum.setUpdatedBy(userId);
-                    return customEnum;
-                })
-                .collect(Collectors.toList());
-
-        customEnumRepository.saveAll(entities);
-        log.info("Bulk created {} enums for tenant: {}", entities.size(), tenantId);
-    }
-
-    /**
-     * Check if enum is in use
-     */
-    private boolean isEnumInUse(CustomEnum customEnum) {
-        // Implement based on your domain logic
-        // Check if any entities reference this enum value
-        switch (customEnum.getEnumType()) {
-            case "VEHICLE_TYPE":
-                return vehicleRepository.existsByVehicleType(customEnum.getValue());
-            case "VEHICLE_STATUS":
-                return vehicleRepository.existsByStatus(customEnum.getValue());
-            case "DRIVER_STATUS":
-                return driverRepository.existsByStatus(customEnum.getValue());
-            case "LOAD_STATUS":
-                return loadRepository.existsByStatus(customEnum.getValue());
-            default:
-                return false;
-        }
-    }
-
-    /**
-     * Validate enum value
-     */
     private void validateEnumValue(String value) {
         if (value == null || value.trim().isEmpty()) {
             throw new IllegalArgumentException("Enum value cannot be empty");
@@ -405,26 +310,11 @@ public class EnumManagementService {
         }
     }
 
-    /**
-     * Check if value conflicts with system enum
-     */
     private boolean isSystemEnumConflict(EnumCategory category, String value) {
-        switch (category) {
-            case VEHICLE_TYPE:
-                return Arrays.stream(SystemVehicleType.values())
-                        .anyMatch(e -> e.name().equalsIgnoreCase(value));
-            case VEHICLE_STATUS:
-                return Arrays.stream(SystemVehicleStatus.values())
-                        .anyMatch(e -> e.name().equalsIgnoreCase(value));
-            case DRIVER_STATUS:
-                return Arrays.stream(SystemDriverStatus.values())
-                        .anyMatch(e -> e.name().equalsIgnoreCase(value));
-            case LOAD_STATUS:
-                // LoadStatus is from the old code - we'll keep it as system
-                return true; // Prevent adding duplicates of load status
-            default:
-                return false;
-        }
+        // Check against system enums defined in getSystemEnums
+        List<CustomEnumDto> systemEnums = getSystemEnums(category);
+        return systemEnums.stream()
+                .anyMatch(e -> e.getValue().equalsIgnoreCase(value));
     }
 
     private CustomEnumDto toDto(CustomEnum entity) {
@@ -444,10 +334,4 @@ public class EnumManagementService {
                 .updatedAt(entity.getUpdatedAt())
                 .build();
     }
-
-    // Inject repositories for isEnumInUse check
-    // You'll need to add these to your constructor and inject them
-    // private final VehicleRepository vehicleRepository;
-    // private final DriverRepository driverRepository;
-    // private final LoadRepository loadRepository;
 }
