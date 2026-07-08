@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 @Data
 @Builder
@@ -19,8 +21,8 @@ public class CustomEnumDto {
     private Boolean isSystem;
     private Boolean isActive;
     private Integer sortOrder;
-    private String metadata;
+    @Builder.Default
+    private Map<String, Object> metadata = new HashMap<>(); // Fix: Set default to empty Map
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
-
