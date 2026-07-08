@@ -205,7 +205,42 @@ public class TripController {
         tripService.deleteTrip(id);
         log.debug("Trip and associated metrics deleted for id: {}", id);
     }
+    /* ========================
+       SEARCH
+       ======================== */
 
+    @GetMapping("/trips/search")
+public ResponseEntity<Page<TripResponse>> searchTrips(
+        @RequestParam(required = false) String searchTerm,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size,
+        @RequestParam(required = false) TripStatus status,
+        @RequestParam(required = false) String city,
+        @RequestParam(required = false) String customer) {
+    
+    Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
+    
+    // If filters are provided, use filtered search
+    if (status != null || city != null || customer != null) {
+        return ResponseEntity.ok(
+            tripService.searchTripsWithFilters(searchTerm, status, city, customer, pageable)
+        );
+    }
+    
+    // Otherwise, use simple search
+    return ResponseEntity.ok(tripService.searchTrips(searchTerm, pageable));
+}
+
+@GetMapping("/trips/active")
+public ResponseEntity<List<TripResponse>> getActiveTrips() {
+    return ResponseEntity.ok(tripService.getActiveTrips());
+}
+
+@GetMapping("/trips/running")
+public ResponseEntity<List<TripResponse>> getCurrentlyRunningTrips() {
+    return ResponseEntity.ok(tripService.getCurrentlyRunningTrips());
+}
+    
     /* ========================
        HELPER METHODS
        ======================== */
