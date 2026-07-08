@@ -15,33 +15,29 @@ import java.util.Optional;
 @Repository
 public interface CustomEnumRepository extends JpaRepository<CustomEnum, Long> {
 
-    List<CustomEnum> findByEnumTypeAndTenantIdAndIsActiveTrue(String enumType, Long tenantId);
+    List<CustomEnum> findByEnumTypeAndIsActiveTrue(String enumType);
 
-    Optional<CustomEnum> findByEnumTypeAndTenantIdAndValueIgnoreCase(
-            String enumType, Long tenantId, String value);
+    Optional<CustomEnum> findByEnumTypeAndValueIgnoreCase(String enumType, String value);
 
-    @Query("SELECT c FROM CustomEnum c WHERE c.enumType = :enumType AND c.tenantId = :tenantId")
-    Page<CustomEnum> findByEnumTypeAndTenantId(@Param("enumType") String enumType,
-                                                 @Param("tenantId") Long tenantId,
-                                                 Pageable pageable);
+    @Query("SELECT c FROM CustomEnum c WHERE c.enumType = :enumType AND c.isActive = true ORDER BY c.sortOrder ASC, c.displayName ASC")
+    List<CustomEnum> findActiveByEnumTypeOrderBySortOrder(@Param("enumType") String enumType);
 
-    @Query("SELECT c FROM CustomEnum c WHERE c.enumType = :enumType " +
-           "AND c.tenantId = :tenantId AND c.isActive = true " +
-           "ORDER BY c.sortOrder ASC, c.displayName ASC")
-    List<CustomEnum> findActiveByEnumTypeAndTenantId(@Param("enumType") String enumType,
-                                                       @Param("tenantId") Long tenantId);
+    @Query("SELECT c FROM CustomEnum c WHERE c.enumType = :enumType")
+    Page<CustomEnum> findByEnumType(@Param("enumType") String enumType, Pageable pageable);
 
-    @Query("SELECT c FROM CustomEnum c WHERE c.tenantId = :tenantId")
-    Page<CustomEnum> findAllByTenantId(@Param("tenantId") Long tenantId, Pageable pageable);
-    
+    @Query("SELECT DISTINCT c.enumType FROM CustomEnum c")
+    List<String> findDistinctEnumTypes();
 
-    List<CustomEnum> findByEnumTypeAndTenantIdOrderBySortOrderAsc(String enumType, Long tenantId);
+    long countByEnumType(String enumType);
 
-    @Query("SELECT DISTINCT c.enumType FROM CustomEnum c WHERE c.tenantId = :tenantId")
-    List<String> findDistinctEnumTypesByTenantId(@Param("tenantId") Long tenantId);
+    boolean existsByEnumTypeAndValueIgnoreCase(String enumType, String value);
 
-    long countByEnumTypeAndTenantId(String enumType, Long tenantId);
+    @Query("SELECT c FROM CustomEnum c ORDER BY c.sortOrder ASC, c.displayName ASC")
+    List<CustomEnum> findAllOrderBySortOrder();
 
-    boolean existsByEnumTypeAndTenantIdAndValueIgnoreCase(
-            String enumType, Long tenantId, String value);
+    @Query("SELECT COUNT(c) FROM CustomEnum c WHERE c.isActive = true")
+    long countByIsActiveTrue();
+
+    @Query("SELECT COUNT(c) FROM CustomEnum c WHERE c.isSystem = true")
+    long countByIsSystemTrue();
 }
