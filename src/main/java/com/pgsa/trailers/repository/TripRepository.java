@@ -178,6 +178,16 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     List<Trip> findCurrentlyRunningTripsOrderByIdDesc();
     
     // ======================== SEARCH QUERIES ========================
+
+
+    @Query("SELECT t FROM Trip t WHERE " +
+       "(:searchTerm IS NULL OR :searchTerm = '' OR " +
+       "LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+       "LOWER(t.originCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+       "LOWER(t.destinationCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+       "LOWER(t.customerName) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
+Page<Trip> searchTripsSafe(@Param("searchTerm") String searchTerm, Pageable pageable);
+
     
     // ⭐ Search trips with pagination - FIXED: removed duplicate method
     @Query("SELECT t FROM Trip t WHERE " +
