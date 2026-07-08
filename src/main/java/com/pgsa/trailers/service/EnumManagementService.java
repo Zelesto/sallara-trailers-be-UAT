@@ -53,7 +53,6 @@ public class EnumManagementService {
 
         switch (category) {
             case VEHICLE_TYPE:
-                // Define vehicle types inline instead of using SystemVehicleType
                 String[][] vehicleTypes = {
                     {"TRUCK", "Truck", "🚛", "#4CAF50"},
                     {"TRAILER", "Trailer", "🚌", "#2196F3"},
@@ -144,6 +143,7 @@ public class EnumManagementService {
                 .isSystem(true)
                 .isActive(true)
                 .sortOrder(0)
+                .metadata(new HashMap<>()) // Fix: Use empty Map instead of null
                 .build();
     }
 
@@ -186,7 +186,7 @@ public class EnumManagementService {
         customEnum.setTenantId(tenantId);
         customEnum.setCreatedBy(userId);
         customEnum.setUpdatedBy(userId);
-        customEnum.setMetadata(null); // Fix: Set to null instead of dto.getMetadata()
+        customEnum.setMetadata(new HashMap<>()); // Fix: Use empty Map instead of null
 
         CustomEnum saved = customEnumRepository.save(customEnum);
         log.info("Added custom enum: {} - {} for tenant: {}", 
@@ -230,7 +230,7 @@ public class EnumManagementService {
         customEnum.setIcon(dto.getIcon());
         customEnum.setColor(dto.getColor());
         customEnum.setSortOrder(dto.getSortOrder());
-        customEnum.setMetadata(null); // Fix: Set to null
+        customEnum.setMetadata(new HashMap<>()); // Fix: Use empty Map instead of null
         customEnum.setUpdatedBy(userId);
 
         CustomEnum updated = customEnumRepository.save(customEnum);
@@ -311,7 +311,6 @@ public class EnumManagementService {
     }
 
     private boolean isSystemEnumConflict(EnumCategory category, String value) {
-        // Check against system enums defined in getSystemEnums
         List<CustomEnumDto> systemEnums = getSystemEnums(category);
         return systemEnums.stream()
                 .anyMatch(e -> e.getValue().equalsIgnoreCase(value));
@@ -329,7 +328,7 @@ public class EnumManagementService {
                 .isSystem(entity.getIsSystem())
                 .isActive(entity.getIsActive())
                 .sortOrder(entity.getSortOrder())
-                .metadata(entity.getMetadata())
+                .metadata(entity.getMetadata() != null ? entity.getMetadata() : new HashMap<>()) // Fix: Handle null metadata
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
