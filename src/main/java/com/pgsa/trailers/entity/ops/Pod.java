@@ -11,6 +11,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -33,12 +34,19 @@ public class Pod {
     @Column(name = "customer_name", nullable = false, length = 255)
     private String customerName;
 
+    @Column(name = "driver_name", length = 255)
+    private String driverName;
+
     @Column(name = "delivery_date", nullable = false)
     private LocalDate deliveryDate;
 
     @Column(name = "status", length = 50)
     @Builder.Default
     private String status = "PENDING";
+
+    @Column(name = "source", length = 50)
+    @Builder.Default
+    private String source = "UPLOADED";
 
     @Column(name = "document_type", length = 50)
     private String documentType;
@@ -76,6 +84,31 @@ public class Pod {
     @Column(name = "rejection_reason", columnDefinition = "TEXT")
     private String rejectionReason;
 
+    // Debrief fields
+    @Column(name = "debriefed_at")
+    private LocalDateTime debriefedAt;
+
+    @Column(name = "debriefed_by", length = 100)
+    private String debriefedBy;
+
+    @Column(name = "received_by", length = 100)
+    private String receivedBy;
+
+    @Column(name = "quality_rating")
+    private Integer qualityRating;
+
+    @Column(name = "issues_found")
+    private List<String> issuesFound;
+
+    @Column(name = "delivery_condition", length = 50)
+    private String deliveryCondition;
+
+    @Column(name = "debrief_notes", columnDefinition = "TEXT")
+    private String debriefNotes;
+
+    @Column(name = "additional_info", columnDefinition = "TEXT")
+    private String additionalInfo;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -100,6 +133,9 @@ public class Pod {
         }
         if (status == null) {
             status = "PENDING";
+        }
+        if (source == null) {
+            source = "UPLOADED";
         }
     }
 
