@@ -80,8 +80,11 @@ public class SecurityConfig {
         config.setAllowCredentials(true);
 
         config.setAllowedOrigins(List.of(
-            "https://trailers-1.onrender.com",
-            "http://localhost:5173"
+            "https://sallara-trailers-fe-uat.onrender.com",
+            "https://sallara-trailers-fe-uat.onrender.com",
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://localhost:5174"
         ));
 
         config.setAllowedMethods(List.of(
