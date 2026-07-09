@@ -4,16 +4,22 @@ package com.pgsa.trailers.controller;
 import com.pgsa.trailers.dto.PodRequestDTO;
 import com.pgsa.trailers.dto.PodResponseDTO;
 import com.pgsa.trailers.dto.PodStatistics;
+import com.pgsa.trailers.dto.DebriefRequestDTO;
+import com.pgsa.trailers.dto.StatusHistoryDTO;
 import com.pgsa.trailers.service.PodService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -27,6 +33,25 @@ public class PodController {
     @PostMapping
     public ResponseEntity<PodResponseDTO> createPod(@Valid @RequestBody PodRequestDTO request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(podService.createPod(request));
+    }
+
+    @PostMapping("/scan")
+    public ResponseEntity<PodResponseDTO> scanPod(
+            @RequestParam("tripId") Long tripId,
+            @RequestParam("driverName") String driverName,
+            @RequestParam("deliveryDate") String deliveryDate,
+            @RequestParam(value = "customerName", required = false) String customerName,
+            @RequestParam(value = "notes", required = false) String notes,
+            @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(podService.scanPod(tripId, driverName, deliveryDate, customerName, notes, file));
+    }
+
+    @PostMapping("/{id}/debrief")
+    public ResponseEntity<PodResponseDTO> debriefPod(
+            @PathVariable Long id,
+            @Valid @RequestBody DebriefRequestDTO debriefRequest) {
+        return ResponseEntity.ok(podService.debriefPod(id, debriefRequest));
     }
 
     @GetMapping("/{id}")
@@ -69,6 +94,33 @@ public class PodController {
             @PathVariable String status,
             @PageableDefault(size = 10) Pageable pageable) {
         return ResponseEntity.ok(podService.getPodsByStatus(status, pageable));
+    }
+
+    @GetMapping("/{id}/status-history")
+    public ResponseEntity<List<StatusHistoryDTO>> getPodStatusHistory(@PathVariable Long id) {
+        return ResponseEntity.ok(podService.getPodStatusHistory(id));
+    }
+
+    @GetMapping("/{id}/download")
+    public ResponseEntity<Resource> downloadPodDocument(@PathVariable Long id) {
+        Resource resource = podService.downloadPodDocument(id);
+        String filename = podService.getPodFilename(id);
+        
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .body(resource);
+    }
+
+    @GetMapping("/{id}/view")
+    public ResponseEntity<Resource> viewPodDocument(@PathVariable Long id) {
+        Resource resource = podService.downloadPodDocument(id);
+        String contentType = podService.getPodContentType(id);
+        
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + podService.getPodFilename(id) + "\"")
+                .body(resource);
     }
 
     @PutMapping("/{id}")
