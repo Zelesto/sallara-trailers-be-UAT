@@ -68,14 +68,14 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3</artifactId>
-            <version>${aws-sdk.version}</version>
+           
         </dependency>
 
         <!-- S3 Transfer Manager -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3-transfer-manager</artifactId>
-            <version>${aws-sdk.version}</version>
+            
         </dependency>
 
 
@@ -84,28 +84,28 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>netty-nio-client</artifactId>
-            <version>${aws-sdk.version}</version>
+           
         </dependency>
 
         <!-- AWS Core -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>aws-core</artifactId>
-            <version>${aws-sdk.version}</version>
+           
         </dependency>
 
         <!-- Auth -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>auth</artifactId>
-            <version>${aws-sdk.version}</version>
+            
         </dependency>
 
         <!-- Regions -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>regions</artifactId>
-            <version>${aws-sdk.version}</version>
+           
         </dependency>
 
         <!-- ============================================
