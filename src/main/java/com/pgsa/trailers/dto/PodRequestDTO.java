@@ -22,7 +22,7 @@ public class PodRequestDTO {
     @NotBlank(message = "Customer name is required")
     private String customerName;
     
-    private String driverName;  // <-- Add this field
+    private String driverName;
     
     @NotNull(message = "Delivery date is required")
     private LocalDate deliveryDate;
