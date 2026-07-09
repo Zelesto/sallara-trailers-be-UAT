@@ -54,14 +54,16 @@ public class Trip {
     @JoinColumn(name = "customer_id", insertable = false, updatable = false)
     private Customer customer;
 
-    /* ========================
+     /* ========================
        Load Relationship - FIXED
        ======================== */
+    // Keep the load_id column
     @Column(name = "load_id")
-    private Long loadId;  // Changed from String to Long to match ID type
+    private String loadId;
 
+    // ⭐ FIX: Change the join column to reference the correct field
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "load_id", insertable = false, updatable = false)
+    @JoinColumn(name = "load_id", referencedColumnName = "load_number", insertable = false, updatable = false)
     private Load load;
 
     // Load denormalized fields (for quick access without join)
@@ -304,7 +306,7 @@ public class Trip {
     private String cancellationReason;
 
     /* ========================
-       Audit Trail
+       Audit - FIX THE AUDIT TRAIL
        ======================== */
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -325,6 +327,7 @@ public class Trip {
     @Column(name = "last_status_update")
     private LocalDateTime lastStatusUpdate;
 
+    // ⭐ Use JsonType for JSONB column
     @Type(JsonType.class)
     @Column(name = "audit_trail", columnDefinition = "jsonb")
     private Map<String, Object> auditTrail = new HashMap<>();
