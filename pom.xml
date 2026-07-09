@@ -22,7 +22,7 @@
 
     <properties>
         <java.version>17</java.version>
-        <aws-sdk.version>2.20.0</aws-sdk.version>
+        <aws-sdk.version>2.21.0</aws-sdk.version> <!-- Changed to 2.21.0 -->
     </properties>
 
     <dependencies>
@@ -60,52 +60,73 @@
         </dependency>
 
         <!-- ============================================
-             AWS SDK for Supabase S3
+             AWS SDK for Supabase S3 - Using BOM
              ============================================ -->
+        <!-- Use BOM to manage all AWS SDK versions -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>bom</artifactId>
+            <version>${aws-sdk.version}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+
+        <!-- S3 Client -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3</artifactId>
             <version>${aws-sdk.version}</version>
         </dependency>
 
+        <!-- S3 Transfer Manager -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3-transfer-manager</artifactId>
             <version>${aws-sdk.version}</version>
         </dependency>
 
+        <!-- S3 Presigner -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3-presigner</artifactId>
             <version>${aws-sdk.version}</version>
         </dependency>
 
+        <!-- HTTP Client -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>netty-nio-client</artifactId>
             <version>${aws-sdk.version}</version>
         </dependency>
 
+        <!-- AWS Core -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>aws-core</artifactId>
             <version>${aws-sdk.version}</version>
         </dependency>
 
+        <!-- Auth -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>auth</artifactId>
             <version>${aws-sdk.version}</version>
         </dependency>
 
+        <!-- Regions -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>regions</artifactId>
+            <version>${aws-sdk.version}</version>
+        </dependency>
+
         <!-- ============================================
-             Database & ORM - FIXED: PostgreSQL as compile scope
+             Database & ORM
              ============================================ -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <version>42.6.0</version>
-            <!-- Remove scope runtime - make it compile scope -->
         </dependency>
 
         <dependency>
