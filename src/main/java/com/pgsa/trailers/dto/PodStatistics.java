@@ -18,4 +18,5 @@ public class PodStatistics {
     private long rejected;
     private long scanned;
     private long pendingDebrief;
+    private long scannedToday;
 }
