@@ -410,22 +410,31 @@ public class PodService {
     }
 
     public PodStatistics getPodStatistics() {
-        long total = podRepository.count();
-        long pending = podRepository.countByStatus("PENDING");
-        long delivered = podRepository.countByStatus("DELIVERED");
-        long verified = podRepository.countByStatus("VERIFIED");
-        long rejected = podRepository.countByStatus("REJECTED");
-        long scanned = podRepository.countBySource("SCANNED");
+    long total = podRepository.count();
+    long pending = podRepository.countByStatus("PENDING");
+    long delivered = podRepository.countByStatus("DELIVERED");
+    long verified = podRepository.countByStatus("VERIFIED");
+    long rejected = podRepository.countByStatus("REJECTED");
+    long scanned = podRepository.countBySource("SCANNED");
+    
+    // Get pending debrief count (PENDING or SCANNED status)
+    long pendingDebrief = podRepository.countPendingDebrief();
+    
+    // Get today's scans
+    LocalDate today = LocalDate.now();
+    long scannedToday = podRepository.countScannedSince(today);
 
-        return PodStatistics.builder()
-                .total(total)
-                .pending(pending)
-                .delivered(delivered)
-                .verified(verified)
-                .rejected(rejected)
-                .scanned(scanned)
-                .build();
-    }
+    return PodStatistics.builder()
+            .total(total)
+            .pending(pending)
+            .delivered(delivered)
+            .verified(verified)
+            .rejected(rejected)
+            .scanned(scanned)
+            .pendingDebrief(pendingDebrief)
+            .scannedToday(scannedToday)
+            .build();
+}
 
     /**
      * Helper method to get trip number from trip ID
