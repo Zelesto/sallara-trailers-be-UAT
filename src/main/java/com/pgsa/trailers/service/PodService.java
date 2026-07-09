@@ -336,18 +336,38 @@ public String getPodFileUrl(Long id) {
                 .map(this::mapToResponse);
     }
 
-    @Transactional(readOnly = true)
-    public Page<PodResponseDTO> getAllPods(Pageable pageable) {
-        log.info("Fetching all PODs with pageable: {}", pageable);
-        try {
-            Page<Pod> podPage = podRepository.findAll(pageable);
-            log.info("Found {} PODs total, {} in this page", podPage.getTotalElements(), podPage.getNumberOfElements());
-            return podPage.map(this::mapToResponse);
-        } catch (Exception e) {
-            log.error("Error fetching PODs: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to fetch PODs", e);
+
+@Transactional(readOnly = true)
+public Page<PodResponseDTO> getAllPods(Pageable pageable) {
+    log.info("Fetching all PODs with pageable: {}", pageable);
+    try {
+        Page<Pod> podPage = podRepository.findAll(pageable);
+        log.info("Found {} PODs total, {} in this page", podPage.getTotalElements(), podPage.getNumberOfElements());
+        
+        // Check if there are any PODs
+        if (podPage.isEmpty()) {
+            return Page.empty(pageable);
         }
+        
+        return podPage.map(pod -> {
+            try {
+                return mapToResponse(pod);
+            } catch (Exception e) {
+                log.error("Error mapping POD {}: {}", pod.getId(), e.getMessage(), e);
+                // Return a minimal response for this POD
+                return PodResponseDTO.builder()
+                        .id(pod.getId())
+                        .podNumber(pod.getPodNumber() != null ? pod.getPodNumber() : "N/A")
+                        .status("ERROR")
+                        .build();
+            }
+        });
+    } catch (Exception e) {
+        log.error("Error fetching PODs: {}", e.getMessage(), e);
+        // Return empty page instead of throwing
+        return Page.empty(pageable);
     }
+}
 
     @Transactional(readOnly = true)
     public Page<PodResponseDTO> searchPods(String searchTerm, Pageable pageable) {
@@ -466,72 +486,76 @@ public String getPodFileUrl(Long id) {
         }
     }
 
-    private PodResponseDTO mapToResponse(Pod pod) {
-        if (pod == null) {
-            log.warn("Attempted to map null Pod to response");
-            return null;
-        }
-        
-        log.debug("Mapping Pod with ID: {}, Trip ID: {}", pod.getId(), pod.getTripId());
-        
-        // Get trip number from trip ID - handle null safely
-        String tripNumber = null;
-        if (pod.getTripId() != null) {
-            try {
-                Optional<String> tripNumberOpt = tripRepository.findTripNumberById(pod.getTripId());
-                tripNumber = tripNumberOpt.orElse(null);
-                log.debug("Found trip number: {} for trip ID: {}", tripNumber, pod.getTripId());
-            } catch (Exception e) {
-                log.warn("Could not find trip number for trip ID: {}", pod.getTripId(), e);
-                // Use a fallback value
-                tripNumber = "TRIP-" + pod.getTripId();
-            }
-        }
+    // src/main/java/com/pgsa/trailers/service/PodService.java
 
+private PodResponseDTO mapToResponse(Pod pod) {
+    if (pod == null) {
+        log.warn("Attempted to map null Pod to response");
+        return null;
+    }
+    
+    log.debug("Mapping Pod with ID: {}, Trip ID: {}", pod.getId(), pod.getTripId());
+    
+    // Get trip number from trip ID - handle null safely
+    String tripNumber = null;
+    if (pod.getTripId() != null) {
         try {
-            return PodResponseDTO.builder()
-                    .id(pod.getId())
-                    .podNumber(pod.getPodNumber() != null ? pod.getPodNumber() : "N/A")
-                    .tripId(pod.getTripId())
-                    .tripNumber(tripNumber)
-                    .customerName(pod.getCustomerName() != null ? pod.getCustomerName() : "N/A")
-                    .driverName(pod.getDriverName())
-                    .deliveryDate(pod.getDeliveryDate())
-                    .status(pod.getStatus() != null ? pod.getStatus() : "PENDING")
-                    .source(pod.getSource() != null ? pod.getSource() : "UPLOADED")
-                    .documentType(pod.getDocumentType())
-                    .fileSize(pod.getFileSize())
-                    .fileUrl(pod.getFileUrl())
-                    .fileName(pod.getFileName())
-                    .notes(pod.getNotes())
-                    .uploadedBy(pod.getUploadedBy())
-                    .uploadedAt(pod.getUploadedAt())
-                    .verifiedBy(pod.getVerifiedBy())
-                    .verifiedAt(pod.getVerifiedAt())
-                    .rejectedBy(pod.getRejectedBy())
-                    .rejectedAt(pod.getRejectedAt())
-                    .rejectionReason(pod.getRejectionReason())
-                    .debriefedAt(pod.getDebriefedAt())
-                    .debriefedBy(pod.getDebriefedBy())
-                    .receivedBy(pod.getReceivedBy())
-                    .qualityRating(pod.getQualityRating())
-                    .issuesFound(pod.getIssuesFound())
-                    .deliveryCondition(pod.getDeliveryCondition())
-                    .debriefNotes(pod.getDebriefNotes())
-                    .additionalInfo(pod.getAdditionalInfo())
-                    .createdAt(pod.getCreatedAt())
-                    .createdBy(pod.getCreatedBy())
-                    .updatedAt(pod.getUpdatedAt())
-                    .updatedBy(pod.getUpdatedBy())
-                    .build();
+            // Use the repository method that returns Optional<String>
+            Optional<String> tripNumberOpt = tripRepository.findTripNumberById(pod.getTripId());
+            tripNumber = tripNumberOpt.orElse(null);
+            log.debug("Found trip number: {} for trip ID: {}", tripNumber, pod.getTripId());
         } catch (Exception e) {
-            log.error("Error mapping Pod {} to response DTO: {}", pod.getId(), e.getMessage(), e);
-            // Return a minimal response instead of failing
-            return PodResponseDTO.builder()
-                    .id(pod.getId())
-                    .podNumber(pod.getPodNumber() != null ? pod.getPodNumber() : "N/A")
-                    .status("ERROR")
-                    .build();
+            log.warn("Could not find trip number for trip ID: {}", pod.getTripId(), e);
+            // Use a fallback value
+            tripNumber = "TRIP-" + pod.getTripId();
         }
     }
+
+    try {
+        return PodResponseDTO.builder()
+                .id(pod.getId())
+                .podNumber(pod.getPodNumber() != null ? pod.getPodNumber() : "N/A")
+                .tripId(pod.getTripId())
+                .tripNumber(tripNumber)
+                .customerName(pod.getCustomerName() != null ? pod.getCustomerName() : "N/A")
+                .driverName(pod.getDriverName())
+                .deliveryDate(pod.getDeliveryDate())
+                .status(pod.getStatus() != null ? pod.getStatus() : "PENDING")
+                .source(pod.getSource() != null ? pod.getSource() : "UPLOADED")
+                .documentType(pod.getDocumentType())
+                .fileSize(pod.getFileSize())
+                .fileUrl(pod.getFileUrl())
+                .fileName(pod.getFileName())
+                .notes(pod.getNotes())
+                .uploadedBy(pod.getUploadedBy())
+                .uploadedAt(pod.getUploadedAt())
+                .verifiedBy(pod.getVerifiedBy())
+                .verifiedAt(pod.getVerifiedAt())
+                .rejectedBy(pod.getRejectedBy())
+                .rejectedAt(pod.getRejectedAt())
+                .rejectionReason(pod.getRejectionReason())
+                .debriefedAt(pod.getDebriefedAt())
+                .debriefedBy(pod.getDebriefedBy())
+                .receivedBy(pod.getReceivedBy())
+                .qualityRating(pod.getQualityRating())
+                .issuesFound(pod.getIssuesFound())
+                .deliveryCondition(pod.getDeliveryCondition())
+                .debriefNotes(pod.getDebriefNotes())
+                .additionalInfo(pod.getAdditionalInfo())
+                .createdAt(pod.getCreatedAt())
+                .createdBy(pod.getCreatedBy())
+                .updatedAt(pod.getUpdatedAt())
+                .updatedBy(pod.getUpdatedBy())
+                .build();
+                
+    } catch (Exception e) {
+        log.error("Error mapping Pod {} to response DTO: {}", pod.getId(), e.getMessage(), e);
+        // Return a minimal response instead of failing
+        return PodResponseDTO.builder()
+                .id(pod.getId())
+                .podNumber(pod.getPodNumber() != null ? pod.getPodNumber() : "N/A")
+                .status("ERROR")
+                .build();
+    }
+}
 } 
