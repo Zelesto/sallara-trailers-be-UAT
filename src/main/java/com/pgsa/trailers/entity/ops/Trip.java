@@ -62,9 +62,9 @@ public class Trip {
     private String loadId;
 
     // ⭐ FIX: Change the join column to reference the correct field
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "load_id", referencedColumnName = "load_number", insertable = false, updatable = false)
-    private Load load;
+   @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "load_id", insertable = false, updatable = false)
+        private Load load;
 
     // Load denormalized fields (for quick access without join)
     @Column(name = "load_number")
