@@ -14,7 +14,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Component
-@Converter(autoApply = true)  // This automatically applies to all JSONB fields
+@Converter(autoApply = true)
 public class JsonConverter implements AttributeConverter<Map<String, Object>, Object> {
 
     private static ObjectMapper objectMapper;
@@ -33,11 +33,11 @@ public class JsonConverter implements AttributeConverter<Map<String, Object>, Ob
             String json = objectMapper.writeValueAsString(attribute);
             
             PGobject pgObject = new PGobject();
-            pgObject.setType("jsonb");  // Changed from "json" to "jsonb" for PostgreSQL
+            pgObject.setType("jsonb");
             pgObject.setValue(json);
             return pgObject;
             
-        } catch (Exception e) {
+        } catch (SQLException | JsonProcessingException e) {
             throw new IllegalArgumentException("Error converting to JSON", e);
         }
     }
@@ -57,7 +57,6 @@ public class JsonConverter implements AttributeConverter<Map<String, Object>, Ob
             } else if (dbData instanceof String) {
                 json = (String) dbData;
             } else if (dbData instanceof Map) {
-                // If it's already a Map, return it
                 return (Map<String, Object>) dbData;
             } else {
                 throw new IllegalArgumentException("Unsupported database type: " + dbData.getClass());
@@ -67,7 +66,6 @@ public class JsonConverter implements AttributeConverter<Map<String, Object>, Ob
                 return new HashMap<>();
             }
 
-            // Use TypeReference to deserialize as Map<String, Object>
             return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
 
         } catch (Exception e) {
