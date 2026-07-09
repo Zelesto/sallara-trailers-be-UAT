@@ -10,12 +10,10 @@ import com.pgsa.trailers.service.PodService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -32,13 +30,17 @@ public class PodController {
 
     private final PodService podService;
 
-    @PostMapping
-    public ResponseEntity<PodResponseDTO> createPod(@Valid @RequestBody PodRequestDTO request) {
-        log.info("Creating new POD");
-        return ResponseEntity.status(HttpStatus.CREATED).body(podService.createPod(request));
+    // ✅ FIX: Accept file parameter
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PodResponseDTO> createPod(
+            @RequestPart("podData") @Valid PodRequestDTO request,
+            @RequestPart(value = "file", required = false) MultipartFile file) {
+        log.info("Creating new POD with file: {}", file != null ? file.getOriginalFilename() : "no file");
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(podService.createPod(request, file));
     }
 
-    @PostMapping("/scan")
+    @PostMapping(value = "/scan", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PodResponseDTO> scanPod(
             @RequestParam("tripId") Long tripId,
             @RequestParam("driverName") String driverName,
@@ -106,28 +108,39 @@ public class PodController {
         return ResponseEntity.ok(podService.getPodStatusHistory(id));
     }
 
+    // ✅ FIX: Use getPodFileUrl instead of downloadPodDocument
     @GetMapping("/{id}/download")
-    public ResponseEntity<Resource> downloadPodDocument(@PathVariable Long id) {
+    public ResponseEntity<?> downloadPodDocument(@PathVariable Long id) {
         log.info("Downloading POD document: {}", id);
-        Resource resource = podService.downloadPodDocument(id);
-        String filename = podService.getPodFilename(id);
-        
-        return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .body(resource);
+        try {
+            String fileUrl = podService.getPodFileUrl(id);
+            if (fileUrl == null) {
+                return ResponseEntity.notFound().build();
+            }
+            // Return the file URL instead of the resource
+            return ResponseEntity.ok(fileUrl);
+        } catch (Exception e) {
+            log.error("Error downloading POD document: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to download document: " + e.getMessage());
+        }
     }
 
+    // ✅ FIX: Use getPodFileUrl instead of downloadPodDocument
     @GetMapping("/{id}/view")
-    public ResponseEntity<Resource> viewPodDocument(@PathVariable Long id) {
+    public ResponseEntity<?> viewPodDocument(@PathVariable Long id) {
         log.info("Viewing POD document: {}", id);
-        Resource resource = podService.downloadPodDocument(id);
-        String contentType = podService.getPodContentType(id);
-        
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(contentType))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + podService.getPodFilename(id) + "\"")
-                .body(resource);
+        try {
+            String fileUrl = podService.getPodFileUrl(id);
+            if (fileUrl == null) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok(fileUrl);
+        } catch (Exception e) {
+            log.error("Error viewing POD document: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to view document: " + e.getMessage());
+        }
     }
 
     @PutMapping("/{id}")
