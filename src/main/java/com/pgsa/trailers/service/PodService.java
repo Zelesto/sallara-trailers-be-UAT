@@ -329,10 +329,18 @@ public class PodService {
                 .map(this::mapToResponse);
     }
 
+    @Override
     @Transactional(readOnly = true)
     public Page<PodResponseDTO> getAllPods(Pageable pageable) {
-        return podRepository.findAll(pageable)
-                .map(this::mapToResponse);
+        log.info("Fetching all PODs with pageable: {}", pageable);
+        try {
+            Page<Pod> podPage = podRepository.findAll(pageable);
+            log.info("Found {} PODs total, {} in this page", podPage.getTotalElements(), podPage.getNumberOfElements());
+            return podPage.map(this::mapToResponse);
+        } catch (Exception e) {
+            log.error("Error fetching PODs: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to fetch PODs", e);
+        }
     }
 
     @Transactional(readOnly = true)
