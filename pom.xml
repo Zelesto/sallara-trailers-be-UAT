@@ -62,14 +62,7 @@
         <!-- ============================================
              AWS SDK for Supabase S3 - Using BOM
              ============================================ -->
-        <!-- Use BOM to manage all AWS SDK versions -->
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>bom</artifactId>
-            <version>${aws-sdk.version}</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
+
 
         <!-- S3 Client -->
         <dependency>
@@ -203,6 +196,17 @@
             <scope>runtime</scope>
         </dependency>
 
+             <dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>bom</artifactId>
+            <version>${aws-sdk.version}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
         <!-- ============================================
              Testing
              ============================================ -->
