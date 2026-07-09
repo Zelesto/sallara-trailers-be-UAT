@@ -22,23 +22,8 @@
 
     <properties>
         <java.version>17</java.version>
-        <aws-sdk.version>2.25.0</aws-sdk.version>
+        <aws-sdk.version>2.20.0</aws-sdk.version>
     </properties>
-
-    <!-- ============================================
-         AWS SDK BOM for version management
-         ============================================ -->
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>software.amazon.awssdk</groupId>
-                <artifactId>bom</artifactId>
-                <version>${aws-sdk.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <dependencies>
         <!-- Spring Boot Starters -->
@@ -75,42 +60,69 @@
         </dependency>
 
         <!-- ============================================
-             AWS SDK for Supabase S3 - Using BOM managed versions
+             AWS SDK for Supabase S3 - Using Explicit Versions
              ============================================ -->
         <!-- S3 Client -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3</artifactId>
+            <version>${aws-sdk.version}</version>
         </dependency>
 
         <!-- S3 Transfer Manager -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3-transfer-manager</artifactId>
+            <version>${aws-sdk.version}</version>
         </dependency>
 
         <!-- S3 Presigner -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3-presigner</artifactId>
+            <version>${aws-sdk.version}</version>
         </dependency>
 
         <!-- HTTP Client -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>netty-nio-client</artifactId>
+            <version>${aws-sdk.version}</version>
         </dependency>
 
-        <!-- AWS Core (needed for basic functionality) -->
+        <!-- AWS Core -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>aws-core</artifactId>
+            <version>${aws-sdk.version}</version>
         </dependency>
 
-        <!-- Auth (needed for credentials) -->
+        <!-- Auth -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>auth</artifactId>
+            <version>${aws-sdk.version}</version>
+        </dependency>
+
+        <!-- Utils -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>utils</artifactId>
+            <version>${aws-sdk.version}</version>
+        </dependency>
+
+        <!-- Regions -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>regions</artifactId>
+            <version>${aws-sdk.version}</version>
+        </dependency>
+
+        <!-- HTTP Client SPI -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>http-client-spi</artifactId>
+            <version>${aws-sdk.version}</version>
         </dependency>
 
         <!-- ============================================
@@ -273,6 +285,18 @@
             <id>spring-milestones</id>
             <name>Spring Milestones</name>
             <url>https://repo.spring.io/milestone</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <!-- Add Maven Central as primary -->
+        <repository>
+            <id>maven-central</id>
+            <name>Maven Central</name>
+            <url>https://repo1.maven.org/maven2</url>
             <releases>
                 <enabled>true</enabled>
             </releases>
