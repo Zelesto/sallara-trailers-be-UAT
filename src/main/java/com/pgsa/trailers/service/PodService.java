@@ -224,24 +224,35 @@ public class PodService {
         return history;
     }
 
-    /**
-     * Download POD document from Supabase
-     */
-    @Transactional(readOnly = true)
-    public String getPodFileUrl(Long id) {
-        Pod pod = podRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
-        
-        if (pod.getFileUrl() == null) {
-            return null;
-        }
-        
-        // If using private bucket, generate signed URL
-        // return storageService.generateSignedUrl(pod.getFileUrl());
-        
-        // If using public bucket, return the public URL
-        return pod.getFileUrl();
+
+
+
+/**
+ * Download POD document - returns the file URL
+ */
+@Transactional(readOnly = true)
+public String downloadPodDocument(Long id) {
+    return getPodFileUrl(id);
+}
+    
+       /**
+ * Get POD file URL (for download/view)
+ */
+@Transactional(readOnly = true)
+public String getPodFileUrl(Long id) {
+    Pod pod = podRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
+    
+    if (pod.getFileUrl() == null) {
+        return null;
     }
+    
+    // If using private bucket, generate signed URL
+    // return storageService.generateSignedUrl(pod.getFileUrl());
+    
+    // If using public bucket, return the public URL
+    return pod.getFileUrl();
+}
 
     /**
      * Get POD filename
