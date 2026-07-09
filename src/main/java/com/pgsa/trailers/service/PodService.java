@@ -460,44 +460,55 @@ public class PodService {
         }
     }
 
-    private PodResponseDTO mapToResponse(Pod pod) {
-        // Get trip number from trip ID
-        String tripNumber = getTripNumber(pod.getTripId());
-
-        return PodResponseDTO.builder()
-                .id(pod.getId())
-                .podNumber(pod.getPodNumber())
-                .tripId(pod.getTripId())
-                .tripNumber(tripNumber)
-                .customerName(pod.getCustomerName())
-                .driverName(pod.getDriverName())
-                .deliveryDate(pod.getDeliveryDate())
-                .status(pod.getStatus())
-                .source(pod.getSource())
-                .documentType(pod.getDocumentType())
-                .fileSize(pod.getFileSize())
-                .fileUrl(pod.getFileUrl())
-                .fileName(pod.getFileName())
-                .notes(pod.getNotes())
-                .uploadedBy(pod.getUploadedBy())
-                .uploadedAt(pod.getUploadedAt())
-                .verifiedBy(pod.getVerifiedBy())
-                .verifiedAt(pod.getVerifiedAt())
-                .rejectedBy(pod.getRejectedBy())
-                .rejectedAt(pod.getRejectedAt())
-                .rejectionReason(pod.getRejectionReason())
-                .debriefedAt(pod.getDebriefedAt())
-                .debriefedBy(pod.getDebriefedBy())
-                .receivedBy(pod.getReceivedBy())
-                .qualityRating(pod.getQualityRating())
-                .issuesFound(pod.getIssuesFound())
-                .deliveryCondition(pod.getDeliveryCondition())
-                .debriefNotes(pod.getDebriefNotes())
-                .additionalInfo(pod.getAdditionalInfo())
-                .createdAt(pod.getCreatedAt())
-                .createdBy(pod.getCreatedBy())
-                .updatedAt(pod.getUpdatedAt())
-                .updatedBy(pod.getUpdatedBy())
-                .build();
+   private PodResponseDTO mapToResponse(Pod pod) {
+    if (pod == null) {
+        return null;
     }
+    
+    // Get trip number from trip ID - handle null safely
+    String tripNumber = null;
+    if (pod.getTripId() != null) {
+        try {
+            tripNumber = tripRepository.findTripNumberById(pod.getTripId()).orElse(null);
+        } catch (Exception e) {
+            log.warn("Could not find trip number for trip ID: {}", pod.getTripId(), e);
+        }
+    }
+
+    return PodResponseDTO.builder()
+            .id(pod.getId())
+            .podNumber(pod.getPodNumber())
+            .tripId(pod.getTripId())
+            .tripNumber(tripNumber)
+            .customerName(pod.getCustomerName())
+            .driverName(pod.getDriverName())
+            .deliveryDate(pod.getDeliveryDate())
+            .status(pod.getStatus())
+            .source(pod.getSource() != null ? pod.getSource() : "UPLOADED")
+            .documentType(pod.getDocumentType())
+            .fileSize(pod.getFileSize())
+            .fileUrl(pod.getFileUrl())
+            .fileName(pod.getFileName())
+            .notes(pod.getNotes())
+            .uploadedBy(pod.getUploadedBy())
+            .uploadedAt(pod.getUploadedAt())
+            .verifiedBy(pod.getVerifiedBy())
+            .verifiedAt(pod.getVerifiedAt())
+            .rejectedBy(pod.getRejectedBy())
+            .rejectedAt(pod.getRejectedAt())
+            .rejectionReason(pod.getRejectionReason())
+            .debriefedAt(pod.getDebriefedAt())
+            .debriefedBy(pod.getDebriefedBy())
+            .receivedBy(pod.getReceivedBy())
+            .qualityRating(pod.getQualityRating())
+            .issuesFound(pod.getIssuesFound())
+            .deliveryCondition(pod.getDeliveryCondition())
+            .debriefNotes(pod.getDebriefNotes())
+            .additionalInfo(pod.getAdditionalInfo())
+            .createdAt(pod.getCreatedAt())
+            .createdBy(pod.getCreatedBy())
+            .updatedAt(pod.getUpdatedAt())
+            .updatedBy(pod.getUpdatedBy())
+            .build();
+}
 }
