@@ -16,4 +16,6 @@ public class PodStatistics {
     private long delivered;
     private long verified;
     private long rejected;
+    private long scanned;
+    private long pendingDebrief;
 }
