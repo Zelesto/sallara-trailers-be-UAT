@@ -79,46 +79,30 @@
              (managed by BOM)
              ============================================ -->
         <!-- S3 Client -->
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>s3</artifactId>
-        </dependency>
+         <!-- AWS SDK for S3 -->
+    <dependency>
+        <groupId>software.amazon.awssdk</groupId>
+        <artifactId>s3</artifactId>
+        <version>${aws-sdk.version}</version>
+    </dependency>
 
-        <!-- S3 Transfer Manager -->
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>s3-transfer-manager</artifactId>
-        </dependency>
+    <dependency>
+        <groupId>software.amazon.awssdk</groupId>
+        <artifactId>s3-transfer-manager</artifactId>
+        <version>${aws-sdk.version}</version>
+    </dependency>
 
-        <!-- S3 Presigner -->
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>s3-presigner</artifactId>
-        </dependency>
+    <dependency>
+        <groupId>software.amazon.awssdk</groupId>
+        <artifactId>s3-presigner</artifactId>
+        <version>${aws-sdk.version}</version>
+    </dependency>
 
-        <!-- HTTP Client -->
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>netty-nio-client</artifactId>
-        </dependency>
-
-        <!-- AWS Core -->
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>aws-core</artifactId>
-        </dependency>
-
-        <!-- Auth -->
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>auth</artifactId>
-        </dependency>
-
-        <!-- Regions -->
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>regions</artifactId>
-        </dependency>
+    <dependency>
+        <groupId>software.amazon.awssdk</groupId>
+        <artifactId>netty-nio-client</artifactId>
+        <version>${aws-sdk.version}</version>
+    </dependency>
 
         <!-- ============================================
              Database & ORM
