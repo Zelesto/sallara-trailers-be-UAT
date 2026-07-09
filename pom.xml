@@ -60,78 +60,52 @@
         </dependency>
 
         <!-- ============================================
-             AWS SDK for Supabase S3 - Using Explicit Versions
+             AWS SDK for Supabase S3
              ============================================ -->
-        <!-- S3 Client -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3</artifactId>
             <version>${aws-sdk.version}</version>
         </dependency>
 
-        <!-- S3 Transfer Manager -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3-transfer-manager</artifactId>
             <version>${aws-sdk.version}</version>
         </dependency>
 
-        <!-- S3 Presigner -->
         <dependency>
-    <groupId>software.amazon.awssdk</groupId>
-    <artifactId>s3</artifactId>
-    <version>2.20.0</version>
-</dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3-presigner</artifactId>
+            <version>${aws-sdk.version}</version>
+        </dependency>
 
-        <!-- HTTP Client -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>netty-nio-client</artifactId>
             <version>${aws-sdk.version}</version>
         </dependency>
 
-        <!-- AWS Core -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>aws-core</artifactId>
             <version>${aws-sdk.version}</version>
         </dependency>
 
-        <!-- Auth -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>auth</artifactId>
             <version>${aws-sdk.version}</version>
         </dependency>
 
-        <!-- Utils -->
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>utils</artifactId>
-            <version>${aws-sdk.version}</version>
-        </dependency>
-
-        <!-- Regions -->
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>regions</artifactId>
-            <version>${aws-sdk.version}</version>
-        </dependency>
-
-        <!-- HTTP Client SPI -->
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>http-client-spi</artifactId>
-            <version>${aws-sdk.version}</version>
-        </dependency>
-
         <!-- ============================================
-             Database & ORM
+             Database & ORM - FIXED: PostgreSQL as compile scope
              ============================================ -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <scope>runtime</scope>
+            <version>42.6.0</version>
+            <!-- Remove scope runtime - make it compile scope -->
         </dependency>
 
         <dependency>
@@ -267,9 +241,6 @@
         </plugins>
     </build>
 
-    <!-- ============================================
-         Repositories
-         ============================================ -->
     <repositories>
         <repository>
             <id>central</id>
@@ -285,18 +256,6 @@
             <id>spring-milestones</id>
             <name>Spring Milestones</name>
             <url>https://repo.spring.io/milestone</url>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-        <!-- Add Maven Central as primary -->
-        <repository>
-            <id>maven-central</id>
-            <name>Maven Central</name>
-            <url>https://repo1.maven.org/maven2</url>
             <releases>
                 <enabled>true</enabled>
             </releases>
