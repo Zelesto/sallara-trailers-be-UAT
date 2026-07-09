@@ -9,6 +9,7 @@ import com.pgsa.trailers.dto.StatusHistoryDTO;
 import com.pgsa.trailers.service.PodService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,12 +27,14 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/pods")
 @RequiredArgsConstructor
+@Slf4j
 public class PodController {
 
     private final PodService podService;
 
     @PostMapping
     public ResponseEntity<PodResponseDTO> createPod(@Valid @RequestBody PodRequestDTO request) {
+        log.info("Creating new POD");
         return ResponseEntity.status(HttpStatus.CREATED).body(podService.createPod(request));
     }
 
@@ -43,6 +46,7 @@ public class PodController {
             @RequestParam(value = "customerName", required = false) String customerName,
             @RequestParam(value = "notes", required = false) String notes,
             @RequestParam("file") MultipartFile file) {
+        log.info("Scanning POD from driver for trip: {}", tripId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(podService.scanPod(tripId, driverName, deliveryDate, customerName, notes, file));
     }
@@ -51,6 +55,7 @@ public class PodController {
     public ResponseEntity<PodResponseDTO> debriefPod(
             @PathVariable Long id,
             @Valid @RequestBody DebriefRequestDTO debriefRequest) {
+        log.info("Debriefing POD: {}", id);
         return ResponseEntity.ok(podService.debriefPod(id, debriefRequest));
     }
 
@@ -103,6 +108,7 @@ public class PodController {
 
     @GetMapping("/{id}/download")
     public ResponseEntity<Resource> downloadPodDocument(@PathVariable Long id) {
+        log.info("Downloading POD document: {}", id);
         Resource resource = podService.downloadPodDocument(id);
         String filename = podService.getPodFilename(id);
         
@@ -114,6 +120,7 @@ public class PodController {
 
     @GetMapping("/{id}/view")
     public ResponseEntity<Resource> viewPodDocument(@PathVariable Long id) {
+        log.info("Viewing POD document: {}", id);
         Resource resource = podService.downloadPodDocument(id);
         String contentType = podService.getPodContentType(id);
         
