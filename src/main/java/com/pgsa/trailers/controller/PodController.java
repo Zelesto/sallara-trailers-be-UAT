@@ -30,7 +30,6 @@ public class PodController {
 
     private final PodService podService;
 
-    // ✅ FIX: Accept file parameter
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PodResponseDTO> createPod(
             @RequestPart("podData") @Valid PodRequestDTO request,
@@ -52,7 +51,6 @@ public class PodController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(podService.scanPod(tripId, driverName, deliveryDate, customerName, notes, file));
     }
-   
 
     @PostMapping("/{id}/debrief")
     public ResponseEntity<PodResponseDTO> debriefPod(
@@ -87,7 +85,15 @@ public class PodController {
     @GetMapping
     public ResponseEntity<Page<PodResponseDTO>> getAllPods(
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(podService.getAllPods(pageable));
+        try {
+            log.info("Received request for all PODs with pageable: {}", pageable);
+            Page<PodResponseDTO> result = podService.getAllPods(pageable);
+            log.info("Returning {} PODs from total of {}", result.getNumberOfElements(), result.getTotalElements());
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Error in getAllPods: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Page.empty(pageable));
+        }
     }
 
     @GetMapping("/search")
@@ -109,7 +115,6 @@ public class PodController {
         return ResponseEntity.ok(podService.getPodStatusHistory(id));
     }
 
-    // ✅ FIX: Use getPodFileUrl instead of downloadPodDocument
     @GetMapping("/{id}/download")
     public ResponseEntity<?> downloadPodDocument(@PathVariable Long id) {
         log.info("Downloading POD document: {}", id);
@@ -118,7 +123,6 @@ public class PodController {
             if (fileUrl == null) {
                 return ResponseEntity.notFound().build();
             }
-            // Return the file URL instead of the resource
             return ResponseEntity.ok(fileUrl);
         } catch (Exception e) {
             log.error("Error downloading POD document: {}", e.getMessage(), e);
@@ -127,7 +131,6 @@ public class PodController {
         }
     }
 
-    // ✅ FIX: Use getPodFileUrl instead of downloadPodDocument
     @GetMapping("/{id}/view")
     public ResponseEntity<?> viewPodDocument(@PathVariable Long id) {
         log.info("Viewing POD document: {}", id);
