@@ -486,7 +486,7 @@ public String getPodFileUrl(Long id) {
                     .debriefedBy(pod.getDebriefedBy())
                     .receivedBy(pod.getReceivedBy())
                     .qualityRating(pod.getQualityRating())
-                    .issuesFound(pod.getIssuesFound())
+                    //.issuesFound(pod.getIssuesFound())
                     .deliveryCondition(pod.getDeliveryCondition())
                     .debriefNotes(pod.getDebriefNotes())
                     .additionalInfo(pod.getAdditionalInfo())
