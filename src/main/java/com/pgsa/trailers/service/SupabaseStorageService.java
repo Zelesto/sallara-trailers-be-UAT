@@ -133,28 +133,27 @@ public class SupabaseStorageService {
     }
 
     /**
-     * Check if a file exists in Supabase Storage
-     */
-    public boolean fileExists(String fileUrl) {
-        try {
-            String filePath = extractFilePath(fileUrl);
-            
-            HeadObjectRequest headRequest = HeadObjectRequest.builder()
-                    .bucket(bucketName)
-                    .key(filePath)
-                    .build();
-            
-            s3Client.headObject(headRequest);
-            return true;
-            
-        } catch (NoSuchKeyException e) {
-            return false;
-        } catch (S3Exception e) {
-            log.error("Failed to check if file exists", e);
-            return false;
-        }
+ * Check if a file exists in Supabase Storage
+ */
+public boolean fileExists(String fileUrl) {
+    try {
+        String filePath = extractFilePath(fileUrl);
+        
+        HeadObjectRequest headRequest = HeadObjectRequest.builder()
+                .bucket(bucketName)
+                .key(filePath)
+                .build();
+        
+        s3Client.headObject(headRequest);
+        return true;
+        
+    } catch (NoSuchKeyException e) {
+        return false;
+    } catch (S3Exception e) {
+        log.error("Failed to check if file exists: {}", e.getMessage(), e);
+        return false;
     }
-
+}
     /**
      * Get file extension from filename
      */
