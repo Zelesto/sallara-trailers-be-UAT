@@ -40,7 +40,6 @@ public class PodService {
     private final String uploadDir = "uploads/pods/";
 
     public PodResponseDTO createPod(PodRequestDTO request, MultipartFile file) {
-        // Create pod first to get pod number
         Pod pod = Pod.builder()
                 .tripId(request.getTripId())
                 .customerName(request.getCustomerName())
@@ -53,10 +52,8 @@ public class PodService {
                 .source("UPLOADED")
                 .build();
         
-        // Save to get pod number
         Pod savedPod = podRepository.save(pod);
         
-        // Upload file to Supabase
         if (file != null && !file.isEmpty()) {
             try {
                 String fileUrl = storageService.uploadFile(file, savedPod.getPodNumber());
@@ -64,8 +61,6 @@ public class PodService {
                 savedPod.setFileName(file.getOriginalFilename());
                 savedPod.setFileSize(formatFileSize(file.getSize()));
                 savedPod.setDocumentType(getFileExtension(file.getOriginalFilename()));
-                
-                // Update with file info
                 savedPod = podRepository.save(savedPod);
                 log.info("File uploaded for POD: {}", savedPod.getPodNumber());
             } catch (Exception e) {
@@ -78,20 +73,14 @@ public class PodService {
         return mapToResponse(savedPod);
     }
 
-    /**
-     * Scan a new POD from driver
-     */
     public PodResponseDTO scanPod(Long tripId, String driverName, String deliveryDate, 
                                    String customerName, String notes, MultipartFile file) {
-        // Validate trip exists
         if (!tripRepository.existsById(tripId)) {
             throw new RuntimeException("Trip not found with id: " + tripId);
         }
 
-        // Parse delivery date
         LocalDate parsedDeliveryDate = LocalDate.parse(deliveryDate, DateTimeFormatter.ISO_LOCAL_DATE);
 
-        // Create POD
         Pod pod = Pod.builder()
                 .tripId(tripId)
                 .driverName(driverName)
@@ -104,10 +93,8 @@ public class PodService {
                 .uploadedAt(LocalDateTime.now())
                 .build();
 
-        // Save to get pod number
         Pod savedPod = podRepository.save(pod);
 
-        // Upload file to Supabase
         if (file != null && !file.isEmpty()) {
             try {
                 String fileUrl = storageService.uploadFile(file, savedPod.getPodNumber());
@@ -115,8 +102,6 @@ public class PodService {
                 savedPod.setFileName(file.getOriginalFilename());
                 savedPod.setFileSize(formatFileSize(file.getSize()));
                 savedPod.setDocumentType(getFileExtension(file.getOriginalFilename()));
-                
-                // Update with file info
                 savedPod = podRepository.save(savedPod);
                 log.info("Scanned file uploaded for POD: {}", savedPod.getPodNumber());
             } catch (Exception e) {
@@ -129,14 +114,10 @@ public class PodService {
         return mapToResponse(savedPod);
     }
 
-    /**
-     * Debrief a POD
-     */
     public PodResponseDTO debriefPod(Long id, DebriefRequestDTO debriefRequest) {
         Pod pod = podRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
 
-        // Update POD with debrief information
         pod.setStatus(debriefRequest.getStatus());
         pod.setNotes(debriefRequest.getNotes() != null ? debriefRequest.getNotes() : pod.getNotes());
         pod.setReceivedBy(debriefRequest.getReceivedBy());
@@ -155,9 +136,6 @@ public class PodService {
         return mapToResponse(updatedPod);
     }
 
-    /**
-     * Get POD status history
-     */
     @Transactional(readOnly = true)
     public List<StatusHistoryDTO> getPodStatusHistory(Long id) {
         Pod pod = podRepository.findById(id)
@@ -165,7 +143,6 @@ public class PodService {
 
         List<StatusHistoryDTO> history = new ArrayList<>();
         
-        // Initial creation
         history.add(StatusHistoryDTO.builder()
                 .status(pod.getStatus() != null ? pod.getStatus() : "CREATED")
                 .notes("POD created")
@@ -173,7 +150,6 @@ public class PodService {
                 .timestamp(pod.getCreatedAt() != null ? pod.getCreatedAt() : LocalDateTime.now())
                 .build());
 
-        // If status was updated and different from initial
         if (pod.getUpdatedAt() != null && pod.getCreatedAt() != null && 
             pod.getUpdatedAt().isAfter(pod.getCreatedAt())) {
             history.add(StatusHistoryDTO.builder()
@@ -184,7 +160,6 @@ public class PodService {
                     .build());
         }
 
-        // If verified
         if (pod.getVerifiedAt() != null) {
             history.add(StatusHistoryDTO.builder()
                     .status("VERIFIED")
@@ -194,7 +169,6 @@ public class PodService {
                     .build());
         }
 
-        // If rejected
         if (pod.getRejectedAt() != null) {
             history.add(StatusHistoryDTO.builder()
                     .status("REJECTED")
@@ -204,7 +178,6 @@ public class PodService {
                     .build());
         }
 
-        // If debriefed
         if (pod.getDebriefedAt() != null) {
             history.add(StatusHistoryDTO.builder()
                     .status(pod.getStatus())
@@ -217,17 +190,11 @@ public class PodService {
         return history;
     }
 
-    /**
-     * Download POD document - returns the file URL
-     */
     @Transactional(readOnly = true)
     public String downloadPodDocument(Long id) {
         return getPodFileUrl(id);
     }
     
-    /**
-     * Get POD file URL (for download/view)
-     */
     @Transactional(readOnly = true)
     public String getPodFileUrl(Long id) {
         Pod pod = podRepository.findById(id)
@@ -237,16 +204,9 @@ public class PodService {
             return null;
         }
         
-        // If using private bucket, generate signed URL
-        // return storageService.generateSignedUrl(pod.getFileUrl());
-        
-        // If using public bucket, return the public URL
         return pod.getFileUrl();
     }
 
-    /**
-     * Get POD filename
-     */
     @Transactional(readOnly = true)
     public String getPodFilename(Long id) {
         Pod pod = podRepository.findById(id)
@@ -254,9 +214,6 @@ public class PodService {
         return pod.getFileName() != null ? pod.getFileName() : "pod-document.pdf";
     }
 
-    /**
-     * Get POD content type
-     */
     @Transactional(readOnly = true)
     public String getPodContentType(Long id) {
         Pod pod = podRepository.findById(id)
@@ -273,9 +230,6 @@ public class PodService {
         };
     }
 
-    /**
-     * Get file extension
-     */
     private String getFileExtension(String filename) {
         if (filename == null || !filename.contains(".")) {
             return "pdf";
@@ -283,9 +237,6 @@ public class PodService {
         return filename.substring(filename.lastIndexOf(".") + 1).toUpperCase();
     }
 
-    /**
-     * Format file size
-     */
     private String formatFileSize(long size) {
         if (size < 1024) {
             return size + " B";
@@ -335,9 +286,8 @@ public class PodService {
     }
 
     /**
-     * Get all PODs with pagination - FIXED to handle errors gracefully
+     * Get all PODs with pagination - FIXED: Non-transactional to prevent rollback
      */
-    @Transactional(readOnly = true)
     public Page<PodResponseDTO> getAllPods(Pageable pageable) {
         log.info("Fetching all PODs with pageable: {}", pageable);
         try {
@@ -348,20 +298,12 @@ public class PodService {
                 return Page.empty(pageable);
             }
             
-            // Use a separate method to map each pod safely
+            // Map each pod safely
             List<PodResponseDTO> dtos = new ArrayList<>();
             for (Pod pod : podPage.getContent()) {
-                try {
-                    PodResponseDTO dto = mapToResponseSafe(pod);
+                PodResponseDTO dto = mapToResponseSafe(pod);
+                if (dto != null) {
                     dtos.add(dto);
-                } catch (Exception e) {
-                    log.error("Error mapping POD {}: {}", pod.getId(), e.getMessage(), e);
-                    // Add a minimal DTO for this pod
-                    dtos.add(PodResponseDTO.builder()
-                            .id(pod.getId())
-                            .podNumber(pod.getPodNumber() != null ? pod.getPodNumber() : "N/A")
-                            .status("ERROR")
-                            .build());
                 }
             }
             
@@ -455,10 +397,8 @@ public class PodService {
         long rejected = podRepository.countByStatus("REJECTED");
         long scanned = podRepository.countBySource("SCANNED");
         
-        // Get pending debrief count (PENDING or SCANNED status)
         long pendingDebrief = podRepository.countPendingDebrief();
         
-        // Get today's scans
         LocalDateTime startOfDay = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
         long scannedToday = podRepository.countScannedSince(startOfDay);
 
@@ -475,18 +415,18 @@ public class PodService {
     }
 
     /**
-     * Helper method to get trip number from trip ID
+     * Get trip number safely using the repository method
      */
     private String getTripNumber(Long tripId) {
         if (tripId == null) {
             return null;
         }
         try {
-            return tripRepository.findTripNumberById(tripId)
-                    .orElse(null);
+            Optional<String> result = tripRepository.findTripNumberById(tripId);
+            return result.orElse(null);
         } catch (Exception e) {
             log.warn("Could not find trip number for trip ID: {}", tripId, e);
-            return null;
+            return "TRIP-" + tripId;
         }
     }
 
@@ -499,18 +439,7 @@ public class PodService {
         }
         
         try {
-            String tripNumber = null;
-            if (pod.getTripId() != null) {
-                try {
-                    // Try to get trip number using the repository method
-                    Optional<String> tripNumberOpt = tripRepository.findTripNumberById(pod.getTripId());
-                    tripNumber = tripNumberOpt.orElse(null);
-                } catch (Exception e) {
-                    log.warn("Could not fetch trip for ID: {}", pod.getTripId(), e);
-                    // Use fallback
-                    tripNumber = "TRIP-" + pod.getTripId();
-                }
-            }
+            String tripNumber = getTripNumber(pod.getTripId());
             
             return PodResponseDTO.builder()
                     .id(pod.getId())
