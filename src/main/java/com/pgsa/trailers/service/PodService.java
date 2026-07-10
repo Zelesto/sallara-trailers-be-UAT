@@ -122,7 +122,12 @@ public class PodService {
         pod.setNotes(debriefRequest.getNotes() != null ? debriefRequest.getNotes() : pod.getNotes());
         pod.setReceivedBy(debriefRequest.getReceivedBy());
         pod.setQualityRating(debriefRequest.getQualityRating());
-        pod.setIssuesFound(debriefRequest.getIssuesFound());
+        if (debriefRequest.getIssuesFound() != null && !debriefRequest.getIssuesFound().isEmpty()) {
+        // Option 1: Join the list as a comma-separated string
+        pod.setIssuesFound(String.join(", ", debriefRequest.getIssuesFound()));
+    } else {
+        pod.setIssuesFound(null);
+    }
         pod.setAdditionalInfo(debriefRequest.getAdditionalInfo());
         pod.setDeliveryCondition(debriefRequest.getDeliveryCondition());
         pod.setDebriefNotes(debriefRequest.getDebriefNotes());
