@@ -52,29 +52,7 @@ public class PodController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(podService.scanPod(tripId, driverName, deliveryDate, customerName, notes, file));
     }
-    @GetMapping("/debug")
-public ResponseEntity<?> debugPods() {
-    try {
-        List<Pod> pods = podRepository.findAll();
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (Pod pod : pods) {
-            Map<String, Object> map = new HashMap<>();
-            map.put("id", pod.getId());
-            map.put("podNumber", pod.getPodNumber());
-            map.put("tripId", pod.getTripId());
-            map.put("customerName", pod.getCustomerName());
-            map.put("status", pod.getStatus());
-            map.put("source", pod.getSource());
-            map.put("deliveryDate", pod.getDeliveryDate());
-            result.add(map);
-        }
-        return ResponseEntity.ok(result);
-    } catch (Exception e) {
-        log.error("Debug error: {}", e.getMessage(), e);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("Error: " + e.getMessage());
-    }
-}
+   
 
     @PostMapping("/{id}/debrief")
     public ResponseEntity<PodResponseDTO> debriefPod(
