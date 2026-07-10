@@ -39,40 +39,52 @@ public class PodService {
     
     private final String uploadDir = "uploads/pods/";
 
-    public PodResponseDTO createPod(PodRequestDTO request, MultipartFile file) {
-        Pod pod = Pod.builder()
-                .tripId(request.getTripId())
-                .customerName(request.getCustomerName())
-                .deliveryDate(request.getDeliveryDate())
-                .status(request.getStatus() != null ? request.getStatus() : "PENDING")
-                .documentType(request.getDocumentType())
-                .notes(request.getNotes())
-                .uploadedBy(request.getUploadedBy())
-                .uploadedAt(LocalDateTime.now())
-                .source("UPLOADED")
-                .build();
-        
-        Pod savedPod = podRepository.save(pod);
-        
-        if (file != null && !file.isEmpty()) {
-            try {
-                String fileUrl = storageService.uploadFile(file, savedPod.getPodNumber());
-                savedPod.setFileUrl(fileUrl);
-                savedPod.setFileName(file.getOriginalFilename());
-                savedPod.setFileSize(formatFileSize(file.getSize()));
-                savedPod.setDocumentType(getFileExtension(file.getOriginalFilename()));
-                savedPod = podRepository.save(savedPod);
-                log.info("File uploaded for POD: {}", savedPod.getPodNumber());
-            } catch (Exception e) {
-                log.error("Failed to upload file for POD: {}", savedPod.getPodNumber(), e);
-                throw new RuntimeException("Failed to upload file: " + e.getMessage(), e);
-            }
-        }
-        
-        log.info("POD created with ID: {}", savedPod.getId());
-        return mapToResponse(savedPod);
-    }
+  
 
+public PodResponseDTO createPod(PodRequestDTO request, MultipartFile file) {
+    log.info("Creating POD with request: {}", request);
+    
+    if (request == null) {
+        throw new RuntimeException("PodRequestDTO cannot be null");
+    }
+    
+    if (request.getTripId() == null) {
+        throw new RuntimeException("Trip ID is required");
+    }
+    
+    Pod pod = Pod.builder()
+            .tripId(request.getTripId())
+            .customerName(request.getCustomerName() != null ? request.getCustomerName() : "N/A")
+            .deliveryDate(request.getDeliveryDate())
+            .status(request.getStatus() != null ? request.getStatus() : "PENDING")
+            .documentType(request.getDocumentType())
+            .notes(request.getNotes())
+            .uploadedBy(request.getUploadedBy() != null ? request.getUploadedBy() : "System")
+            .uploadedAt(LocalDateTime.now())
+            .source("UPLOADED")
+            .build();
+    
+    Pod savedPod = podRepository.save(pod);
+    log.info("POD saved with ID: {}", savedPod.getId());
+    
+    if (file != null && !file.isEmpty()) {
+        try {
+            String fileUrl = storageService.uploadFile(file, savedPod.getPodNumber());
+            savedPod.setFileUrl(fileUrl);
+            savedPod.setFileName(file.getOriginalFilename());
+            savedPod.setFileSize(formatFileSize(file.getSize()));
+            savedPod.setDocumentType(getFileExtension(file.getOriginalFilename()));
+            savedPod = podRepository.save(savedPod);
+            log.info("File uploaded for POD: {}", savedPod.getPodNumber());
+        } catch (Exception e) {
+            log.error("Failed to upload file for POD: {}", savedPod.getPodNumber(), e);
+            // Don't throw, just log - the POD is already created
+        }
+    }
+    
+    log.info("POD created with ID: {}", savedPod.getId());
+    return mapToResponse(savedPod);
+}
     public PodResponseDTO scanPod(Long tripId, String driverName, String deliveryDate, 
                                    String customerName, String notes, MultipartFile file) {
         if (!tripRepository.existsById(tripId)) {
@@ -200,17 +212,19 @@ public class PodService {
         return getPodFileUrl(id);
     }
     
-    @Transactional(readOnly = true)
-    public String getPodFileUrl(Long id) {
-        Pod pod = podRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
-        
-        if (pod.getFileUrl() == null) {
-            return null;
-        }
-        
-        return pod.getFileUrl();
+   @Transactional(readOnly = true)
+public String getPodFileUrl(Long id) {
+    Pod pod = podRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
+    
+    if (pod.getFileUrl() == null || pod.getFileUrl().isEmpty()) {
+        log.warn("No file URL found for POD ID: {}", id);
+        return null;
     }
+    
+    log.info("File URL for POD {}: {}", id, pod.getFileUrl());
+    return pod.getFileUrl();
+}
 
     @Transactional(readOnly = true)
     public String getPodFilename(Long id) {
