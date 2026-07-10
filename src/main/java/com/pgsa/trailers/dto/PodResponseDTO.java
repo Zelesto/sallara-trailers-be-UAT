@@ -54,7 +54,7 @@ public class PodResponseDTO {
     private String debriefedBy;
     private String receivedBy;
     private Integer qualityRating;
-    private List<String> issuesFound;
+    //private List<String> issuesFound;
     private String deliveryCondition;
     private String debriefNotes;
     private String additionalInfo;
