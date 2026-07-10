@@ -31,71 +31,33 @@ public class PodController {
     private final PodService podService;
 
     // ============================================
-    // CREATE POD - Multiple endpoints to handle different content types
+    // CREATE POD - SINGLE ENDPOINT
+    // Handles both JSON and multipart/form-data
     // ============================================
 
-    /**
-     * Create POD with JSON only (no file upload)
-     */
-    @PostMapping(consumes = {})
-    public ResponseEntity<PodResponseDTO> createPodJson(@Valid @RequestBody PodRequestDTO request) {
-        log.info("Creating new POD from JSON: {}", request);
-        try {
-            if (request.getTripId() == null) {
-                log.error("Trip ID is required");
-                return ResponseEntity.badRequest().build();
-            }
-            PodResponseDTO response = podService.createPod(request, null);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (Exception e) {
-            log.error("Error creating POD from JSON: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    /**
-     * Create POD with file upload (multipart/form-data)
-     */
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<PodResponseDTO> createPodWithFile(
+    @PostMapping
+    public ResponseEntity<PodResponseDTO> createPod(
             @RequestPart(value = "podData", required = false) @Valid PodRequestDTO request,
             @RequestPart(value = "file", required = false) MultipartFile file) {
-        log.info("Creating new POD with file: {}", file != null ? file.getOriginalFilename() : "no file");
         
-        if (request == null) {
-            log.error("PodRequestDTO is null");
-            return ResponseEntity.badRequest().body(null);
-        }
-        
-        if (request.getTripId() == null) {
-            log.error("Trip ID is required");
-            return ResponseEntity.badRequest().build();
-        }
+        log.info("Creating new POD - File present: {}", file != null ? "Yes" : "No");
         
         try {
-            PodResponseDTO response = podService.createPod(request, file);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (Exception e) {
-            log.error("Error creating POD with file: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    /**
-     * Fallback POST endpoint for default content type
-     */
-    @PostMapping
-    public ResponseEntity<PodResponseDTO> createPodFallback(@Valid @RequestBody PodRequestDTO request) {
-        log.info("Creating new POD from fallback: {}", request);
-        try {
+            if (request == null) {
+                log.error("PodRequestDTO is null");
+                return ResponseEntity.badRequest().build();
+            }
+            
             if (request.getTripId() == null) {
                 log.error("Trip ID is required");
                 return ResponseEntity.badRequest().build();
             }
-            PodResponseDTO response = podService.createPod(request, null);
+            
+            PodResponseDTO response = podService.createPod(request, file);
+            log.info("POD created successfully with ID: {}", response.getId());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (Exception e) {
-            log.error("Error creating POD from fallback: {}", e.getMessage(), e);
+            log.error("Error creating POD: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -273,7 +235,6 @@ public class PodController {
                 log.warn("No file URL found for POD: {}", id);
                 return ResponseEntity.notFound().build();
             }
-            // Return the file URL as a string response
             return ResponseEntity.ok(fileUrl);
         } catch (Exception e) {
             log.error("Error downloading POD document {}: {}", id, e.getMessage(), e);
