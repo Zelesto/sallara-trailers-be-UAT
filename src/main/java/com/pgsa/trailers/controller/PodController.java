@@ -31,11 +31,14 @@ public class PodController {
     private final PodService podService;
 
     // ============================================
-    // CREATE POD - SINGLE ENDPOINT
-    // Handles both JSON and multipart/form-data
+    // CREATE POD - SINGLE UNIFIED ENDPOINT
     // ============================================
 
-    @PostMapping
+    /**
+     * Create POD - handles both JSON and multipart/form-data
+     * Uses consumes = {} to accept any content type
+     */
+    @PostMapping(consumes = {})
     public ResponseEntity<PodResponseDTO> createPod(
             @RequestPart(value = "podData", required = false) @Valid PodRequestDTO request,
             @RequestPart(value = "file", required = false) MultipartFile file) {
@@ -43,13 +46,26 @@ public class PodController {
         log.info("Creating new POD - File present: {}", file != null ? "Yes" : "No");
         
         try {
+            // Check if request is null
             if (request == null) {
+                // Try to see if it's a JSON request without multipart
                 log.error("PodRequestDTO is null");
                 return ResponseEntity.badRequest().build();
             }
             
+            // Validate required fields
             if (request.getTripId() == null) {
                 log.error("Trip ID is required");
+                return ResponseEntity.badRequest().build();
+            }
+            
+            if (request.getCustomerName() == null || request.getCustomerName().trim().isEmpty()) {
+                log.error("Customer Name is required");
+                return ResponseEntity.badRequest().build();
+            }
+            
+            if (request.getDeliveryDate() == null) {
+                log.error("Delivery Date is required");
                 return ResponseEntity.badRequest().build();
             }
             
