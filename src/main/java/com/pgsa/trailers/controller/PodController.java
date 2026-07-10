@@ -30,14 +30,25 @@ public class PodController {
 
     private final PodService podService;
 
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<PodResponseDTO> createPod(
-            @RequestPart("podData") @Valid PodRequestDTO request,
-            @RequestPart(value = "file", required = false) MultipartFile file) {
-        log.info("Creating new POD with file: {}", file != null ? file.getOriginalFilename() : "no file");
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(podService.createPod(request, file));
+   @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+public ResponseEntity<PodResponseDTO> createPod(
+        @RequestPart(value = "podData", required = false) @Valid PodRequestDTO request,
+        @RequestPart(value = "file", required = false) MultipartFile file) {
+    log.info("Creating new POD with file: {}", file != null ? file.getOriginalFilename() : "no file");
+    
+    if (request == null) {
+        log.error("PodRequestDTO is null");
+        return ResponseEntity.badRequest().build();
     }
+    
+    try {
+        PodResponseDTO response = podService.createPod(request, file);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    } catch (Exception e) {
+        log.error("Error creating POD: {}", e.getMessage(), e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+    }
+}
 
     @PostMapping(value = "/scan", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PodResponseDTO> scanPod(
