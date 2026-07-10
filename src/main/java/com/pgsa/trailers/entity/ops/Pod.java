@@ -97,8 +97,8 @@ public class Pod {
     @Column(name = "quality_rating")
     private Integer qualityRating;
 
-    @Column(name = "issues_found")
-    private List<String> issuesFound;
+    @Column(name = "issues_found", columnDefinition = "TEXT")
+    private String issuesFound;
 
     @Column(name = "delivery_condition", length = 50)
     private String deliveryCondition;
