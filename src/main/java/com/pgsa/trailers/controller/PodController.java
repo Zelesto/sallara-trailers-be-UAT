@@ -37,7 +37,7 @@ public class PodController {
     /**
      * Create POD with JSON only (no file upload)
      */
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(consumes = {})
     public ResponseEntity<PodResponseDTO> createPodJson(@Valid @RequestBody PodRequestDTO request) {
         log.info("Creating new POD from JSON: {}", request);
         try {
