@@ -152,10 +152,10 @@
              Database & ORM
              ============================================ -->
         <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>runtime</scope>
-        </dependency>
+    <groupId>org.postgresql</groupId>
+    <artifactId>postgresql</artifactId>
+    <version>42.6.0</version>
+</dependency>
 
         <dependency>
             <groupId>com.h2database</groupId>
