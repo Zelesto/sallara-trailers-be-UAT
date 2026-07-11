@@ -90,6 +90,61 @@ public class SupabaseStorageService {
         }
     }
 
+
+    public String uploadAndConvertFile(MultipartFile file, String podNumber, FileConversionService conversionService) {
+    log.info("Processing and uploading file for POD: {}", podNumber);
+    
+    try {
+        // Check if conversion is needed
+        String originalFilename = file.getOriginalFilename();
+        String contentType = file.getContentType();
+        String extension = getFileExtension(originalFilename);
+        
+        byte[] fileData;
+        String finalFilename;
+        String finalContentType;
+        
+        // If not PDF, convert to PDF
+        if (!"pdf".equalsIgnoreCase(extension) && !"application/pdf".equalsIgnoreCase(contentType)) {
+            log.info("Converting {} to PDF", originalFilename);
+            fileData = conversionService.convertToPdf(file);
+            finalFilename = podNumber + ".pdf";
+            finalContentType = "application/pdf";
+        } else {
+            fileData = file.getBytes();
+            finalFilename = podNumber + "." + extension;
+            finalContentType = contentType != null ? contentType : "application/pdf";
+        }
+        
+        // Upload the file
+        String filePath = String.format("%s/%s", podNumber, finalFilename);
+        
+        log.info("Uploading file to Supabase: {}/{}", bucketName, filePath);
+        
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(filePath)
+                .contentType(finalContentType)
+                .contentLength((long) fileData.length)
+                .build();
+        
+        s3Client.putObject(
+                putObjectRequest,
+                RequestBody.fromBytes(fileData)
+        );
+        
+        String fileUrl = String.format("%s/storage/v1/object/public/%s/%s", 
+                supabaseUrl, bucketName, filePath);
+        
+        log.info("File uploaded successfully: {}", fileUrl);
+        return fileUrl;
+        
+    } catch (Exception e) {
+        log.error("Failed to upload file: {}", e.getMessage(), e);
+        throw new RuntimeException("Failed to upload file: " + e.getMessage(), e);
+    }
+}
+    
     /**
      * Upload a file to Supabase Storage with detailed logging
      */
