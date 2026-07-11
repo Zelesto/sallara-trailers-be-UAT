@@ -23,47 +23,11 @@
     <properties>
         <java.version>17</java.version>
         <aws-sdk.version>2.21.0</aws-sdk.version>
+        <pdfbox.version>2.0.29</pdfbox.version>
+        <poi.version>5.2.5</poi.version>
+        <xdocreport.version>2.0.3</xdocreport.version>
     </properties>
 
-
-         <!-- pom.xml -->
-<!-- Apache PDFBox for PDF manipulation -->
-<dependency>
-    <groupId>org.apache.pdfbox</groupId>
-    <artifactId>pdfbox</artifactId>
-    <version>2.0.29</version>
-</dependency>
-
-<!-- For image to PDF conversion -->
-<dependency>
-    <groupId>org.apache.pdfbox</groupId>
-    <artifactId>pdfbox-tools</artifactId>
-    <version>2.0.29</version>
-</dependency>
-
-<!-- For DOC/DOCX to PDF -->
-<dependency>
-    <groupId>org.apache.poi</groupId>
-    <artifactId>poi</artifactId>
-    <version>5.2.5</version>
-</dependency>
-<dependency>
-    <groupId>org.apache.poi</groupId>
-    <artifactId>poi-ooxml</artifactId>
-    <version>5.2.5</version>
-</dependency>
-<!-- For DOC to PDF conversion -->
-<dependency>
-    <groupId>fr.opensagres.xdocreport</groupId>
-    <artifactId>fr.opensagres.xdocreport.core</artifactId>
-    <version>2.0.3</version>
-</dependency>
-<dependency>
-    <groupId>fr.opensagres.xdocreport</groupId>
-    <artifactId>fr.opensagres.xdocreport.converter.docx.docx4j</artifactId>
-    <version>2.0.3</version>
-</dependency>
-         
     <!-- ============================================
          AWS SDK BOM - Managed at the root level
          ============================================ -->
@@ -114,29 +78,75 @@
         </dependency>
 
         <!-- ============================================
-             AWS SDK for Supabase S3 - No versions needed
-             (managed by BOM)
+             AWS SDK for Supabase S3
              ============================================ -->
-        <!-- S3 Client -->
-         <!-- AWS SDK for S3 -->
-    <dependency>
-        <groupId>software.amazon.awssdk</groupId>
-        <artifactId>s3</artifactId>
-        <version>${aws-sdk.version}</version>
-    </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+        </dependency>
 
-    <dependency>
-        <groupId>software.amazon.awssdk</groupId>
-        <artifactId>s3-transfer-manager</artifactId>
-        <version>${aws-sdk.version}</version>
-    </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3-transfer-manager</artifactId>
+        </dependency>
 
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>netty-nio-client</artifactId>
+        </dependency>
 
-    <dependency>
-        <groupId>software.amazon.awssdk</groupId>
-        <artifactId>netty-nio-client</artifactId>
-        <version>${aws-sdk.version}</version>
-    </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>auth</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>aws-core</artifactId>
+        </dependency>
+
+        <!-- ============================================
+             PDF & Document Conversion
+             ============================================ -->
+        <!-- Apache PDFBox for PDF manipulation -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>${pdfbox.version}</version>
+        </dependency>
+
+        <!-- For image to PDF conversion -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox-tools</artifactId>
+            <version>${pdfbox.version}</version>
+        </dependency>
+
+        <!-- Apache POI for DOC/DOCX handling -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi</artifactId>
+            <version>${poi.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi.version}</version>
+        </dependency>
+
+        <!-- XDocReport for DOC to PDF conversion -->
+        <dependency>
+            <groupId>fr.opensagres.xdocreport</groupId>
+            <artifactId>fr.opensagres.xdocreport.core</artifactId>
+            <version>${xdocreport.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>fr.opensagres.xdocreport</groupId>
+            <artifactId>fr.opensagres.xdocreport.converter.docx.docx4j</artifactId>
+            <version>${xdocreport.version}</version>
+        </dependency>
 
         <!-- ============================================
              Database & ORM
@@ -144,7 +154,7 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <version>42.6.0</version>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -300,6 +310,18 @@
             </releases>
             <snapshots>
                 <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <!-- Apache repository for PDFBox -->
+        <repository>
+            <id>apache-snapshots</id>
+            <name>Apache Snapshots</name>
+            <url>https://repository.apache.org/snapshots</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
             </snapshots>
         </repository>
     </repositories>
