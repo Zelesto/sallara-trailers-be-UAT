@@ -25,6 +25,45 @@
         <aws-sdk.version>2.21.0</aws-sdk.version>
     </properties>
 
+
+         <!-- pom.xml -->
+<!-- Apache PDFBox for PDF manipulation -->
+<dependency>
+    <groupId>org.apache.pdfbox</groupId>
+    <artifactId>pdfbox</artifactId>
+    <version>2.0.29</version>
+</dependency>
+
+<!-- For image to PDF conversion -->
+<dependency>
+    <groupId>org.apache.pdfbox</groupId>
+    <artifactId>pdfbox-tools</artifactId>
+    <version>2.0.29</version>
+</dependency>
+
+<!-- For DOC/DOCX to PDF -->
+<dependency>
+    <groupId>org.apache.poi</groupId>
+    <artifactId>poi</artifactId>
+    <version>5.2.5</version>
+</dependency>
+<dependency>
+    <groupId>org.apache.poi</groupId>
+    <artifactId>poi-ooxml</artifactId>
+    <version>5.2.5</version>
+</dependency>
+<!-- For DOC to PDF conversion -->
+<dependency>
+    <groupId>fr.opensagres.xdocreport</groupId>
+    <artifactId>fr.opensagres.xdocreport.core</artifactId>
+    <version>2.0.3</version>
+</dependency>
+<dependency>
+    <groupId>fr.opensagres.xdocreport</groupId>
+    <artifactId>fr.opensagres.xdocreport.converter.docx.docx4j</artifactId>
+    <version>2.0.3</version>
+</dependency>
+         
     <!-- ============================================
          AWS SDK BOM - Managed at the root level
          ============================================ -->
