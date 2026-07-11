@@ -36,63 +36,66 @@ public class PodService {
     private final PodRepository podRepository;
     private final TripRepository tripRepository;
     private final SupabaseStorageService storageService;
+    private final FileConversionService conversionService;
     
     private final String uploadDir = "uploads/pods/";
 
-  
-
-public PodResponseDTO createPod(PodRequestDTO request, MultipartFile file) {
-    log.info("Creating POD with request: {}", request);
-    
-    if (request == null) {
-        throw new RuntimeException("PodRequestDTO cannot be null");
-    }
-    
-    if (request.getTripId() == null) {
-        throw new RuntimeException("Trip ID is required");
-    }
-    
-    Pod pod = Pod.builder()
-            .tripId(request.getTripId())
-            .customerName(request.getCustomerName() != null ? request.getCustomerName() : "N/A")
-            .deliveryDate(request.getDeliveryDate())
-            .status(request.getStatus() != null ? request.getStatus() : "PENDING")
-            .documentType(request.getDocumentType())
-            .notes(request.getNotes())
-            .uploadedBy(request.getUploadedBy() != null ? request.getUploadedBy() : "System")
-            .uploadedAt(LocalDateTime.now())
-            .source("UPLOADED")
-            .build();
-    
-    Pod savedPod = podRepository.save(pod);
-    log.info("POD saved with ID: {}", savedPod.getId());
-    
-    if (file != null && !file.isEmpty()) {
-        try {
-            String fileUrl = storageService.uploadFile(file, savedPod.getPodNumber());
-            savedPod.setFileUrl(fileUrl);
-            savedPod.setFileName(file.getOriginalFilename());
-            savedPod.setFileSize(formatFileSize(file.getSize()));
-            savedPod.setDocumentType(getFileExtension(file.getOriginalFilename()));
-            savedPod = podRepository.save(savedPod);
-            log.info("File uploaded for POD: {}", savedPod.getPodNumber());
-        } catch (Exception e) {
-            log.error("Failed to upload file for POD: {}", savedPod.getPodNumber(), e);
-            // Don't throw, just log - the POD is already created
+    /**
+     * Create a new POD
+     */
+    public PodResponseDTO createPod(PodRequestDTO request, MultipartFile file) {
+        log.info("Creating POD with request: {}", request);
+        
+        Pod pod = Pod.builder()
+                .tripId(request.getTripId())
+                .customerName(request.getCustomerName())
+                .deliveryDate(request.getDeliveryDate())
+                .status(request.getStatus() != null ? request.getStatus() : "PENDING")
+                .documentType("PDF") // Always store as PDF after conversion
+                .notes(request.getNotes())
+                .uploadedBy(request.getUploadedBy() != null ? request.getUploadedBy() : "System")
+                .uploadedAt(LocalDateTime.now())
+                .source("UPLOADED")
+                .build();
+        
+        Pod savedPod = podRepository.save(pod);
+        
+        if (file != null && !file.isEmpty()) {
+            try {
+                // Upload and convert file
+                String fileUrl = storageService.uploadAndConvertFile(file, savedPod.getPodNumber(), conversionService);
+                savedPod.setFileUrl(fileUrl);
+                savedPod.setFileName(savedPod.getPodNumber() + ".pdf"); // Always store as PDF
+                savedPod.setFileSize(formatFileSize(file.getSize()));
+                savedPod.setDocumentType("PDF");
+                savedPod = podRepository.save(savedPod);
+                log.info("File uploaded and converted for POD: {}", savedPod.getPodNumber());
+            } catch (Exception e) {
+                log.error("Failed to upload file for POD: {}", savedPod.getPodNumber(), e);
+                // Continue without file - POD is already created
+            }
         }
+        
+        log.info("POD created with ID: {}", savedPod.getId());
+        return mapToResponse(savedPod);
     }
-    
-    log.info("POD created with ID: {}", savedPod.getId());
-    return mapToResponse(savedPod);
-}
+
+    /**
+     * Scan a new POD from driver
+     */
     public PodResponseDTO scanPod(Long tripId, String driverName, String deliveryDate, 
                                    String customerName, String notes, MultipartFile file) {
+        log.info("Scanning POD from driver for trip: {}", tripId);
+        
+        // Validate trip exists
         if (!tripRepository.existsById(tripId)) {
             throw new RuntimeException("Trip not found with id: " + tripId);
         }
 
+        // Parse delivery date
         LocalDate parsedDeliveryDate = LocalDate.parse(deliveryDate, DateTimeFormatter.ISO_LOCAL_DATE);
 
+        // Create POD
         Pod pod = Pod.builder()
                 .tripId(tripId)
                 .driverName(driverName)
@@ -103,22 +106,25 @@ public PodResponseDTO createPod(PodRequestDTO request, MultipartFile file) {
                 .source("SCANNED")
                 .uploadedBy("Driver")
                 .uploadedAt(LocalDateTime.now())
+                .documentType("PDF") // Default to PDF
                 .build();
 
+        // Save to get pod number
         Pod savedPod = podRepository.save(pod);
 
+        // Upload and convert file
         if (file != null && !file.isEmpty()) {
             try {
-                String fileUrl = storageService.uploadFile(file, savedPod.getPodNumber());
+                String fileUrl = storageService.uploadAndConvertFile(file, savedPod.getPodNumber(), conversionService);
                 savedPod.setFileUrl(fileUrl);
-                savedPod.setFileName(file.getOriginalFilename());
+                savedPod.setFileName(savedPod.getPodNumber() + ".pdf");
                 savedPod.setFileSize(formatFileSize(file.getSize()));
-                savedPod.setDocumentType(getFileExtension(file.getOriginalFilename()));
+                savedPod.setDocumentType("PDF");
                 savedPod = podRepository.save(savedPod);
-                log.info("Scanned file uploaded for POD: {}", savedPod.getPodNumber());
+                log.info("Scanned file uploaded and converted for POD: {}", savedPod.getPodNumber());
             } catch (Exception e) {
                 log.error("Failed to upload scanned file for POD: {}", savedPod.getPodNumber(), e);
-                throw new RuntimeException("Failed to upload scanned file: " + e.getMessage(), e);
+                // Continue without file - POD is already created
             }
         }
 
@@ -126,6 +132,9 @@ public PodResponseDTO createPod(PodRequestDTO request, MultipartFile file) {
         return mapToResponse(savedPod);
     }
 
+    /**
+     * Debrief a POD
+     */
     public PodResponseDTO debriefPod(Long id, DebriefRequestDTO debriefRequest) {
         Pod pod = podRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
@@ -135,11 +144,10 @@ public PodResponseDTO createPod(PodRequestDTO request, MultipartFile file) {
         pod.setReceivedBy(debriefRequest.getReceivedBy());
         pod.setQualityRating(debriefRequest.getQualityRating());
         if (debriefRequest.getIssuesFound() != null && !debriefRequest.getIssuesFound().isEmpty()) {
-        // Option 1: Join the list as a comma-separated string
-        pod.setIssuesFound(String.join(", ", debriefRequest.getIssuesFound()));
-    } else {
-        pod.setIssuesFound(null);
-    }
+            pod.setIssuesFound(String.join(", ", debriefRequest.getIssuesFound()));
+        } else {
+            pod.setIssuesFound(null);
+        }
         pod.setAdditionalInfo(debriefRequest.getAdditionalInfo());
         pod.setDeliveryCondition(debriefRequest.getDeliveryCondition());
         pod.setDebriefNotes(debriefRequest.getDebriefNotes());
@@ -153,6 +161,9 @@ public PodResponseDTO createPod(PodRequestDTO request, MultipartFile file) {
         return mapToResponse(updatedPod);
     }
 
+    /**
+     * Get POD status history
+     */
     @Transactional(readOnly = true)
     public List<StatusHistoryDTO> getPodStatusHistory(Long id) {
         Pod pod = podRepository.findById(id)
@@ -207,25 +218,34 @@ public PodResponseDTO createPod(PodRequestDTO request, MultipartFile file) {
         return history;
     }
 
+    /**
+     * Download POD document
+     */
     @Transactional(readOnly = true)
     public String downloadPodDocument(Long id) {
         return getPodFileUrl(id);
     }
     
-   @Transactional(readOnly = true)
-public String getPodFileUrl(Long id) {
-    Pod pod = podRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
-    
-    if (pod.getFileUrl() == null || pod.getFileUrl().isEmpty()) {
-        log.warn("No file URL found for POD ID: {}", id);
-        return null;
+    /**
+     * Get POD file URL
+     */
+    @Transactional(readOnly = true)
+    public String getPodFileUrl(Long id) {
+        Pod pod = podRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
+        
+        if (pod.getFileUrl() == null || pod.getFileUrl().isEmpty()) {
+            log.warn("No file URL found for POD ID: {}", id);
+            return null;
+        }
+        
+        log.info("File URL for POD {}: {}", id, pod.getFileUrl());
+        return pod.getFileUrl();
     }
-    
-    log.info("File URL for POD {}: {}", id, pod.getFileUrl());
-    return pod.getFileUrl();
-}
 
+    /**
+     * Get POD filename
+     */
     @Transactional(readOnly = true)
     public String getPodFilename(Long id) {
         Pod pod = podRepository.findById(id)
@@ -233,6 +253,9 @@ public String getPodFileUrl(Long id) {
         return pod.getFileName() != null ? pod.getFileName() : "pod-document.pdf";
     }
 
+    /**
+     * Get POD content type
+     */
     @Transactional(readOnly = true)
     public String getPodContentType(Long id) {
         Pod pod = podRepository.findById(id)
@@ -249,6 +272,9 @@ public String getPodFileUrl(Long id) {
         };
     }
 
+    /**
+     * Get file extension
+     */
     private String getFileExtension(String filename) {
         if (filename == null || !filename.contains(".")) {
             return "pdf";
@@ -256,6 +282,9 @@ public String getPodFileUrl(Long id) {
         return filename.substring(filename.lastIndexOf(".") + 1).toUpperCase();
     }
 
+    /**
+     * Format file size
+     */
     private String formatFileSize(long size) {
         if (size < 1024) {
             return size + " B";
@@ -268,6 +297,9 @@ public String getPodFileUrl(Long id) {
         }
     }
 
+    /**
+     * Get POD by ID
+     */
     @Transactional(readOnly = true)
     public PodResponseDTO getPodById(Long id) {
         Pod pod = podRepository.findById(id)
@@ -275,6 +307,9 @@ public String getPodFileUrl(Long id) {
         return mapToResponse(pod);
     }
 
+    /**
+     * Get POD by number
+     */
     @Transactional(readOnly = true)
     public PodResponseDTO getPodByNumber(String podNumber) {
         Pod pod = podRepository.findByPodNumber(podNumber)
@@ -282,6 +317,9 @@ public String getPodFileUrl(Long id) {
         return mapToResponse(pod);
     }
 
+    /**
+     * Get PODs by Trip
+     */
     @Transactional(readOnly = true)
     public List<PodResponseDTO> getPodsByTrip(Long tripId) {
         try {
@@ -298,6 +336,9 @@ public String getPodFileUrl(Long id) {
         }
     }
 
+    /**
+     * Get PODs by Trip with pagination
+     */
     @Transactional(readOnly = true)
     public Page<PodResponseDTO> getPodsByTripPaginated(Long tripId, Pageable pageable) {
         return podRepository.findByTripId(tripId, pageable)
@@ -305,7 +346,7 @@ public String getPodFileUrl(Long id) {
     }
 
     /**
-     * Get all PODs with pagination - FIXED: Non-transactional to prevent rollback
+     * Get all PODs with pagination
      */
     public Page<PodResponseDTO> getAllPods(Pageable pageable) {
         log.info("Fetching all PODs with pageable: {}", pageable);
@@ -334,18 +375,27 @@ public String getPodFileUrl(Long id) {
         }
     }
 
+    /**
+     * Search PODs
+     */
     @Transactional(readOnly = true)
     public Page<PodResponseDTO> searchPods(String searchTerm, Pageable pageable) {
         return podRepository.searchPods(searchTerm, pageable)
                 .map(this::mapToResponseSafe);
     }
 
+    /**
+     * Get PODs by status
+     */
     @Transactional(readOnly = true)
     public Page<PodResponseDTO> getPodsByStatus(String status, Pageable pageable) {
         return podRepository.findByStatus(status, pageable)
                 .map(this::mapToResponseSafe);
     }
 
+    /**
+     * Update POD
+     */
     public PodResponseDTO updatePod(Long id, PodRequestDTO request) {
         Pod pod = podRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
@@ -365,6 +415,9 @@ public String getPodFileUrl(Long id) {
         return mapToResponse(updated);
     }
 
+    /**
+     * Update POD status
+     */
     public PodResponseDTO updatePodStatus(Long id, String status) {
         Pod pod = podRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
@@ -375,6 +428,9 @@ public String getPodFileUrl(Long id) {
         return mapToResponse(updated);
     }
 
+    /**
+     * Verify POD
+     */
     public PodResponseDTO verifyPod(Long id, String verifiedBy) {
         Pod pod = podRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
@@ -387,6 +443,9 @@ public String getPodFileUrl(Long id) {
         return mapToResponse(updated);
     }
 
+    /**
+     * Reject POD
+     */
     public PodResponseDTO rejectPod(Long id, String rejectedBy, String reason) {
         Pod pod = podRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
@@ -400,6 +459,9 @@ public String getPodFileUrl(Long id) {
         return mapToResponse(updated);
     }
 
+    /**
+     * Delete POD
+     */
     public void deletePod(Long id) {
         if (!podRepository.existsById(id)) {
             throw new RuntimeException("POD not found with ID: " + id);
@@ -408,6 +470,9 @@ public String getPodFileUrl(Long id) {
         log.info("POD deleted with ID: {}", id);
     }
 
+    /**
+     * Get POD statistics
+     */
     public PodStatistics getPodStatistics() {
         long total = podRepository.count();
         long pending = podRepository.countByStatus("PENDING");
