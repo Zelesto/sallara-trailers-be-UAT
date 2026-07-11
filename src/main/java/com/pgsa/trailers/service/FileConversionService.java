@@ -14,10 +14,15 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -35,6 +40,8 @@ public class FileConversionService {
             "application/msword",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     ));
+
+    private static final String TEMP_DIR = System.getProperty("java.io.tmpdir");
 
     /**
      * Convert any supported file to PDF bytes
@@ -55,7 +62,7 @@ public class FileConversionService {
         // Convert images to PDF
         if (isImage(contentType, extension)) {
             log.info("Converting image to PDF");
-            return convertImageToPdf(file.getBytes());
+            return convertImageToPdf(file.getBytes(), extension);
         }
 
         // Handle DOC/DOCX
@@ -64,46 +71,54 @@ public class FileConversionService {
             return convertDocToPdf(file);
         }
 
-        // Unsupported format - convert to PDF with metadata or return as is
-        log.warn("Unsupported file format: {}, attempting to convert anyway", contentType);
+        // Unsupported format - convert to PDF with metadata
+        log.warn("Unsupported file format: {}, converting with metadata", contentType);
         return convertToPdfWithMetadata(file);
     }
 
     /**
      * Convert image bytes to PDF
      */
-    private byte[] convertImageToPdf(byte[] imageBytes) throws IOException {
-        try (PDDocument document = new PDDocument()) {
-            BufferedImage bufferedImage = ImageIO.read(new ByteArrayInputStream(imageBytes));
+    private byte[] convertImageToPdf(byte[] imageBytes, String extension) throws IOException {
+        // Save image to temp file
+        Path tempFile = null;
+        try {
+            // Create temp file with proper extension
+            String ext = extension != null ? extension : "jpg";
+            tempFile = Files.createTempFile("image_", "." + ext);
+            Files.write(tempFile, imageBytes);
             
-            if (bufferedImage == null) {
-                throw new IOException("Unable to read image file");
+            try (PDDocument document = new PDDocument()) {
+                // Load image from file
+                PDImageXObject pdImage = PDImageXObject.createFromFile(tempFile.toString(), document);
+                
+                // Create page with image dimensions
+                float width = pdImage.getWidth();
+                float height = pdImage.getHeight();
+                PDRectangle pageSize = new PDRectangle(width, height);
+                PDPage page = new PDPage(pageSize);
+                document.addPage(page);
+
+                try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
+                    contentStream.drawImage(pdImage, 0, 0, width, height);
+                }
+
+                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                document.save(outputStream);
+                return outputStream.toByteArray();
             }
-
-            // Create a page with the image dimensions
-            float width = bufferedImage.getWidth();
-            float height = bufferedImage.getHeight();
-            PDRectangle pageSize = new PDRectangle(width, height);
-            PDPage page = new PDPage(pageSize);
-            document.addPage(page);
-
-            // Load image and draw
-            PDImageXObject pdImage = PDImageXObject.createFromFileByExtension(
-                    new ByteArrayInputStream(imageBytes), 
-                    "jpg", 
-                    document
-            );
-
-            try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
-                contentStream.drawImage(pdImage, 0, 0, width, height);
-            }
-
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            document.save(outputStream);
-            return outputStream.toByteArray();
         } catch (Exception e) {
             log.error("Error converting image to PDF: {}", e.getMessage(), e);
             throw new IOException("Failed to convert image to PDF", e);
+        } finally {
+            // Clean up temp file
+            if (tempFile != null) {
+                try {
+                    Files.deleteIfExists(tempFile);
+                } catch (IOException e) {
+                    log.warn("Failed to delete temp file: {}", tempFile, e);
+                }
+            }
         }
     }
 
@@ -111,10 +126,6 @@ public class FileConversionService {
      * Convert DOC/DOCX to PDF (simplified version)
      */
     private byte[] convertDocToPdf(MultipartFile file) throws IOException {
-        // Note: Full DOC/DOCX conversion requires additional libraries
-        // For now, we'll create a simple PDF with the file name
-        // In production, use a dedicated library like Aspose or Apache POI with PDF converter
-        
         byte[] content = file.getBytes();
         String filename = file.getOriginalFilename();
         String fileSize = formatFileSize(content.length);
@@ -124,7 +135,6 @@ public class FileConversionService {
             PDPage page = new PDPage();
             document.addPage(page);
             
-            // Add content
             try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
                 contentStream.beginText();
                 contentStream.setFont(org.apache.pdfbox.pdmodel.font.PDType1Font.HELVETICA, 12);
