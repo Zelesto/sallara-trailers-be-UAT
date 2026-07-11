@@ -31,49 +31,106 @@ public class PodController {
     private final PodService podService;
 
     // ============================================
-    // CREATE POD - SINGLE UNIFIED ENDPOINT
+    // CREATE POD - JSON ONLY (No File)
     // ============================================
 
-    /**
-     * Create POD - handles both JSON and multipart/form-data
-     * Uses consumes = {} to accept any content type
-     */
-    @PostMapping(consumes = {})
-    public ResponseEntity<PodResponseDTO> createPod(
-            @RequestPart(value = "podData", required = false) @Valid PodRequestDTO request,
-            @RequestPart(value = "file", required = false) MultipartFile file) {
-        
-        log.info("Creating new POD - File present: {}", file != null ? "Yes" : "No");
-        
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<PodResponseDTO> createPodJson(@Valid @RequestBody PodRequestDTO request) {
+        log.info("Creating new POD from JSON: {}", request);
         try {
-            // Check if request is null
-            if (request == null) {
-                // Try to see if it's a JSON request without multipart
-                log.error("PodRequestDTO is null");
-                return ResponseEntity.badRequest().build();
-            }
-            
-            // Validate required fields
             if (request.getTripId() == null) {
                 log.error("Trip ID is required");
                 return ResponseEntity.badRequest().build();
             }
-            
             if (request.getCustomerName() == null || request.getCustomerName().trim().isEmpty()) {
                 log.error("Customer Name is required");
                 return ResponseEntity.badRequest().build();
             }
-            
+            if (request.getDeliveryDate() == null) {
+                log.error("Delivery Date is required");
+                return ResponseEntity.badRequest().build();
+            }
+            PodResponseDTO response = podService.createPod(request, null);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (Exception e) {
+            log.error("Error creating POD from JSON: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // ============================================
+    // CREATE POD - WITH FILE UPLOAD
+    // ============================================
+
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PodResponseDTO> createPodWithFile(
+            @RequestPart("podData") @Valid PodRequestDTO request,
+            @RequestPart(value = "file", required = false) MultipartFile file) {
+        log.info("Creating new POD with file: {}", file != null ? file.getOriginalFilename() : "no file");
+        
+        try {
+            if (request == null) {
+                log.error("PodRequestDTO is null");
+                return ResponseEntity.badRequest().build();
+            }
+            if (request.getTripId() == null) {
+                log.error("Trip ID is required");
+                return ResponseEntity.badRequest().build();
+            }
+            if (request.getCustomerName() == null || request.getCustomerName().trim().isEmpty()) {
+                log.error("Customer Name is required");
+                return ResponseEntity.badRequest().build();
+            }
             if (request.getDeliveryDate() == null) {
                 log.error("Delivery Date is required");
                 return ResponseEntity.badRequest().build();
             }
             
+            // Validate file if present
+            if (file != null && !file.isEmpty()) {
+                String contentType = file.getContentType();
+                long fileSize = file.getSize();
+                log.info("File: {}, Type: {}, Size: {} bytes", file.getOriginalFilename(), contentType, fileSize);
+                
+                // Check file size (limit to 10MB)
+                if (fileSize > 10 * 1024 * 1024) {
+                    log.error("File size exceeds 10MB limit");
+                    return ResponseEntity.badRequest().build();
+                }
+            }
+            
             PodResponseDTO response = podService.createPod(request, file);
-            log.info("POD created successfully with ID: {}", response.getId());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (Exception e) {
-            log.error("Error creating POD: {}", e.getMessage(), e);
+            log.error("Error creating POD with file: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // ============================================
+    // CREATE POD - FALLBACK (Any content type)
+    // ============================================
+
+    @PostMapping
+    public ResponseEntity<PodResponseDTO> createPodFallback(@RequestBody PodRequestDTO request) {
+        log.info("Creating new POD from fallback: {}", request);
+        try {
+            if (request.getTripId() == null) {
+                log.error("Trip ID is required");
+                return ResponseEntity.badRequest().build();
+            }
+            if (request.getCustomerName() == null || request.getCustomerName().trim().isEmpty()) {
+                log.error("Customer Name is required");
+                return ResponseEntity.badRequest().build();
+            }
+            if (request.getDeliveryDate() == null) {
+                log.error("Delivery Date is required");
+                return ResponseEntity.badRequest().build();
+            }
+            PodResponseDTO response = podService.createPod(request, null);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (Exception e) {
+            log.error("Error creating POD from fallback: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
