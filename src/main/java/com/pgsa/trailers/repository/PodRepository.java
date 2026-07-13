@@ -263,4 +263,46 @@ public interface PodRepository extends JpaRepository<Pod, Long> {
      */
     @Query("SELECT p.tripId, COUNT(p) FROM Pod p WHERE p.tripId IN :tripIds GROUP BY p.tripId")
     List<Object[]> countByTripIdIn(@Param("tripIds") List<Long> tripIds);
+
+
+
+
+/**
+ * Find PODs by trip ID and source
+ */
+List<Pod> findByTripIdAndSource(Long tripId, String source);
+
+/**
+ * Count PODs by trip ID and source
+ */
+long countByTripIdAndSource(Long tripId, String source);
+
+/**
+ * Find PODs with document reference
+ */
+@Query("SELECT p FROM Pod p WHERE p.documentReference IS NOT NULL")
+List<Pod> findAllWithDocumentReference();
+
+/**
+ * Find PODs by document reference
+ */
+Optional<Pod> findByDocumentReference(String documentReference);
+
+/**
+ * Find appended PODs for a trip
+ */
+@Query("SELECT p FROM Pod p WHERE p.tripId = :tripId AND p.source = 'APPENDED'")
+List<Pod> findAppendedByTripId(@Param("tripId") Long tripId);
+
+/**
+ * Get POD count by trip with grouping
+ */
+@Query("SELECT p.tripId, COUNT(p) FROM Pod p GROUP BY p.tripId")
+List<Object[]> countPodsByTrip();
+
+/**
+ * Find PODs with debrief notes default
+ */
+@Query("SELECT p FROM Pod p WHERE p.debriefNotes IS NULL OR p.debriefNotes = ''")
+List<Pod> findWithoutDebriefNotes();
 }
