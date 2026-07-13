@@ -53,12 +53,13 @@ public interface PodRepository extends JpaRepository<Pod, Long> {
 
     /**
      * Search PODs by pod number, customer name, or trip number
+     * Note: tripNumber is stored in Trip entity, so we join with Trip
      */
     @Query("SELECT p FROM Pod p WHERE " +
            "LOWER(p.podNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(p.customerName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(p.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(p.driverName) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
+           "LOWER(p.driverName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "EXISTS (SELECT 1 FROM Trip t WHERE t.id = p.tripId AND LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
     Page<Pod> searchPods(@Param("searchTerm") String searchTerm, Pageable pageable);
 
     /**
@@ -165,9 +166,9 @@ public interface PodRepository extends JpaRepository<Pod, Long> {
                                      @Param("endDate") LocalDateTime endDate);
 
     /**
-     * Find PODs by trip number (join with trip entity)
+     * Find PODs by trip number - FIXED: Join with Trip entity
      */
-    @Query("SELECT p FROM Pod p WHERE p.tripNumber = :tripNumber")
+    @Query("SELECT p FROM Pod p JOIN Trip t ON p.tripId = t.id WHERE t.tripNumber = :tripNumber")
     List<Pod> findByTripNumber(@Param("tripNumber") String tripNumber);
 
     /**
@@ -228,13 +229,13 @@ public interface PodRepository extends JpaRepository<Pod, Long> {
     List<Pod> findNotDebriefedByTripId(@Param("tripId") Long tripId);
 
     /**
-     * Get the latest POD for a trip - FIXED: Return a List or Page, not Optional
+     * Get the latest POD for a trip
      */
     @Query("SELECT p FROM Pod p WHERE p.tripId = :tripId ORDER BY p.createdAt DESC")
     List<Pod> findLatestByTripId(@Param("tripId") Long tripId, Pageable pageable);
 
     /**
-     * Get the latest POD for a trip - Alternative: Return Optional without Pageable
+     * Get the latest POD for a trip - Returns Optional
      */
     @Query("SELECT p FROM Pod p WHERE p.tripId = :tripId ORDER BY p.createdAt DESC")
     Optional<Pod> findLatestByTripId(@Param("tripId") Long tripId);
