@@ -95,10 +95,13 @@ public class SupabaseStorageService {
     log.info("Processing and uploading file for POD: {}", podNumber);
     
     try {
-        // Check if conversion is needed
+        // Log file details
         String originalFilename = file.getOriginalFilename();
         String contentType = file.getContentType();
         String extension = getFileExtension(originalFilename);
+        
+        log.info("File details - Name: {}, Type: {}, Extension: {}, Size: {} bytes", 
+            originalFilename, contentType, extension, file.getSize());
         
         byte[] fileData;
         String finalFilename;
@@ -107,20 +110,33 @@ public class SupabaseStorageService {
         // If not PDF, convert to PDF
         if (!"pdf".equalsIgnoreCase(extension) && !"application/pdf".equalsIgnoreCase(contentType)) {
             log.info("Converting {} to PDF", originalFilename);
-            fileData = conversionService.convertToPdf(file);
-            finalFilename = podNumber + ".pdf";
-            finalContentType = "application/pdf";
+            try {
+                fileData = conversionService.convertToPdf(file);
+                finalFilename = podNumber + ".pdf";
+                finalContentType = "application/pdf";
+                log.info("Conversion successful. PDF size: {} bytes", fileData.length);
+            } catch (Exception e) {
+                log.error("Failed to convert file to PDF: {}", e.getMessage(), e);
+                // If conversion fails, try uploading the original file
+                log.info("Attempting to upload original file as fallback");
+                fileData = file.getBytes();
+                finalFilename = podNumber + "." + extension;
+                finalContentType = contentType != null ? contentType : "application/octet-stream";
+            }
         } else {
             fileData = file.getBytes();
             finalFilename = podNumber + "." + extension;
             finalContentType = contentType != null ? contentType : "application/pdf";
         }
         
-        // Upload the file
-        String filePath = String.format("%s/%s", podNumber, finalFilename);
+        // IMPORTANT FIX: Use simple path without subfolder
+        // Change from: "podNumber/filename" to just "filename"
+        String filePath = finalFilename;  // Just the filename, no folder
         
-        log.info("Uploading file to Supabase: {}/{}", bucketName, filePath);
+        log.info("Uploading file to Supabase: bucket={}, path={}", bucketName, filePath);
+        log.info("File size: {} bytes, Content-Type: {}", fileData.length, finalContentType);
         
+        // Upload to Supabase
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(bucketName)
                 .key(filePath)
@@ -128,20 +144,37 @@ public class SupabaseStorageService {
                 .contentLength((long) fileData.length)
                 .build();
         
-        s3Client.putObject(
+        long startTime = System.currentTimeMillis();
+        PutObjectResponse response = s3Client.putObject(
                 putObjectRequest,
                 RequestBody.fromBytes(fileData)
         );
+        long endTime = System.currentTimeMillis();
         
+        log.info("✅ File uploaded successfully in {} ms", (endTime - startTime));
+        log.info("   ETag: {}", response.eTag());
+        
+        // Generate the public URL
         String fileUrl = String.format("%s/storage/v1/object/public/%s/%s", 
                 supabaseUrl, bucketName, filePath);
         
-        log.info("File uploaded successfully: {}", fileUrl);
+        log.info("   File URL: {}", fileUrl);
+        log.info("========================================");
         return fileUrl;
         
+    } catch (IOException e) {
+        log.error("❌ IO Error uploading file: {}", e.getMessage(), e);
+        throw new RuntimeException("Failed to read file: " + e.getMessage(), e);
+    } catch (S3Exception e) {
+        log.error("❌ Supabase S3 Error: {}", e.getMessage(), e);
+        log.error("   Status Code: {}", e.statusCode());
+        log.error("   Error Code: {}", e.awsErrorDetails().errorCode());
+        log.error("   Error Message: {}", e.awsErrorDetails().errorMessage());
+        log.error("   Request ID: {}", e.requestId());
+        throw new RuntimeException("Supabase upload failed: " + e.getMessage(), e);
     } catch (Exception e) {
-        log.error("Failed to upload file: {}", e.getMessage(), e);
-        throw new RuntimeException("Failed to upload file: " + e.getMessage(), e);
+        log.error("❌ Unexpected error uploading file: {}", e.getMessage(), e);
+        throw new RuntimeException("Unexpected error: " + e.getMessage(), e);
     }
 }
     
