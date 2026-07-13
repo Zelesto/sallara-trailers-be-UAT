@@ -25,7 +25,8 @@ public class Pod {
     private Long id;
 
     @Column(name = "pod_number", unique = true, nullable = false)
-    private String podNumber;
+    @Builder.Default
+    private String podNumber = "POD-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 1000);
 
     @Column(name = "trip_id")
     private Long tripId;
@@ -43,13 +44,16 @@ public class Pod {
     private LocalDate deliveryDate;
 
     @Column(name = "status")
-    private String status;
+    @Builder.Default
+    private String status = "PENDING";
 
     @Column(name = "source")
-    private String source;
+    @Builder.Default
+    private String source = "UPLOADED";
 
     @Column(name = "document_type")
-    private String documentType;
+    @Builder.Default
+    private String documentType = "PDF";
 
     @Column(name = "file_size")
     private String fileSize;
@@ -60,7 +64,7 @@ public class Pod {
     @Column(name = "file_name")
     private String fileName;
 
-    @Column(name = "document_reference")  // NEW FIELD
+    @Column(name = "document_reference")
     private String documentReference;
 
     @Column(name = "notes", columnDefinition = "TEXT")
@@ -106,7 +110,8 @@ public class Pod {
     private String deliveryCondition;
 
     @Column(name = "debrief_notes", columnDefinition = "TEXT")
-    private String debriefNotes;
+    @Builder.Default
+    private String debriefNotes = "No Endorsements";
 
     @Column(name = "additional_info", columnDefinition = "TEXT")
     private String additionalInfo;
@@ -142,10 +147,22 @@ public class Pod {
         if (documentType == null) {
             documentType = "PDF";
         }
+        if (debriefNotes == null) {
+            debriefNotes = "No Endorsements";
+        }
+        if (createdBy == null) {
+            createdBy = "System";
+        }
+        if (updatedBy == null) {
+            updatedBy = "System";
+        }
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+        if (updatedBy == null) {
+            updatedBy = "System";
+        }
     }
 }
