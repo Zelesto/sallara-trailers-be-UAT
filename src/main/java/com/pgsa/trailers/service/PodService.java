@@ -467,59 +467,56 @@ public class PodService {
     /**
      * Debrief a POD with default values and current user tracking
      */
-    /**
- * Debrief a POD with default values and current user tracking
- */
-public PodResponseDTO debriefPod(Long id, DebriefRequestDTO debriefRequest) {
-    log.info("Debriefing POD: {}", id);
-    
-    String currentUser = getCurrentUsername();
-    
-    Pod pod = podRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
+    public PodResponseDTO debriefPod(Long id, DebriefRequestDTO debriefRequest) {
+        log.info("Debriefing POD: {}", id);
+        
+        String currentUser = getCurrentUsername();
+        
+        Pod pod = podRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
 
-    // Set status with default if not provided
-    pod.setStatus(debriefRequest.getStatus() != null ? debriefRequest.getStatus() : "DELIVERED");
-    
-    // Set notes with default if not provided
-    pod.setNotes(debriefRequest.getNotes() != null ? debriefRequest.getNotes() : pod.getNotes());
-    
-    // Set received by with default if not provided
-    pod.setReceivedBy(debriefRequest.getReceivedBy() != null ? debriefRequest.getReceivedBy() : currentUser);
-    
-    // Set quality rating with default
-    pod.setQualityRating(debriefRequest.getQualityRating() != null ? debriefRequest.getQualityRating() : 3);
-    
-    // Set issues found - now String directly
-    if (debriefRequest.getIssuesFound() != null && !debriefRequest.getIssuesFound().isEmpty()) {
-        pod.setIssuesFound(debriefRequest.getIssuesFound());
-    } else {
-        pod.setIssuesFound("None");
+        // Set status with default if not provided
+        pod.setStatus(debriefRequest.getStatus() != null ? debriefRequest.getStatus() : "DELIVERED");
+        
+        // Set notes with default if not provided
+        pod.setNotes(debriefRequest.getNotes() != null ? debriefRequest.getNotes() : pod.getNotes());
+        
+        // Set received by with default if not provided
+        pod.setReceivedBy(debriefRequest.getReceivedBy() != null ? debriefRequest.getReceivedBy() : currentUser);
+        
+        // Set quality rating with default
+        pod.setQualityRating(debriefRequest.getQualityRating() != null ? debriefRequest.getQualityRating() : 3);
+        
+        // Set issues found - now String directly
+        if (debriefRequest.getIssuesFound() != null && !debriefRequest.getIssuesFound().isEmpty()) {
+            pod.setIssuesFound(debriefRequest.getIssuesFound());
+        } else {
+            pod.setIssuesFound("None");
+        }
+        
+        // Set additional info with default
+        pod.setAdditionalInfo(debriefRequest.getAdditionalInfo() != null ? debriefRequest.getAdditionalInfo() : "N/A");
+        
+        // Set delivery condition with default
+        pod.setDeliveryCondition(debriefRequest.getDeliveryCondition() != null ? 
+            debriefRequest.getDeliveryCondition() : "Good");
+        
+        // Set debrief notes with default "No Endorsements"
+        pod.setDebriefNotes(debriefRequest.getDebriefNotes() != null && !debriefRequest.getDebriefNotes().isEmpty() ? 
+            debriefRequest.getDebriefNotes() : "No Endorsements");
+        
+        // Set debriefed by to current user
+        pod.setDebriefedBy(currentUser);
+        pod.setDebriefedAt(LocalDateTime.now());
+        
+        // Set updated by to current user
+        pod.setUpdatedBy(currentUser);
+        pod.setUpdatedAt(LocalDateTime.now());
+
+        Pod updatedPod = podRepository.save(pod);
+        log.info("POD {} debriefed with status: {} by: {}", id, pod.getStatus(), currentUser);
+        return mapToResponse(updatedPod);
     }
-    
-    // Set additional info with default
-    pod.setAdditionalInfo(debriefRequest.getAdditionalInfo() != null ? debriefRequest.getAdditionalInfo() : "N/A");
-    
-    // Set delivery condition with default
-    pod.setDeliveryCondition(debriefRequest.getDeliveryCondition() != null ? 
-        debriefRequest.getDeliveryCondition() : "Good");
-    
-    // Set debrief notes with default "No Endorsements"
-    pod.setDebriefNotes(debriefRequest.getDebriefNotes() != null && !debriefRequest.getDebriefNotes().isEmpty() ? 
-        debriefRequest.getDebriefNotes() : "No Endorsements");
-    
-    // Set debriefed by to current user
-    pod.setDebriefedBy(currentUser);
-    pod.setDebriefedAt(LocalDateTime.now());
-    
-    // Set updated by to current user
-    pod.setUpdatedBy(currentUser);
-    pod.setUpdatedAt(LocalDateTime.now());
-
-    Pod updatedPod = podRepository.save(pod);
-    log.info("POD {} debriefed with status: {} by: {}", id, pod.getStatus(), currentUser);
-    return mapToResponse(updatedPod);
-}
 
     /**
      * Get POD status history
@@ -706,42 +703,39 @@ public PodResponseDTO debriefPod(Long id, DebriefRequestDTO debriefRequest) {
     }
 
     /**
-     * Get all PODs with pagination
+     * Get all PODs with pagination - FIXED VERSION
      */
     public Page<PodResponseDTO> getAllPods(Pageable pageable) {
-    log.info("Fetching all PODs with pageable: {}", pageable);
-    try {
-        Page<Pod> podPage = podRepository.findAll(pageable);
-        log.info("Found {} PODs total, {} in this page", podPage.getTotalElements(), podPage.getNumberOfElements());
-        
-        if (podPage.isEmpty()) {
+        log.info("Fetching all PODs with pageable: {}", pageable);
+        try {
+            Page<Pod> podPage = podRepository.findAll(pageable);
+            log.info("Found {} PODs total, {} in this page", podPage.getTotalElements(), podPage.getNumberOfElements());
+            
+            if (podPage.isEmpty()) {
+                return Page.empty(pageable);
+            }
+            
+            // Map each pod safely with try-catch for each item
+            List<PodResponseDTO> dtos = new ArrayList<>();
+            for (Pod pod : podPage.getContent()) {
+                try {
+                    PodResponseDTO dto = mapToResponseSafe(pod);
+                    if (dto != null) {
+                        dtos.add(dto);
+                    }
+                } catch (Exception e) {
+                    log.error("Error mapping POD {}: {}", pod.getId(), e.getMessage(), e);
+                    // Continue with next pod
+                }
+            }
+            
+            return new PageImpl<>(dtos, pageable, podPage.getTotalElements());
+            
+        } catch (Exception e) {
+            log.error("Error fetching PODs: {}", e.getMessage(), e);
             return Page.empty(pageable);
         }
-        
-        // Map each pod safely with try-catch for each item
-        List<PodResponseDTO> dtos = new ArrayList<>();
-        for (Pod pod : podPage.getContent()) {
-            try {
-                PodResponseDTO dto = mapToResponseSafe(pod);
-                if (dto != null) {
-                    dtos.add(dto);
-                } else {
-                    log.warn("Failed to map POD {} to DTO, skipping", pod.getId());
-                }
-            } catch (Exception e) {
-                log.error("Error mapping POD {}: {}", pod.getId(), e.getMessage(), e);
-                // Continue with next pod
-            }
-        }
-        
-        return new PageImpl<>(dtos, pageable, podPage.getTotalElements());
-        
-    } catch (Exception e) {
-        log.error("Error fetching PODs: {}", e.getMessage(), e);
-        // Return empty page instead of throwing
-        return Page.empty(pageable);
     }
-}
 
     /**
      * Search PODs
@@ -896,101 +890,62 @@ public PodResponseDTO debriefPod(Long id, DebriefRequestDTO debriefRequest) {
     }
 
     /**
-     * Convert issuesFound from String to List<String>
-     */
-   private List<String> convertIssuesToList(String issuesFound) {
-    if (issuesFound == null || issuesFound.isEmpty()) {
-        return null;
-    }
-    
-    String trimmed = issuesFound.trim();
-    if (trimmed.equals("None") || trimmed.equals("N/A") || trimmed.equals("null")) {
-        return null;
-    }
-    
-    // If it contains commas, split it
-    if (trimmed.contains(",")) {
-        List<String> result = Arrays.stream(trimmed.split("\\s*,\\s*"))
-                .filter(s -> !s.isEmpty() && !s.equals("None") && !s.equals("N/A") && !s.equals("null"))
-                .collect(Collectors.toList());
-        return result.isEmpty() ? null : result;
-    }
-    
-    // Single issue
-    return List.of(trimmed);
-}
-
-    /**
      * Safely map Pod to response DTO - handles all exceptions
      */
     private PodResponseDTO mapToResponseSafe(Pod pod) {
-    if (pod == null) {
-        return null;
-    }
-    
-    try {
-        String tripNumber = null;
-        try {
-            tripNumber = getTripNumber(pod.getTripId());
-        } catch (Exception e) {
-            log.warn("Could not get trip number for trip {}: {}", pod.getTripId(), e.getMessage());
+        if (pod == null) {
+            return null;
         }
         
-        // Convert issuesFound from String to List<String>
-        List<String> issuesList = null;
         try {
-            issuesList = convertIssuesToList(pod.getIssuesFound());
+            String tripNumber = getTripNumber(pod.getTripId());
+            
+            return PodResponseDTO.builder()
+                    .id(pod.getId())
+                    .podNumber(pod.getPodNumber() != null ? pod.getPodNumber() : "N/A")
+                    .tripId(pod.getTripId())
+                    .tripNumber(tripNumber)
+                    .customerName(pod.getCustomerName() != null ? pod.getCustomerName() : "N/A")
+                    .driverName(pod.getDriverName())
+                    .deliveryDate(pod.getDeliveryDate())
+                    .status(pod.getStatus() != null ? pod.getStatus() : "PENDING")
+                    .source(pod.getSource() != null ? pod.getSource() : "UPLOADED")
+                    .documentType(pod.getDocumentType())
+                    .fileSize(pod.getFileSize())
+                    .fileUrl(pod.getFileUrl())
+                    .fileName(pod.getFileName())
+                    .documentReference(pod.getDocumentReference())
+                    .notes(pod.getNotes())
+                    .uploadedBy(pod.getUploadedBy())
+                    .uploadedAt(pod.getUploadedAt())
+                    .verifiedBy(pod.getVerifiedBy())
+                    .verifiedAt(pod.getVerifiedAt())
+                    .rejectedBy(pod.getRejectedBy())
+                    .rejectedAt(pod.getRejectedAt())
+                    .rejectionReason(pod.getRejectionReason())
+                    .debriefedAt(pod.getDebriefedAt())
+                    .debriefedBy(pod.getDebriefedBy())
+                    .receivedBy(pod.getReceivedBy())
+                    .qualityRating(pod.getQualityRating())
+                    .issuesFound(pod.getIssuesFound())  // Direct String assignment
+                    .deliveryCondition(pod.getDeliveryCondition())
+                    .debriefNotes(pod.getDebriefNotes())
+                    .additionalInfo(pod.getAdditionalInfo())
+                    .createdAt(pod.getCreatedAt())
+                    .createdBy(pod.getCreatedBy())
+                    .updatedAt(pod.getUpdatedAt())
+                    .updatedBy(pod.getUpdatedBy())
+                    .build();
+                    
         } catch (Exception e) {
-            log.warn("Could not convert issuesFound for POD {}: {}", pod.getId(), e.getMessage());
+            log.error("Error in mapToResponseSafe for pod {}: {}", pod.getId(), e.getMessage(), e);
+            return PodResponseDTO.builder()
+                    .id(pod.getId())
+                    .podNumber(pod.getPodNumber() != null ? pod.getPodNumber() : "N/A")
+                    .status("ERROR")
+                    .build();
         }
-        
-        return PodResponseDTO.builder()
-                .id(pod.getId())
-                .podNumber(pod.getPodNumber() != null ? pod.getPodNumber() : "N/A")
-                .tripId(pod.getTripId())
-                .tripNumber(tripNumber)
-                .customerName(pod.getCustomerName() != null ? pod.getCustomerName() : "N/A")
-                .driverName(pod.getDriverName())
-                .deliveryDate(pod.getDeliveryDate())
-                .status(pod.getStatus() != null ? pod.getStatus() : "PENDING")
-                .source(pod.getSource() != null ? pod.getSource() : "UPLOADED")
-                .documentType(pod.getDocumentType())
-                .fileSize(pod.getFileSize())
-                .fileUrl(pod.getFileUrl())
-                .fileName(pod.getFileName())
-                .documentReference(pod.getDocumentReference())
-                .notes(pod.getNotes())
-                .uploadedBy(pod.getUploadedBy())
-                .uploadedAt(pod.getUploadedAt())
-                .verifiedBy(pod.getVerifiedBy())
-                .verifiedAt(pod.getVerifiedAt())
-                .rejectedBy(pod.getRejectedBy())
-                .rejectedAt(pod.getRejectedAt())
-                .rejectionReason(pod.getRejectionReason())
-                .debriefedAt(pod.getDebriefedAt())
-                .debriefedBy(pod.getDebriefedBy())
-                .receivedBy(pod.getReceivedBy())
-                .qualityRating(pod.getQualityRating())
-                 .issuesFound(pod.getIssuesFound())
-                .deliveryCondition(pod.getDeliveryCondition())
-                .debriefNotes(pod.getDebriefNotes())
-                .additionalInfo(pod.getAdditionalInfo())
-                .createdAt(pod.getCreatedAt())
-                .createdBy(pod.getCreatedBy())
-                .updatedAt(pod.getUpdatedAt())
-                .updatedBy(pod.getUpdatedBy())
-                .build();
-                
-    } catch (Exception e) {
-        log.error("Error in mapToResponseSafe for pod {}: {}", pod.getId(), e.getMessage(), e);
-        // Return a minimal DTO instead of null to avoid breaking the list
-        return PodResponseDTO.builder()
-                .id(pod.getId())
-                .podNumber(pod.getPodNumber() != null ? pod.getPodNumber() : "N/A")
-                .status("ERROR")
-                .build();
     }
-}
 
     /**
      * Original mapToResponse method - delegates to safe version
