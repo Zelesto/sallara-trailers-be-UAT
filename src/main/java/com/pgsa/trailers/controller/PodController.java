@@ -1,12 +1,13 @@
 // src/main/java/com/pgsa/trailers/controller/PodController.java
 package com.pgsa.trailers.controller;
 
+import com.pgsa.trailers.dto.DebriefRequestDTO;
 import com.pgsa.trailers.dto.PodRequestDTO;
 import com.pgsa.trailers.dto.PodResponseDTO;
 import com.pgsa.trailers.dto.PodStatistics;
-import com.pgsa.trailers.dto.DebriefRequestDTO;
 import com.pgsa.trailers.dto.StatusHistoryDTO;
 import com.pgsa.trailers.service.PodService;
+import com.pgsa.trailers.service.SupabaseStorageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,523 +15,551 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/pods")
 @RequiredArgsConstructor
 @Slf4j
+@CrossOrigin(origins = "*", allowedHeaders = "*", exposedHeaders = {"Content-Disposition", "Content-Type", "Content-Length"})
 public class PodController {
 
     private final PodService podService;
+    private final SupabaseStorageService storageService;
 
-    // ============================================
-    // CREATE POD - JSON ONLY (No File)
-    // ============================================
-
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<PodResponseDTO> createPodJson(@Valid @RequestBody PodRequestDTO request) {
-        log.info("Creating new POD from JSON: {}", request);
-        try {
-            if (request.getTripId() == null) {
-                log.error("Trip ID is required");
-                return ResponseEntity.badRequest().build();
-            }
-            if (request.getCustomerName() == null || request.getCustomerName().trim().isEmpty()) {
-                log.error("Customer Name is required");
-                return ResponseEntity.badRequest().build();
-            }
-            if (request.getDeliveryDate() == null) {
-                log.error("Delivery Date is required");
-                return ResponseEntity.badRequest().build();
-            }
-            PodResponseDTO response = podService.createPod(request, null);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (Exception e) {
-            log.error("Error creating POD from JSON: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    // Add to PodController.java
-
-@PostMapping("/{id}/reupload")
-public ResponseEntity<?> reuploadFile(
-        @PathVariable Long id,
-        @RequestParam("file") MultipartFile file) {
-    try {
-        log.info("Received re-upload request for POD ID: {}", id);
-        
-        // Validate file
-        if (file.isEmpty()) {
-            return ResponseEntity.badRequest().body("File is required");
-        }
-        
-        // Validate file size (max 10MB)
-        if (file.getSize() > 10 * 1024 * 1024) {
-            return ResponseEntity.badRequest().body("File size exceeds 10MB limit");
-        }
-        
-        // Validate file type (optional)
-        String contentType = file.getContentType();
-        if (contentType != null && !isValidFileType(contentType)) {
-            return ResponseEntity.badRequest().body("Invalid file type. Supported: PDF, JPG, PNG, DOC, DOCX");
-        }
-        
-        PodResponseDTO updatedPod = podService.reuploadFile(id, file);
-        return ResponseEntity.ok(updatedPod);
-        
-    } catch (RuntimeException e) {
-        log.error("Error re-uploading file for POD {}: {}", id, e.getMessage());
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body("Failed to upload file: " + e.getMessage());
-    } catch (Exception e) {
-        log.error("Unexpected error re-uploading file for POD {}: {}", id, e, e);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body("Unexpected error: " + e.getMessage());
-    }
-}
-
-private boolean isValidFileType(String contentType) {
-    if (contentType == null) return false;
-    
-    String lowerContentType = contentType.toLowerCase();
-    return lowerContentType.contains("pdf") ||
-           lowerContentType.contains("jpeg") ||
-           lowerContentType.contains("jpg") ||
-           lowerContentType.contains("png") ||
-           lowerContentType.contains("msword") ||
-           lowerContentType.contains("wordprocessingml");
-}
-    
-    // ============================================
-    // CREATE POD - WITH FILE UPLOAD
-    // ============================================
-
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<PodResponseDTO> createPodWithFile(
-            @RequestPart("podData") @Valid PodRequestDTO request,
+    /**
+     * Create a new POD with optional file upload
+     */
+    @PostMapping(consumes = {MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_JSON_VALUE})
+    public ResponseEntity<PodResponseDTO> createPod(
+            @RequestPart(value = "podData", required = false) PodRequestDTO podRequest,
             @RequestPart(value = "file", required = false) MultipartFile file) {
-        log.info("Creating new POD with file: {}", file != null ? file.getOriginalFilename() : "no file");
+        log.info("📝 Creating new POD with file: {}", file != null ? file.getOriginalFilename() : "No file");
         
         try {
-            if (request == null) {
-                log.error("PodRequestDTO is null");
-                return ResponseEntity.badRequest().build();
-            }
-            if (request.getTripId() == null) {
-                log.error("Trip ID is required");
-                return ResponseEntity.badRequest().build();
-            }
-            if (request.getCustomerName() == null || request.getCustomerName().trim().isEmpty()) {
-                log.error("Customer Name is required");
-                return ResponseEntity.badRequest().build();
-            }
-            if (request.getDeliveryDate() == null) {
-                log.error("Delivery Date is required");
-                return ResponseEntity.badRequest().build();
-            }
-            
-            // Validate file if present
-            if (file != null && !file.isEmpty()) {
-                String contentType = file.getContentType();
-                long fileSize = file.getSize();
-                log.info("File: {}, Type: {}, Size: {} bytes", file.getOriginalFilename(), contentType, fileSize);
-                
-                // Check file size (limit to 10MB)
-                if (fileSize > 10 * 1024 * 1024) {
-                    log.error("File size exceeds 10MB limit");
-                    return ResponseEntity.badRequest().build();
-                }
-            }
-            
-            PodResponseDTO response = podService.createPod(request, file);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+            PodResponseDTO createdPod = podService.createPod(podRequest, file);
+            return ResponseEntity.status(HttpStatus.CREATED).body(createdPod);
         } catch (Exception e) {
-            log.error("Error creating POD with file: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            log.error("❌ Error creating POD: {}", e.getMessage(), e);
+            throw e;
         }
     }
 
-    // ============================================
-    // CREATE POD - FALLBACK (Any content type)
-    // ============================================
-
-    @PostMapping
-    public ResponseEntity<PodResponseDTO> createPodFallback(@RequestBody PodRequestDTO request) {
-        log.info("Creating new POD from fallback: {}", request);
-        try {
-            if (request.getTripId() == null) {
-                log.error("Trip ID is required");
-                return ResponseEntity.badRequest().build();
-            }
-            if (request.getCustomerName() == null || request.getCustomerName().trim().isEmpty()) {
-                log.error("Customer Name is required");
-                return ResponseEntity.badRequest().build();
-            }
-            if (request.getDeliveryDate() == null) {
-                log.error("Delivery Date is required");
-                return ResponseEntity.badRequest().build();
-            }
-            PodResponseDTO response = podService.createPod(request, null);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (Exception e) {
-            log.error("Error creating POD from fallback: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    // ============================================
-    // SCAN POD
-    // ============================================
-
+    /**
+     * Scan a new POD from driver
+     */
     @PostMapping(value = "/scan", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PodResponseDTO> scanPod(
             @RequestParam("tripId") Long tripId,
-            @RequestParam("driverName") String driverName,
+            @RequestParam(value = "driverName", required = false) String driverName,
             @RequestParam("deliveryDate") String deliveryDate,
             @RequestParam(value = "customerName", required = false) String customerName,
             @RequestParam(value = "notes", required = false) String notes,
             @RequestParam("file") MultipartFile file) {
-        log.info("Scanning POD from driver for trip: {}", tripId);
+        log.info("📸 Scanning POD from driver for trip: {}", tripId);
+        
         try {
-            if (file == null || file.isEmpty()) {
-                log.error("File is required for scanning");
-                return ResponseEntity.badRequest().build();
-            }
-            PodResponseDTO response = podService.scanPod(tripId, driverName, deliveryDate, customerName, notes, file);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+            PodResponseDTO scannedPod = podService.scanPod(tripId, driverName, deliveryDate, customerName, notes, file);
+            return ResponseEntity.status(HttpStatus.CREATED).body(scannedPod);
         } catch (Exception e) {
-            log.error("Error scanning POD: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            log.error("❌ Error scanning POD: {}", e.getMessage(), e);
+            throw e;
         }
     }
 
-    // ============================================
-    // DEBRIEF POD
-    // ============================================
-
+    /**
+     * Debrief a POD
+     */
     @PostMapping("/{id}/debrief")
     public ResponseEntity<PodResponseDTO> debriefPod(
             @PathVariable Long id,
             @Valid @RequestBody DebriefRequestDTO debriefRequest) {
-        log.info("Debriefing POD: {}", id);
+        log.info("📋 Debriefing POD: {}", id);
+        
         try {
-            PodResponseDTO response = podService.debriefPod(id, debriefRequest);
-            return ResponseEntity.ok(response);
+            PodResponseDTO debriefedPod = podService.debriefPod(id, debriefRequest);
+            return ResponseEntity.ok(debriefedPod);
         } catch (Exception e) {
-            log.error("Error debriefing POD {}: {}", id, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            log.error("❌ Error debriefing POD {}: {}", id, e.getMessage(), e);
+            throw e;
         }
     }
 
-    // ============================================
-    // GET PODS
-    // ============================================
+    /**
+     * Re-upload file for existing POD
+     */
+    @PostMapping(value = "/{id}/reupload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PodResponseDTO> reuploadFile(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        log.info("📤 Re-uploading file for POD: {}", id);
+        log.info("   File: {}, Size: {} bytes, Type: {}", 
+            file.getOriginalFilename(), file.getSize(), file.getContentType());
+        
+        try {
+            // Validate file
+            if (file.isEmpty()) {
+                log.error("❌ File is empty");
+                return ResponseEntity.badRequest().build();
+            }
+            
+            // Validate file size (max 10MB)
+            if (file.getSize() > 10 * 1024 * 1024) {
+                log.error("❌ File size exceeds 10MB limit: {} bytes", file.getSize());
+                return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                    .body(null);
+            }
+            
+            // Validate file type
+            String contentType = file.getContentType();
+            if (contentType != null && !isValidFileType(contentType)) {
+                log.error("❌ Invalid file type: {}", contentType);
+                return ResponseEntity.badRequest().build();
+            }
+            
+            PodResponseDTO updatedPod = podService.reuploadFile(id, file);
+            return ResponseEntity.ok(updatedPod);
+            
+        } catch (Exception e) {
+            log.error("❌ Error re-uploading file for POD {}: {}", id, e.getMessage(), e);
+            throw e;
+        }
+    }
 
+    /**
+     * Download POD document
+     */
+    @GetMapping("/{id}/download")
+    public ResponseEntity<?> downloadPod(@PathVariable Long id) {
+        try {
+            log.info("📥 Download request for POD ID: {}", id);
+            
+            // Get the POD
+            PodResponseDTO pod = podService.getPodById(id);
+            if (pod == null) {
+                log.warn("❌ POD not found: {}", id);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "POD not found"));
+            }
+            
+            String fileUrl = pod.getFileUrl();
+            if (fileUrl == null || fileUrl.isEmpty()) {
+                log.warn("❌ No file URL for POD: {}", id);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "No file associated with this POD"));
+            }
+            
+            log.info("📥 File URL from database: {}", fileUrl);
+            
+            // Check if file exists first
+            if (!storageService.fileExists(fileUrl)) {
+                log.warn("❌ File does not exist in storage: {}", fileUrl);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "File not found in storage"));
+            }
+            
+            try {
+                // Download from Supabase
+                byte[] fileData = storageService.downloadFile(fileUrl);
+                
+                if (fileData == null || fileData.length == 0) {
+                    log.warn("❌ File data is empty for POD: {}", id);
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", "File data is empty"));
+                }
+                
+                log.info("✅ File size: {} bytes", fileData.length);
+                
+                String fileName = pod.getFileName() != null ? pod.getFileName() : pod.getPodNumber() + ".pdf";
+                String contentType = getContentType(pod.getDocumentType());
+                
+                // Return the actual file
+                return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, 
+                        "attachment; filename=\"" + fileName + "\"")
+                    .header(HttpHeaders.CONTENT_TYPE, contentType)
+                    .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(fileData.length))
+                    .header("Access-Control-Expose-Headers", "Content-Disposition, Content-Type, Content-Length")
+                    .body(fileData);
+                    
+            } catch (Exception e) {
+                log.error("❌ Error downloading file from storage: {}", e.getMessage(), e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to download file: " + e.getMessage()));
+            }
+            
+        } catch (Exception e) {
+            log.error("❌ Error in download endpoint: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Download failed: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get POD file URL (for direct access)
+     */
+    @GetMapping("/{id}/file-url")
+    public ResponseEntity<Map<String, String>> getPodFileUrl(@PathVariable Long id) {
+        try {
+            log.info("📤 Getting file URL for POD: {}", id);
+            
+            PodResponseDTO pod = podService.getPodById(id);
+            if (pod == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "POD not found"));
+            }
+            
+            String fileUrl = pod.getFileUrl();
+            if (fileUrl == null || fileUrl.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "No file URL available"));
+            }
+            
+            return ResponseEntity.ok(Map.of(
+                "fileUrl", fileUrl,
+                "fileName", pod.getFileName() != null ? pod.getFileName() : pod.getPodNumber() + ".pdf"
+            ));
+            
+        } catch (Exception e) {
+            log.error("❌ Error getting file URL: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Failed to get file URL"));
+        }
+    }
+
+    /**
+     * Get POD by ID
+     */
     @GetMapping("/{id}")
     public ResponseEntity<PodResponseDTO> getPodById(@PathVariable Long id) {
-        log.info("Fetching POD by ID: {}", id);
+        log.info("📋 Getting POD by ID: {}", id);
+        
         try {
-            PodResponseDTO response = podService.getPodById(id);
-            return ResponseEntity.ok(response);
+            PodResponseDTO pod = podService.getPodById(id);
+            return ResponseEntity.ok(pod);
         } catch (Exception e) {
-            log.error("Error fetching POD {}: {}", id, e.getMessage(), e);
-            return ResponseEntity.notFound().build();
+            log.error("❌ Error getting POD {}: {}", id, e.getMessage(), e);
+            throw e;
         }
     }
 
+    /**
+     * Get POD by POD number
+     */
     @GetMapping("/number/{podNumber}")
     public ResponseEntity<PodResponseDTO> getPodByNumber(@PathVariable String podNumber) {
-        log.info("Fetching POD by number: {}", podNumber);
+        log.info("📋 Getting POD by number: {}", podNumber);
+        
         try {
-            PodResponseDTO response = podService.getPodByNumber(podNumber);
-            return ResponseEntity.ok(response);
+            PodResponseDTO pod = podService.getPodByNumber(podNumber);
+            return ResponseEntity.ok(pod);
         } catch (Exception e) {
-            log.error("Error fetching POD by number {}: {}", podNumber, e.getMessage(), e);
-            return ResponseEntity.notFound().build();
+            log.error("❌ Error getting POD by number {}: {}", podNumber, e.getMessage(), e);
+            throw e;
         }
     }
 
+    /**
+     * Get PODs by Trip
+     */
     @GetMapping("/trip/{tripId}")
     public ResponseEntity<List<PodResponseDTO>> getPodsByTrip(@PathVariable Long tripId) {
-        log.info("Fetching PODs by trip: {}", tripId);
+        log.info("📋 Getting PODs for trip: {}", tripId);
+        
         try {
-            List<PodResponseDTO> responses = podService.getPodsByTrip(tripId);
-            return ResponseEntity.ok(responses);
+            List<PodResponseDTO> pods = podService.getPodsByTrip(tripId);
+            return ResponseEntity.ok(pods);
         } catch (Exception e) {
-            log.error("Error fetching PODs by trip {}: {}", tripId, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            log.error("❌ Error getting PODs for trip {}: {}", tripId, e.getMessage(), e);
+            throw e;
         }
     }
 
+    /**
+     * Get PODs by Trip with pagination
+     */
     @GetMapping("/trip/{tripId}/page")
     public ResponseEntity<Page<PodResponseDTO>> getPodsByTripPaginated(
             @PathVariable Long tripId,
-            @PageableDefault(size = 10, sort = "deliveryDate", direction = Sort.Direction.DESC) Pageable pageable) {
-        log.info("Fetching paginated PODs by trip: {}", tripId);
+            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        log.info("📋 Getting paginated PODs for trip: {}, page: {}, size: {}", 
+            tripId, pageable.getPageNumber(), pageable.getPageSize());
+        
         try {
-            Page<PodResponseDTO> responses = podService.getPodsByTripPaginated(tripId, pageable);
-            return ResponseEntity.ok(responses);
+            Page<PodResponseDTO> pods = podService.getPodsByTripPaginated(tripId, pageable);
+            return ResponseEntity.ok(pods);
         } catch (Exception e) {
-            log.error("Error fetching paginated PODs by trip {}: {}", tripId, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            log.error("❌ Error getting paginated PODs for trip {}: {}", tripId, e.getMessage(), e);
+            throw e;
         }
     }
 
+    /**
+     * Get all PODs with pagination
+     */
     @GetMapping
     public ResponseEntity<Page<PodResponseDTO>> getAllPods(
-            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        log.info("Received request for all PODs with pageable: {}", pageable);
+            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        log.info("📋 Getting all PODs, page: {}, size: {}", pageable.getPageNumber(), pageable.getPageSize());
+        
         try {
-            Page<PodResponseDTO> result = podService.getAllPods(pageable);
-            log.info("Returning {} PODs from total of {}", result.getNumberOfElements(), result.getTotalElements());
-            return ResponseEntity.ok(result);
+            Page<PodResponseDTO> pods = podService.getAllPods(pageable);
+            return ResponseEntity.ok(pods);
         } catch (Exception e) {
-            log.error("Error in getAllPods: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Page.empty(pageable));
+            log.error("❌ Error getting all PODs: {}", e.getMessage(), e);
+            throw e;
         }
     }
 
-    // ============================================
-    // SEARCH & FILTER PODS
-    // ============================================
-
+    /**
+     * Search PODs
+     */
     @GetMapping("/search")
     public ResponseEntity<Page<PodResponseDTO>> searchPods(
-            @RequestParam String q,
-            @PageableDefault(size = 10) Pageable pageable) {
-        log.info("Searching PODs with query: {}", q);
+            @RequestParam("q") String searchTerm,
+            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        log.info("🔍 Searching PODs for: {}", searchTerm);
+        
         try {
-            Page<PodResponseDTO> results = podService.searchPods(q, pageable);
+            Page<PodResponseDTO> results = podService.searchPods(searchTerm, pageable);
             return ResponseEntity.ok(results);
         } catch (Exception e) {
-            log.error("Error searching PODs: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            log.error("❌ Error searching PODs for '{}': {}", searchTerm, e.getMessage(), e);
+            throw e;
         }
     }
 
+    /**
+     * Get PODs by status
+     */
     @GetMapping("/status/{status}")
     public ResponseEntity<Page<PodResponseDTO>> getPodsByStatus(
             @PathVariable String status,
-            @PageableDefault(size = 10) Pageable pageable) {
-        log.info("Fetching PODs by status: {}", status);
+            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        log.info("📋 Getting PODs by status: {}", status);
+        
         try {
-            Page<PodResponseDTO> results = podService.getPodsByStatus(status, pageable);
-            return ResponseEntity.ok(results);
+            Page<PodResponseDTO> pods = podService.getPodsByStatus(status, pageable);
+            return ResponseEntity.ok(pods);
         } catch (Exception e) {
-            log.error("Error fetching PODs by status {}: {}", status, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            log.error("❌ Error getting PODs by status '{}': {}", status, e.getMessage(), e);
+            throw e;
         }
     }
 
-    // ============================================
-    // STATUS HISTORY
-    // ============================================
+    /**
+     * Update POD
+     */
+    @PutMapping(value = "/{id}", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_JSON_VALUE})
+    public ResponseEntity<PodResponseDTO> updatePod(
+            @PathVariable Long id,
+            @RequestPart(value = "podData", required = false) PodRequestDTO podRequest,
+            @RequestPart(value = "file", required = false) MultipartFile file) {
+        log.info("📝 Updating POD: {}", id);
+        
+        try {
+            PodResponseDTO updatedPod = podService.updatePod(id, podRequest);
+            return ResponseEntity.ok(updatedPod);
+        } catch (Exception e) {
+            log.error("❌ Error updating POD {}: {}", id, e.getMessage(), e);
+            throw e;
+        }
+    }
 
+    /**
+     * Update POD status
+     */
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<PodResponseDTO> updatePodStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> statusUpdate) {
+        log.info("📝 Updating POD status: {} to {}", id, statusUpdate.get("status"));
+        
+        try {
+            String status = statusUpdate.get("status");
+            if (status == null || status.isEmpty()) {
+                return ResponseEntity.badRequest().build();
+            }
+            
+            PodResponseDTO updatedPod = podService.updatePodStatus(id, status);
+            return ResponseEntity.ok(updatedPod);
+        } catch (Exception e) {
+            log.error("❌ Error updating POD status {}: {}", id, e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    /**
+     * Verify POD
+     */
+    @PostMapping("/{id}/verify")
+    public ResponseEntity<PodResponseDTO> verifyPod(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> verifyRequest) {
+        log.info("✅ Verifying POD: {}", id);
+        
+        try {
+            String verifiedBy = verifyRequest.get("verifiedBy");
+            if (verifiedBy == null || verifiedBy.isEmpty()) {
+                verifiedBy = "System";
+            }
+            
+            PodResponseDTO verifiedPod = podService.verifyPod(id, verifiedBy);
+            return ResponseEntity.ok(verifiedPod);
+        } catch (Exception e) {
+            log.error("❌ Error verifying POD {}: {}", id, e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    /**
+     * Reject POD
+     */
+    @PostMapping("/{id}/reject")
+    public ResponseEntity<PodResponseDTO> rejectPod(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> rejectRequest) {
+        log.info("❌ Rejecting POD: {}", id);
+        
+        try {
+            String rejectedBy = rejectRequest.get("rejectedBy");
+            if (rejectedBy == null || rejectedBy.isEmpty()) {
+                rejectedBy = "System";
+            }
+            
+            String reason = rejectRequest.get("reason");
+            PodResponseDTO rejectedPod = podService.rejectPod(id, rejectedBy, reason);
+            return ResponseEntity.ok(rejectedPod);
+        } catch (Exception e) {
+            log.error("❌ Error rejecting POD {}: {}", id, e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    /**
+     * Get POD status history
+     */
     @GetMapping("/{id}/status-history")
     public ResponseEntity<List<StatusHistoryDTO>> getPodStatusHistory(@PathVariable Long id) {
-        log.info("Fetching status history for POD: {}", id);
+        log.info("📋 Getting status history for POD: {}", id);
+        
         try {
             List<StatusHistoryDTO> history = podService.getPodStatusHistory(id);
             return ResponseEntity.ok(history);
         } catch (Exception e) {
-            log.error("Error fetching status history for POD {}: {}", id, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            log.error("❌ Error getting status history for POD {}: {}", id, e.getMessage(), e);
+            throw e;
         }
     }
 
-    // ============================================
-    // DOWNLOAD & VIEW DOCUMENTS
-    // ============================================
-
-    @GetMapping("/{id}/download")
-public ResponseEntity<?> downloadPod(@PathVariable Long id) {
-    try {
-        log.info("📥 Download request for POD ID: {}", id);
-        
-        // Get the POD
-        Pod pod = podService.getPodEntity(id);
-        if (pod == null) {
-            log.warn("❌ POD not found: {}", id);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(Map.of("error", "POD not found"));
-        }
-        
-        String fileUrl = pod.getFileUrl();
-        if (fileUrl == null || fileUrl.isEmpty()) {
-            log.warn("❌ No file URL for POD: {}", id);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(Map.of("error", "No file associated with this POD"));
-        }
-        
-        log.info("📥 File URL: {}", fileUrl);
-        
-        try {
-            // Download from Supabase
-            byte[] fileData = storageService.downloadFile(fileUrl);
-            
-            if (fileData == null || fileData.length == 0) {
-                log.warn("❌ File data is empty for POD: {}", id);
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "File data is empty"));
-            }
-            
-            log.info("✅ File size: {} bytes", fileData.length);
-            
-            String fileName = pod.getFileName() != null ? pod.getFileName() : pod.getPodNumber() + ".pdf";
-            String contentType = getContentType(pod.getDocumentType());
-            
-            // Return the actual file
-            return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, 
-                    "attachment; filename=\"" + fileName + "\"")
-                .header(HttpHeaders.CONTENT_TYPE, contentType)
-                .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(fileData.length))
-                .body(fileData);
-                
-        } catch (Exception e) {
-            log.error("❌ Error downloading file from storage: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Failed to download file: " + e.getMessage()));
-        }
-        
-    } catch (Exception e) {
-        log.error("❌ Error in download endpoint: {}", e.getMessage(), e);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(Map.of("error", "Download failed: " + e.getMessage()));
-    }
-}
-
-private String getContentType(String documentType) {
-    if (documentType == null) return "application/pdf";
-    return switch (documentType.toLowerCase()) {
-        case "pdf" -> "application/pdf";
-        case "jpg", "jpeg" -> "image/jpeg";
-        case "png" -> "image/png";
-        case "doc" -> "application/msword";
-        case "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-        default -> "application/octet-stream";
-    };
-}
-
-    @GetMapping("/{id}/view")
-    public ResponseEntity<?> viewPodDocument(@PathVariable Long id) {
-        log.info("Viewing POD document: {}", id);
-        try {
-            String fileUrl = podService.getPodFileUrl(id);
-            if (fileUrl == null || fileUrl.isEmpty()) {
-                log.warn("No file URL found for POD: {}", id);
-                return ResponseEntity.notFound().build();
-            }
-            return ResponseEntity.ok(fileUrl);
-        } catch (Exception e) {
-            log.error("Error viewing POD document {}: {}", id, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to view document: " + e.getMessage());
-        }
-    }
-
-    // ============================================
-    // UPDATE POD
-    // ============================================
-
-    @PutMapping("/{id}")
-    public ResponseEntity<PodResponseDTO> updatePod(
-            @PathVariable Long id,
-            @Valid @RequestBody PodRequestDTO request) {
-        log.info("Updating POD: {}", id);
-        try {
-            PodResponseDTO response = podService.updatePod(id, request);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("Error updating POD {}: {}", id, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    @PatchMapping("/{id}/status")
-    public ResponseEntity<PodResponseDTO> updatePodStatus(
-            @PathVariable Long id,
-            @RequestParam String status) {
-        log.info("Updating POD {} status to: {}", id, status);
-        try {
-            PodResponseDTO response = podService.updatePodStatus(id, status);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("Error updating POD {} status: {}", id, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    // ============================================
-    // VERIFY & REJECT POD
-    // ============================================
-
-    @PostMapping("/{id}/verify")
-    public ResponseEntity<PodResponseDTO> verifyPod(
-            @PathVariable Long id,
-            @RequestParam String verifiedBy) {
-        log.info("Verifying POD {} by: {}", id, verifiedBy);
-        try {
-            PodResponseDTO response = podService.verifyPod(id, verifiedBy);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("Error verifying POD {}: {}", id, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    @PostMapping("/{id}/reject")
-    public ResponseEntity<PodResponseDTO> rejectPod(
-            @PathVariable Long id,
-            @RequestParam String rejectedBy,
-            @RequestParam String reason) {
-        log.info("Rejecting POD {} by: {}, reason: {}", id, rejectedBy, reason);
-        try {
-            PodResponseDTO response = podService.rejectPod(id, rejectedBy, reason);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("Error rejecting POD {}: {}", id, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    // ============================================
-    // DELETE POD
-    // ============================================
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletePod(@PathVariable Long id) {
-        log.info("Deleting POD: {}", id);
-        try {
-            podService.deletePod(id);
-            return ResponseEntity.noContent().build();
-        } catch (Exception e) {
-            log.error("Error deleting POD {}: {}", id, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    // ============================================
-    // STATISTICS
-    // ============================================
-
+    /**
+     * Get POD statistics
+     */
     @GetMapping("/statistics")
     public ResponseEntity<PodStatistics> getPodStatistics() {
-        log.info("Fetching POD statistics");
+        log.info("📊 Getting POD statistics");
+        
         try {
             PodStatistics statistics = podService.getPodStatistics();
             return ResponseEntity.ok(statistics);
         } catch (Exception e) {
-            log.error("Error fetching POD statistics: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            log.error("❌ Error getting POD statistics: {}", e.getMessage(), e);
+            throw e;
         }
+    }
+
+    /**
+     * Delete POD
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deletePod(@PathVariable Long id) {
+        log.info("🗑️ Deleting POD: {}", id);
+        
+        try {
+            podService.deletePod(id);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            log.error("❌ Error deleting POD {}: {}", id, e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    /**
+     * Fix missing files - Mark all PODs without files
+     */
+    @PostMapping("/fix-missing-files")
+    public ResponseEntity<Map<String, Object>> fixMissingFiles() {
+        log.info("🔧 Starting batch fix for PODs without files");
+        
+        try {
+            int count = podService.fixMissingFiles();
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Fixed " + count + " PODs",
+                "count", count
+            ));
+        } catch (Exception e) {
+            log.error("❌ Failed to fix missing files: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of(
+                    "success", false,
+                    "message", "Failed: " + e.getMessage()
+                ));
+        }
+    }
+
+    /**
+     * Get content type from document type
+     */
+    private String getContentType(String documentType) {
+        if (documentType == null) return "application/pdf";
+        return switch (documentType.toLowerCase()) {
+            case "pdf" -> "application/pdf";
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "png" -> "image/png";
+            case "gif" -> "image/gif";
+            case "doc" -> "application/msword";
+            case "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            default -> "application/octet-stream";
+        };
+    }
+
+    /**
+     * Validate file type
+     */
+    private boolean isValidFileType(String contentType) {
+        if (contentType == null) return false;
+        
+        List<String> validTypes = Arrays.asList(
+            "application/pdf",
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/gif",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        );
+        
+        return validTypes.stream().anyMatch(contentType::equalsIgnoreCase);
+    }
+
+    /**
+     * Health check endpoint
+     */
+    @GetMapping("/health")
+    public ResponseEntity<Map<String, String>> healthCheck() {
+        return ResponseEntity.ok(Map.of(
+            "status", "UP",
+            "service", "POD Service"
+        ));
     }
 }
