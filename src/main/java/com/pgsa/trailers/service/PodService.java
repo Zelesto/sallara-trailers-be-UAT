@@ -44,41 +44,52 @@ public class PodService {
      * Create a new POD
      */
     public PodResponseDTO createPod(PodRequestDTO request, MultipartFile file) {
-        log.info("Creating POD with request: {}", request);
-        
-        Pod pod = Pod.builder()
-                .tripId(request.getTripId())
-                .customerName(request.getCustomerName())
-                .deliveryDate(request.getDeliveryDate())
-                .status(request.getStatus() != null ? request.getStatus() : "PENDING")
-                .documentType("PDF") // Always store as PDF after conversion
-                .notes(request.getNotes())
-                .uploadedBy(request.getUploadedBy() != null ? request.getUploadedBy() : "System")
-                .uploadedAt(LocalDateTime.now())
-                .source("UPLOADED")
-                .build();
-        
-        Pod savedPod = podRepository.save(pod);
-        
-        if (file != null && !file.isEmpty()) {
-            try {
-                // Upload and convert file
-                String fileUrl = storageService.uploadAndConvertFile(file, savedPod.getPodNumber(), conversionService);
-                savedPod.setFileUrl(fileUrl);
-                savedPod.setFileName(savedPod.getPodNumber() + ".pdf"); // Always store as PDF
-                savedPod.setFileSize(formatFileSize(file.getSize()));
-                savedPod.setDocumentType("PDF");
-                savedPod = podRepository.save(savedPod);
-                log.info("File uploaded and converted for POD: {}", savedPod.getPodNumber());
-            } catch (Exception e) {
-                log.error("Failed to upload file for POD: {}", savedPod.getPodNumber(), e);
-                // Continue without file - POD is already created
-            }
-        }
-        
-        log.info("POD created with ID: {}", savedPod.getId());
-        return mapToResponse(savedPod);
+    log.info("Creating POD with request: {}", request);
+    
+    // Validate file is present
+    if (file == null || file.isEmpty()) {
+        throw new RuntimeException("File is required to create a POD");
     }
+    
+    // Validate file type
+    String contentType = file.getContentType();
+    if (!isValidFileType(contentType)) {
+        throw new RuntimeException("Invalid file type. Supported types: PDF, JPG, PNG, DOC, DOCX");
+    }
+    
+    Pod pod = Pod.builder()
+            .tripId(request.getTripId())
+            .customerName(request.getCustomerName())
+            .deliveryDate(request.getDeliveryDate())
+            .status(request.getStatus() != null ? request.getStatus() : "PENDING")
+            .documentType("PDF")
+            .notes(request.getNotes())
+            .uploadedBy(request.getUploadedBy() != null ? request.getUploadedBy() : "System")
+            .uploadedAt(LocalDateTime.now())
+            .source("UPLOADED")
+            .build();
+    
+    Pod savedPod = podRepository.save(pod);
+    
+    try {
+        // Upload and convert file - THIS MUST SUCCEED
+        String fileUrl = storageService.uploadAndConvertFile(file, savedPod.getPodNumber(), conversionService);
+        savedPod.setFileUrl(fileUrl);
+        savedPod.setFileName(savedPod.getPodNumber() + ".pdf");
+        savedPod.setFileSize(formatFileSize(file.getSize()));
+        savedPod.setDocumentType("PDF");
+        savedPod = podRepository.save(savedPod);
+        log.info("File uploaded and converted for POD: {}", savedPod.getPodNumber());
+    } catch (Exception e) {
+        log.error("Failed to upload file for POD: {}", savedPod.getPodNumber(), e);
+        // Delete the POD since file upload failed
+        podRepository.deleteById(savedPod.getId());
+        throw new RuntimeException("Failed to upload file: " + e.getMessage(), e);
+    }
+    
+    log.info("POD created with ID: {}", savedPod.getId());
+    return mapToResponse(savedPod);
+}
 
     /**
      * Scan a new POD from driver
