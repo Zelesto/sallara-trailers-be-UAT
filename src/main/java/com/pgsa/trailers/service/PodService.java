@@ -703,7 +703,7 @@ public class PodService {
     }
 
     /**
-     * Get all PODs with pagination - FIXED VERSION
+     * Get all PODs with pagination - FIXED VERSION with transaction handling
      */
     public Page<PodResponseDTO> getAllPods(Pageable pageable) {
         log.info("Fetching all PODs with pageable: {}", pageable);
@@ -725,7 +725,7 @@ public class PodService {
                     }
                 } catch (Exception e) {
                     log.error("Error mapping POD {}: {}", pod.getId(), e.getMessage(), e);
-                    // Continue with next pod
+                    // Continue with next pod - don't throw
                 }
             }
             
@@ -927,7 +927,7 @@ public class PodService {
                     .debriefedBy(pod.getDebriefedBy())
                     .receivedBy(pod.getReceivedBy())
                     .qualityRating(pod.getQualityRating())
-                    .issuesFound(pod.getIssuesFound())  // Direct String assignment
+                    .issuesFound(pod.getIssuesFound())
                     .deliveryCondition(pod.getDeliveryCondition())
                     .debriefNotes(pod.getDebriefNotes())
                     .additionalInfo(pod.getAdditionalInfo())
@@ -939,6 +939,7 @@ public class PodService {
                     
         } catch (Exception e) {
             log.error("Error in mapToResponseSafe for pod {}: {}", pod.getId(), e.getMessage(), e);
+            // Return minimal DTO instead of throwing to prevent transaction rollback
             return PodResponseDTO.builder()
                     .id(pod.getId())
                     .podNumber(pod.getPodNumber() != null ? pod.getPodNumber() : "N/A")
