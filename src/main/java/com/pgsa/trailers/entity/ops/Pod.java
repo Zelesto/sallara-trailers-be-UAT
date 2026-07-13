@@ -31,8 +31,7 @@ public class Pod {
     @Column(name = "trip_id")
     private Long tripId;
 
-    @Column(name = "trip_number")
-    private String tripNumber;
+   
 
     @Column(name = "customer_name")
     private String customerName;
