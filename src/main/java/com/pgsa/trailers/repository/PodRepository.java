@@ -47,6 +47,11 @@ public interface PodRepository extends JpaRepository<Pod, Long> {
     long countBySource(String source);
 
     /**
+     * Count PODs by trip ID - This is the missing method!
+     */
+    long countByTripId(Long tripId);
+
+    /**
      * Search PODs by pod number, customer name, or trip number
      */
     @Query("SELECT p FROM Pod p WHERE " +
@@ -70,7 +75,6 @@ public interface PodRepository extends JpaRepository<Pod, Long> {
 
     /**
      * Find PODs with null or empty file URL
-     * This is the method that was missing
      */
     @Query("SELECT p FROM Pod p WHERE p.fileUrl IS NULL OR p.fileUrl = ''")
     List<Pod> findByFileUrlIsNullOrFileUrlIsEmpty();
@@ -189,4 +193,67 @@ public interface PodRepository extends JpaRepository<Pod, Long> {
      */
     @Query("SELECT p FROM Pod p WHERE p.createdAt >= :since ORDER BY p.createdAt DESC")
     List<Pod> findRecentPods(@Param("since") LocalDateTime since, Pageable pageable);
+
+    /**
+     * Check if PODs exist for a trip
+     */
+    boolean existsByTripId(Long tripId);
+
+    /**
+     * Delete all PODs for a trip
+     */
+    void deleteByTripId(Long tripId);
+
+    /**
+     * Find PODs by trip ID and status
+     */
+    @Query("SELECT p FROM Pod p WHERE p.tripId = :tripId AND p.status = :status")
+    List<Pod> findByTripIdAndStatus(@Param("tripId") Long tripId, @Param("status") String status);
+
+    /**
+     * Count PODs by trip ID and status
+     */
+    long countByTripIdAndStatus(Long tripId, String status);
+
+    /**
+     * Find PODs with debrief data
+     */
+    @Query("SELECT p FROM Pod p WHERE p.debriefedAt IS NOT NULL AND p.tripId = :tripId")
+    List<Pod> findDebriefedByTripId(@Param("tripId") Long tripId);
+
+    /**
+     * Find PODs without debrief data
+     */
+    @Query("SELECT p FROM Pod p WHERE p.debriefedAt IS NULL AND p.tripId = :tripId")
+    List<Pod> findNotDebriefedByTripId(@Param("tripId") Long tripId);
+
+    /**
+     * Get the latest POD for a trip
+     */
+    @Query("SELECT p FROM Pod p WHERE p.tripId = :tripId ORDER BY p.createdAt DESC")
+    Optional<Pod> findLatestByTripId(@Param("tripId") Long tripId, Pageable pageable);
+
+    /**
+     * Count total PODs with file URLs
+     */
+    @Query("SELECT COUNT(p) FROM Pod p WHERE p.fileUrl IS NOT NULL AND p.fileUrl != ''")
+    long countPodsWithFiles();
+
+    /**
+     * Count total PODs without file URLs
+     */
+    @Query("SELECT COUNT(p) FROM Pod p WHERE p.fileUrl IS NULL OR p.fileUrl = ''")
+    long countPodsWithoutFiles();
+
+    /**
+     * Find PODs by multiple trip IDs
+     */
+    @Query("SELECT p FROM Pod p WHERE p.tripId IN :tripIds")
+    List<Pod> findByTripIdIn(@Param("tripIds") List<Long> tripIds);
+
+    /**
+     * Count PODs by trip IDs
+     */
+    @Query("SELECT p.tripId, COUNT(p) FROM Pod p WHERE p.tripId IN :tripIds GROUP BY p.tripId")
+    List<Object[]> countByTripIdIn(@Param("tripIds") List<Long> tripIds);
 }
