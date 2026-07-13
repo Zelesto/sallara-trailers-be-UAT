@@ -22,6 +22,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -41,126 +42,97 @@ public class PodService {
     private final String uploadDir = "uploads/pods/";
 
     /**
+     * Validate file type
+     */
+    private boolean isValidFileType(String contentType) {
+        if (contentType == null) return false;
+        
+        List<String> validTypes = Arrays.asList(
+            "application/pdf",
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/gif",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        );
+        
+        return validTypes.stream().anyMatch(contentType::equalsIgnoreCase);
+    }
+
+    /**
+     * Validate file size (max 10MB)
+     */
+    private boolean isValidFileSize(MultipartFile file) {
+        return file.getSize() <= 10 * 1024 * 1024; // 10MB
+    }
+
+    /**
      * Create a new POD
      */
     public PodResponseDTO createPod(PodRequestDTO request, MultipartFile file) {
-    log.info("Creating POD with request: {}", request);
-    
-    // Validate file is present
-    if (file == null || file.isEmpty()) {
-        throw new RuntimeException("File is required to create a POD");
-    }
-    
-    // Validate file type
-    String contentType = file.getContentType();
-    if (!isValidFileType(contentType)) {
-        throw new RuntimeException("Invalid file type. Supported types: PDF, JPG, PNG, DOC, DOCX");
-    }
-    
-    Pod pod = Pod.builder()
-            .tripId(request.getTripId())
-            .customerName(request.getCustomerName())
-            .deliveryDate(request.getDeliveryDate())
-            .status(request.getStatus() != null ? request.getStatus() : "PENDING")
-            .documentType("PDF")
-            .notes(request.getNotes())
-            .uploadedBy(request.getUploadedBy() != null ? request.getUploadedBy() : "System")
-            .uploadedAt(LocalDateTime.now())
-            .source("UPLOADED")
-            .build();
-    
-    Pod savedPod = podRepository.save(pod);
-    
-    try {
-        // Upload and convert file - THIS MUST SUCCEED
-        String fileUrl = storageService.uploadAndConvertFile(file, savedPod.getPodNumber(), conversionService);
-        savedPod.setFileUrl(fileUrl);
-        savedPod.setFileName(savedPod.getPodNumber() + ".pdf");
-        savedPod.setFileSize(formatFileSize(file.getSize()));
-        savedPod.setDocumentType("PDF");
-        savedPod = podRepository.save(savedPod);
-        log.info("File uploaded and converted for POD: {}", savedPod.getPodNumber());
-    } catch (Exception e) {
-        log.error("Failed to upload file for POD: {}", savedPod.getPodNumber(), e);
-        // Delete the POD since file upload failed
-        podRepository.deleteById(savedPod.getId());
-        throw new RuntimeException("Failed to upload file: " + e.getMessage(), e);
-    }
-    
-    log.info("POD created with ID: {}", savedPod.getId());
-    return mapToResponse(savedPod);
-}
-
-    // Add to PodService.java
-
-/**
- * Re-upload file for existing POD
- */
-public PodResponseDTO reuploadFile(Long id, MultipartFile file) {
-    log.info("========================================");
-    log.info("📤 Re-uploading file for POD ID: {}", id);
-    log.info("========================================");
-    
-    Pod pod = podRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
-    
-    log.info("POD Details - Number: {}, Current Status: {}, File URL: {}", 
-        pod.getPodNumber(), pod.getStatus(), pod.getFileUrl());
-    
-    if (file == null || file.isEmpty()) {
-        log.error("❌ File is null or empty");
-        throw new RuntimeException("File is required");
-    }
-    
-    log.info("File Details - Name: {}, Size: {} bytes, Type: {}", 
-        file.getOriginalFilename(), file.getSize(), file.getContentType());
-    
-    try {
-        // Delete old file if exists
-        if (pod.getFileUrl() != null && !pod.getFileUrl().isEmpty()) {
-            log.info("Deleting old file: {}", pod.getFileUrl());
-            try {
-                storageService.deleteFile(pod.getFileUrl());
-                log.info("✅ Old file deleted successfully");
-            } catch (Exception e) {
-                log.warn("⚠️ Failed to delete old file: {}", e.getMessage());
-                // Continue with upload
+        log.info("Creating POD with request: {}", request);
+        log.info("File present: {}, File name: {}, File size: {}", 
+            file != null, file != null ? file.getOriginalFilename() : "null", 
+            file != null ? file.getSize() : 0);
+        
+        // Create POD first
+        Pod pod = Pod.builder()
+                .tripId(request.getTripId())
+                .customerName(request.getCustomerName())
+                .deliveryDate(request.getDeliveryDate())
+                .status("UPLOADING")
+                .documentType("PDF")
+                .notes(request.getNotes())
+                .uploadedBy(request.getUploadedBy() != null ? request.getUploadedBy() : "System")
+                .uploadedAt(LocalDateTime.now())
+                .source("UPLOADED")
+                .build();
+        
+        Pod savedPod = podRepository.save(pod);
+        
+        // Handle file upload
+        if (file == null || file.isEmpty()) {
+            log.warn("No file provided for POD: {}", savedPod.getPodNumber());
+            savedPod.setStatus("MISSING_FILE");
+            savedPod.setNotes((savedPod.getNotes() != null ? savedPod.getNotes() + " " : "") + 
+                "WARNING: No file uploaded");
+            savedPod = podRepository.save(savedPod);
+            return mapToResponse(savedPod);
+        }
+        
+        try {
+            log.info("Attempting to upload file for POD: {}, File: {}", savedPod.getPodNumber(), file.getOriginalFilename());
+            
+            String fileUrl = storageService.uploadAndConvertFile(file, savedPod.getPodNumber(), conversionService);
+            
+            if (fileUrl != null && !fileUrl.isEmpty()) {
+                savedPod.setFileUrl(fileUrl);
+                savedPod.setFileName(savedPod.getPodNumber() + ".pdf");
+                savedPod.setFileSize(formatFileSize(file.getSize()));
+                savedPod.setDocumentType("PDF");
+                savedPod.setStatus(request.getStatus() != null ? request.getStatus() : "PENDING");
+                savedPod = podRepository.save(savedPod);
+                log.info("✅ File uploaded successfully for POD: {}", savedPod.getPodNumber());
+            } else {
+                log.error("❌ File upload returned null URL for POD: {}", savedPod.getPodNumber());
+                savedPod.setStatus("UPLOAD_FAILED");
+                savedPod.setNotes((savedPod.getNotes() != null ? savedPod.getNotes() + " " : "") + 
+                    "ERROR: File upload failed - no URL returned");
+                savedPod = podRepository.save(savedPod);
             }
+            
+        } catch (Exception e) {
+            log.error("❌ Exception during file upload for POD: {}", savedPod.getPodNumber(), e);
+            savedPod.setStatus("UPLOAD_FAILED");
+            savedPod.setNotes((savedPod.getNotes() != null ? savedPod.getNotes() + " " : "") + 
+                "ERROR: " + e.getMessage());
+            savedPod = podRepository.save(savedPod);
         }
         
-        // Upload new file
-        log.info("📤 Uploading new file...");
-        String fileUrl = storageService.uploadAndConvertFile(file, pod.getPodNumber(), conversionService);
-        
-        if (fileUrl == null || fileUrl.isEmpty()) {
-            log.error("❌ File upload returned null URL");
-            throw new RuntimeException("File upload failed - no URL returned");
-        }
-        
-        log.info("✅ File uploaded successfully: {}", fileUrl);
-        
-        // Update POD with new file info
-        pod.setFileUrl(fileUrl);
-        pod.setFileName(pod.getPodNumber() + ".pdf");
-        pod.setFileSize(formatFileSize(file.getSize()));
-        pod.setDocumentType("PDF");
-        pod.setStatus("PENDING"); // Reset status
-        pod.setUpdatedAt(LocalDateTime.now());
-        pod.setUpdatedBy("System");
-        pod.setNotes((pod.getNotes() != null ? pod.getNotes() + " " : "") + 
-            "File re-uploaded on " + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-        
-        Pod updatedPod = podRepository.save(pod);
-        log.info("✅ POD {} updated successfully with new file", pod.getPodNumber());
-        log.info("========================================");
-        
-        return mapToResponse(updatedPod);
-        
-    } catch (Exception e) {
-        log.error("❌ Failed to re-upload file for POD: {}", pod.getPodNumber(), e);
-        throw new RuntimeException("Failed to upload file: " + e.getMessage(), e);
+        log.info("POD created with ID: {}, Status: {}", savedPod.getId(), savedPod.getStatus());
+        return mapToResponse(savedPod);
     }
-}
 
     /**
      * Scan a new POD from driver
@@ -188,30 +160,108 @@ public PodResponseDTO reuploadFile(Long id, MultipartFile file) {
                 .source("SCANNED")
                 .uploadedBy("Driver")
                 .uploadedAt(LocalDateTime.now())
-                .documentType("PDF") // Default to PDF
+                .documentType("PDF")
                 .build();
 
-        // Save to get pod number
         Pod savedPod = podRepository.save(pod);
 
         // Upload and convert file
         if (file != null && !file.isEmpty()) {
             try {
                 String fileUrl = storageService.uploadAndConvertFile(file, savedPod.getPodNumber(), conversionService);
-                savedPod.setFileUrl(fileUrl);
-                savedPod.setFileName(savedPod.getPodNumber() + ".pdf");
-                savedPod.setFileSize(formatFileSize(file.getSize()));
-                savedPod.setDocumentType("PDF");
-                savedPod = podRepository.save(savedPod);
-                log.info("Scanned file uploaded and converted for POD: {}", savedPod.getPodNumber());
+                if (fileUrl != null && !fileUrl.isEmpty()) {
+                    savedPod.setFileUrl(fileUrl);
+                    savedPod.setFileName(savedPod.getPodNumber() + ".pdf");
+                    savedPod.setFileSize(formatFileSize(file.getSize()));
+                    savedPod.setDocumentType("PDF");
+                    savedPod = podRepository.save(savedPod);
+                    log.info("Scanned file uploaded and converted for POD: {}", savedPod.getPodNumber());
+                } else {
+                    log.error("File upload returned null URL for scanned POD: {}", savedPod.getPodNumber());
+                    savedPod.setStatus("UPLOAD_FAILED");
+                    savedPod = podRepository.save(savedPod);
+                }
             } catch (Exception e) {
                 log.error("Failed to upload scanned file for POD: {}", savedPod.getPodNumber(), e);
-                // Continue without file - POD is already created
+                savedPod.setStatus("UPLOAD_FAILED");
+                savedPod = podRepository.save(savedPod);
             }
+        } else {
+            log.warn("No file provided for scanned POD: {}", savedPod.getPodNumber());
+            savedPod.setStatus("MISSING_FILE");
+            savedPod = podRepository.save(savedPod);
         }
 
         log.info("POD scanned from driver with ID: {}", savedPod.getId());
         return mapToResponse(savedPod);
+    }
+
+    /**
+     * Re-upload file for existing POD
+     */
+    public PodResponseDTO reuploadFile(Long id, MultipartFile file) {
+        log.info("========================================");
+        log.info("📤 Re-uploading file for POD ID: {}", id);
+        log.info("========================================");
+        
+        Pod pod = podRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
+        
+        log.info("POD Details - Number: {}, Current Status: {}, File URL: {}", 
+            pod.getPodNumber(), pod.getStatus(), pod.getFileUrl());
+        
+        if (file == null || file.isEmpty()) {
+            log.error("❌ File is null or empty");
+            throw new RuntimeException("File is required");
+        }
+        
+        log.info("File Details - Name: {}, Size: {} bytes, Type: {}", 
+            file.getOriginalFilename(), file.getSize(), file.getContentType());
+        
+        try {
+            // Delete old file if exists
+            if (pod.getFileUrl() != null && !pod.getFileUrl().isEmpty()) {
+                log.info("Deleting old file: {}", pod.getFileUrl());
+                try {
+                    storageService.deleteFile(pod.getFileUrl());
+                    log.info("✅ Old file deleted successfully");
+                } catch (Exception e) {
+                    log.warn("⚠️ Failed to delete old file: {}", e.getMessage());
+                }
+            }
+            
+            // Upload new file
+            log.info("📤 Uploading new file...");
+            String fileUrl = storageService.uploadAndConvertFile(file, pod.getPodNumber(), conversionService);
+            
+            if (fileUrl == null || fileUrl.isEmpty()) {
+                log.error("❌ File upload returned null URL");
+                throw new RuntimeException("File upload failed - no URL returned");
+            }
+            
+            log.info("✅ File uploaded successfully: {}", fileUrl);
+            
+            // Update POD with new file info
+            pod.setFileUrl(fileUrl);
+            pod.setFileName(pod.getPodNumber() + ".pdf");
+            pod.setFileSize(formatFileSize(file.getSize()));
+            pod.setDocumentType("PDF");
+            pod.setStatus("PENDING");
+            pod.setUpdatedAt(LocalDateTime.now());
+            pod.setUpdatedBy("System");
+            pod.setNotes((pod.getNotes() != null ? pod.getNotes() + " " : "") + 
+                "File re-uploaded on " + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+            
+            Pod updatedPod = podRepository.save(pod);
+            log.info("✅ POD {} updated successfully with new file", pod.getPodNumber());
+            log.info("========================================");
+            
+            return mapToResponse(updatedPod);
+            
+        } catch (Exception e) {
+            log.error("❌ Failed to re-upload file for POD: {}", pod.getPodNumber(), e);
+            throw new RuntimeException("Failed to upload file: " + e.getMessage(), e);
+        }
     }
 
     /**
@@ -633,7 +683,6 @@ public PodResponseDTO reuploadFile(Long id, MultipartFile file) {
                     .debriefedBy(pod.getDebriefedBy())
                     .receivedBy(pod.getReceivedBy())
                     .qualityRating(pod.getQualityRating())
-                    //.issuesFound(pod.getIssuesFound())
                     .deliveryCondition(pod.getDeliveryCondition())
                     .debriefNotes(pod.getDebriefNotes())
                     .additionalInfo(pod.getAdditionalInfo())
