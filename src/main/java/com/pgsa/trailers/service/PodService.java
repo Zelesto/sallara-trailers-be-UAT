@@ -463,58 +463,58 @@ public class PodService {
     }
 
     /**
-     * Debrief a POD with default values and current user tracking
-     */
-    public PodResponseDTO debriefPod(Long id, DebriefRequestDTO debriefRequest) {
-        log.info("Debriefing POD: {}", id);
-        
-        String currentUser = getCurrentUsername();
-        
-        Pod pod = podRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
+ * Debrief a POD with default values and current user tracking
+ */
+public PodResponseDTO debriefPod(Long id, DebriefRequestDTO debriefRequest) {
+    log.info("Debriefing POD: {}", id);
+    
+    String currentUser = getCurrentUsername();
+    
+    Pod pod = podRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
 
-        // Set status with default if not provided
-        pod.setStatus(debriefRequest.getStatus() != null ? debriefRequest.getStatus() : "DELIVERED");
-        
-        // Set notes with default if not provided
-        pod.setNotes(debriefRequest.getNotes() != null ? debriefRequest.getNotes() : pod.getNotes());
-        
-        // Set received by with default if not provided
-        pod.setReceivedBy(debriefRequest.getReceivedBy() != null ? debriefRequest.getReceivedBy() : currentUser);
-        
-        // Set quality rating with default
-        pod.setQualityRating(debriefRequest.getQualityRating() != null ? debriefRequest.getQualityRating() : 3);
-        
-        // Set issues found
-        if (debriefRequest.getIssuesFound() != null && !debriefRequest.getIssuesFound().isEmpty()) {
-            pod.setIssuesFound(String.join(", ", debriefRequest.getIssuesFound()));
-        } else {
-            pod.setIssuesFound("None");
-        }
-        
-        // Set additional info with default
-        pod.setAdditionalInfo(debriefRequest.getAdditionalInfo() != null ? debriefRequest.getAdditionalInfo() : "N/A");
-        
-        // Set delivery condition with default
-        pod.setDeliveryCondition(debriefRequest.getDeliveryCondition() != null ? 
-            debriefRequest.getDeliveryCondition() : "Good");
-        
-        // Set debrief notes with default "No Endorsements"
-        pod.setDebriefNotes(debriefRequest.getDebriefNotes() != null && !debriefRequest.getDebriefNotes().isEmpty() ? 
-            debriefRequest.getDebriefNotes() : "No Endorsements");
-        
-        // Set debriefed by to current user
-        pod.setDebriefedBy(currentUser);
-        pod.setDebriefedAt(LocalDateTime.now());
-        
-        // Set updated by to current user
-        pod.setUpdatedBy(currentUser);
-        pod.setUpdatedAt(LocalDateTime.now());
-
-        Pod updatedPod = podRepository.save(pod);
-        log.info("POD {} debriefed with status: {} by: {}", id, pod.getStatus(), currentUser);
-        return mapToResponse(updatedPod);
+    // Set status with default if not provided
+    pod.setStatus(debriefRequest.getStatus() != null ? debriefRequest.getStatus() : "DELIVERED");
+    
+    // Set notes with default if not provided
+    pod.setNotes(debriefRequest.getNotes() != null ? debriefRequest.getNotes() : pod.getNotes());
+    
+    // Set received by with default if not provided
+    pod.setReceivedBy(debriefRequest.getReceivedBy() != null ? debriefRequest.getReceivedBy() : currentUser);
+    
+    // Set quality rating with default
+    pod.setQualityRating(debriefRequest.getQualityRating() != null ? debriefRequest.getQualityRating() : 3);
+    
+    // Set issues found - Convert List<String> to comma-separated String
+    if (debriefRequest.getIssuesFound() != null && !debriefRequest.getIssuesFound().isEmpty()) {
+        pod.setIssuesFound(String.join(", ", debriefRequest.getIssuesFound()));
+    } else {
+        pod.setIssuesFound("None");
     }
+    
+    // Set additional info with default
+    pod.setAdditionalInfo(debriefRequest.getAdditionalInfo() != null ? debriefRequest.getAdditionalInfo() : "N/A");
+    
+    // Set delivery condition with default
+    pod.setDeliveryCondition(debriefRequest.getDeliveryCondition() != null ? 
+        debriefRequest.getDeliveryCondition() : "Good");
+    
+    // Set debrief notes with default "No Endorsements"
+    pod.setDebriefNotes(debriefRequest.getDebriefNotes() != null && !debriefRequest.getDebriefNotes().isEmpty() ? 
+        debriefRequest.getDebriefNotes() : "No Endorsements");
+    
+    // Set debriefed by to current user
+    pod.setDebriefedBy(currentUser);
+    pod.setDebriefedAt(LocalDateTime.now());
+    
+    // Set updated by to current user
+    pod.setUpdatedBy(currentUser);
+    pod.setUpdatedAt(LocalDateTime.now());
+
+    Pod updatedPod = podRepository.save(pod);
+    log.info("POD {} debriefed with status: {} by: {}", id, pod.getStatus(), currentUser);
+    return mapToResponse(updatedPod);
+}
 
     /**
      * Get POD status history
