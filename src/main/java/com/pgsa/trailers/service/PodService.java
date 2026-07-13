@@ -706,31 +706,39 @@ public class PodService {
      * Get all PODs with pagination
      */
     public Page<PodResponseDTO> getAllPods(Pageable pageable) {
-        log.info("Fetching all PODs with pageable: {}", pageable);
-        try {
-            Page<Pod> podPage = podRepository.findAll(pageable);
-            log.info("Found {} PODs total, {} in this page", podPage.getTotalElements(), podPage.getNumberOfElements());
-            
-            if (podPage.isEmpty()) {
-                return Page.empty(pageable);
-            }
-            
-            // Map each pod safely
-            List<PodResponseDTO> dtos = new ArrayList<>();
-            for (Pod pod : podPage.getContent()) {
+    log.info("Fetching all PODs with pageable: {}", pageable);
+    try {
+        Page<Pod> podPage = podRepository.findAll(pageable);
+        log.info("Found {} PODs total, {} in this page", podPage.getTotalElements(), podPage.getNumberOfElements());
+        
+        if (podPage.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        
+        // Map each pod safely with try-catch for each item
+        List<PodResponseDTO> dtos = new ArrayList<>();
+        for (Pod pod : podPage.getContent()) {
+            try {
                 PodResponseDTO dto = mapToResponseSafe(pod);
                 if (dto != null) {
                     dtos.add(dto);
+                } else {
+                    log.warn("Failed to map POD {} to DTO, skipping", pod.getId());
                 }
+            } catch (Exception e) {
+                log.error("Error mapping POD {}: {}", pod.getId(), e.getMessage(), e);
+                // Continue with next pod
             }
-            
-            return new PageImpl<>(dtos, pageable, podPage.getTotalElements());
-            
-        } catch (Exception e) {
-            log.error("Error fetching PODs: {}", e.getMessage(), e);
-            return Page.empty(pageable);
         }
+        
+        return new PageImpl<>(dtos, pageable, podPage.getTotalElements());
+        
+    } catch (Exception e) {
+        log.error("Error fetching PODs: {}", e.getMessage(), e);
+        // Return empty page instead of throwing
+        return Page.empty(pageable);
     }
+}
 
     /**
      * Search PODs
@@ -887,82 +895,99 @@ public class PodService {
     /**
      * Convert issuesFound from String to List<String>
      */
-    private List<String> convertIssuesToList(String issuesFound) {
-        if (issuesFound == null || issuesFound.isEmpty() || issuesFound.equals("None") || issuesFound.equals("N/A")) {
-            return null;
-        }
-        
-        // If it contains commas, split it
-        if (issuesFound.contains(",")) {
-            return Arrays.stream(issuesFound.split("\\s*,\\s*"))
-                    .filter(s -> !s.isEmpty() && !s.equals("None") && !s.equals("N/A"))
-                    .collect(Collectors.toList());
-        }
-        
-        // Single issue
-        return List.of(issuesFound);
+   private List<String> convertIssuesToList(String issuesFound) {
+    if (issuesFound == null || issuesFound.isEmpty()) {
+        return null;
     }
+    
+    String trimmed = issuesFound.trim();
+    if (trimmed.equals("None") || trimmed.equals("N/A") || trimmed.equals("null")) {
+        return null;
+    }
+    
+    // If it contains commas, split it
+    if (trimmed.contains(",")) {
+        List<String> result = Arrays.stream(trimmed.split("\\s*,\\s*"))
+                .filter(s -> !s.isEmpty() && !s.equals("None") && !s.equals("N/A") && !s.equals("null"))
+                .collect(Collectors.toList());
+        return result.isEmpty() ? null : result;
+    }
+    
+    // Single issue
+    return List.of(trimmed);
+}
 
     /**
      * Safely map Pod to response DTO - handles all exceptions
      */
     private PodResponseDTO mapToResponseSafe(Pod pod) {
-        if (pod == null) {
-            return null;
+    if (pod == null) {
+        return null;
+    }
+    
+    try {
+        String tripNumber = null;
+        try {
+            tripNumber = getTripNumber(pod.getTripId());
+        } catch (Exception e) {
+            log.warn("Could not get trip number for trip {}: {}", pod.getTripId(), e.getMessage());
         }
         
+        // Convert issuesFound from String to List<String>
+        List<String> issuesList = null;
         try {
-            String tripNumber = getTripNumber(pod.getTripId());
-            
-            // Convert issuesFound from String to List<String>
-            List<String> issuesList = convertIssuesToList(pod.getIssuesFound());
-            
-            return PodResponseDTO.builder()
-                    .id(pod.getId())
-                    .podNumber(pod.getPodNumber() != null ? pod.getPodNumber() : "N/A")
-                    .tripId(pod.getTripId())
-                    .tripNumber(tripNumber)
-                    .customerName(pod.getCustomerName() != null ? pod.getCustomerName() : "N/A")
-                    .driverName(pod.getDriverName())
-                    .deliveryDate(pod.getDeliveryDate())
-                    .status(pod.getStatus() != null ? pod.getStatus() : "PENDING")
-                    .source(pod.getSource() != null ? pod.getSource() : "UPLOADED")
-                    .documentType(pod.getDocumentType())
-                    .fileSize(pod.getFileSize())
-                    .fileUrl(pod.getFileUrl())
-                    .fileName(pod.getFileName())
-                    .documentReference(pod.getDocumentReference())
-                    .notes(pod.getNotes())
-                    .uploadedBy(pod.getUploadedBy())
-                    .uploadedAt(pod.getUploadedAt())
-                    .verifiedBy(pod.getVerifiedBy())
-                    .verifiedAt(pod.getVerifiedAt())
-                    .rejectedBy(pod.getRejectedBy())
-                    .rejectedAt(pod.getRejectedAt())
-                    .rejectionReason(pod.getRejectionReason())
-                    .debriefedAt(pod.getDebriefedAt())
-                    .debriefedBy(pod.getDebriefedBy())
-                    .receivedBy(pod.getReceivedBy())
-                    .qualityRating(pod.getQualityRating())
-                    .issuesFound(issuesList)  // Now correctly passing List<String>
-                    .deliveryCondition(pod.getDeliveryCondition())
-                    .debriefNotes(pod.getDebriefNotes())
-                    .additionalInfo(pod.getAdditionalInfo())
-                    .createdAt(pod.getCreatedAt())
-                    .createdBy(pod.getCreatedBy())
-                    .updatedAt(pod.getUpdatedAt())
-                    .updatedBy(pod.getUpdatedBy())
-                    .build();
-                    
+            issuesList = convertIssuesToList(pod.getIssuesFound());
         } catch (Exception e) {
-            log.error("Error in mapToResponseSafe for pod {}: {}", pod.getId(), e.getMessage(), e);
-            return PodResponseDTO.builder()
-                    .id(pod.getId())
-                    .podNumber(pod.getPodNumber() != null ? pod.getPodNumber() : "N/A")
-                    .status("ERROR")
-                    .build();
+            log.warn("Could not convert issuesFound for POD {}: {}", pod.getId(), e.getMessage());
         }
+        
+        return PodResponseDTO.builder()
+                .id(pod.getId())
+                .podNumber(pod.getPodNumber() != null ? pod.getPodNumber() : "N/A")
+                .tripId(pod.getTripId())
+                .tripNumber(tripNumber)
+                .customerName(pod.getCustomerName() != null ? pod.getCustomerName() : "N/A")
+                .driverName(pod.getDriverName())
+                .deliveryDate(pod.getDeliveryDate())
+                .status(pod.getStatus() != null ? pod.getStatus() : "PENDING")
+                .source(pod.getSource() != null ? pod.getSource() : "UPLOADED")
+                .documentType(pod.getDocumentType())
+                .fileSize(pod.getFileSize())
+                .fileUrl(pod.getFileUrl())
+                .fileName(pod.getFileName())
+                .documentReference(pod.getDocumentReference())
+                .notes(pod.getNotes())
+                .uploadedBy(pod.getUploadedBy())
+                .uploadedAt(pod.getUploadedAt())
+                .verifiedBy(pod.getVerifiedBy())
+                .verifiedAt(pod.getVerifiedAt())
+                .rejectedBy(pod.getRejectedBy())
+                .rejectedAt(pod.getRejectedAt())
+                .rejectionReason(pod.getRejectionReason())
+                .debriefedAt(pod.getDebriefedAt())
+                .debriefedBy(pod.getDebriefedBy())
+                .receivedBy(pod.getReceivedBy())
+                .qualityRating(pod.getQualityRating())
+                .issuesFound(issuesList)
+                .deliveryCondition(pod.getDeliveryCondition())
+                .debriefNotes(pod.getDebriefNotes())
+                .additionalInfo(pod.getAdditionalInfo())
+                .createdAt(pod.getCreatedAt())
+                .createdBy(pod.getCreatedBy())
+                .updatedAt(pod.getUpdatedAt())
+                .updatedBy(pod.getUpdatedBy())
+                .build();
+                
+    } catch (Exception e) {
+        log.error("Error in mapToResponseSafe for pod {}: {}", pod.getId(), e.getMessage(), e);
+        // Return a minimal DTO instead of null to avoid breaking the list
+        return PodResponseDTO.builder()
+                .id(pod.getId())
+                .podNumber(pod.getPodNumber() != null ? pod.getPodNumber() : "N/A")
+                .status("ERROR")
+                .build();
     }
+}
 
     /**
      * Original mapToResponse method - delegates to safe version
