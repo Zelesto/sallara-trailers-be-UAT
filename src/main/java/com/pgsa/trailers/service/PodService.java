@@ -17,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -33,7 +34,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-@Transactional
+@Transactional  // Class-level transaction for write operations
 public class PodService {
 
     private final PodRepository podRepository;
@@ -703,8 +704,9 @@ public class PodService {
     }
 
     /**
-     * Get all PODs with pagination - FIXED VERSION with transaction handling
+     * Get all PODs with pagination - NO TRANSACTION to prevent rollback issues
      */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED, readOnly = true)
     public Page<PodResponseDTO> getAllPods(Pageable pageable) {
         log.info("Fetching all PODs with pageable: {}", pageable);
         try {
@@ -725,7 +727,7 @@ public class PodService {
                     }
                 } catch (Exception e) {
                     log.error("Error mapping POD {}: {}", pod.getId(), e.getMessage(), e);
-                    // Continue with next pod - don't throw
+                    // Continue with next pod
                 }
             }
             
