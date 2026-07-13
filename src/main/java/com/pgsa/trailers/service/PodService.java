@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,6 +26,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -40,6 +43,21 @@ public class PodService {
     private final FileConversionService conversionService;
     
     private final String uploadDir = "uploads/pods/";
+
+    /**
+     * Get current logged in username
+     */
+    private String getCurrentUsername() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated()) {
+                return authentication.getName();
+            }
+        } catch (Exception e) {
+            log.warn("Could not get current username: {}", e.getMessage());
+        }
+        return "System";
+    }
 
     /**
      * Validate file type
@@ -76,7 +94,15 @@ public class PodService {
     }
 
     /**
-     * Create a new POD
+     * Generate document reference
+     */
+    private String generateDocumentReference(String podNumber, String originalFilename) {
+        String extension = getFileExtension(originalFilename);
+        return String.format("%s-%s.%s", podNumber, UUID.randomUUID().toString().substring(0, 8), extension);
+    }
+
+    /**
+     * Create a new POD with support for appending to existing PODs
      */
     public PodResponseDTO createPod(PodRequestDTO request, MultipartFile file) {
         log.info("Creating POD with request: {}", request);
@@ -84,16 +110,28 @@ public class PodService {
             file != null, file != null ? file.getOriginalFilename() : "null", 
             file != null ? file.getSize() : 0);
         
-        // Create POD first
+        String currentUser = getCurrentUsername();
+        
+        // Check if POD already exists for this trip
+        if (request.getTripId() != null) {
+            List<Pod> existingPods = podRepository.findByTripId(request.getTripId());
+            if (!existingPods.isEmpty()) {
+                log.info("Found {} existing PODs for trip {}, will append", existingPods.size(), request.getTripId());
+            }
+        }
+        
+        // Create POD
         Pod pod = Pod.builder()
                 .tripId(request.getTripId())
-                .customerName(request.getCustomerName())
-                .deliveryDate(request.getDeliveryDate())
-                .status("UPLOADING")
+                .customerName(request.getCustomerName() != null ? request.getCustomerName() : "Adhoc Customer")
+                .deliveryDate(request.getDeliveryDate() != null ? request.getDeliveryDate() : LocalDate.now())
+                .status(request.getStatus() != null ? request.getStatus() : "UPLOADING")
                 .documentType("PDF")
                 .notes(request.getNotes())
-                .uploadedBy(request.getUploadedBy() != null ? request.getUploadedBy() : "System")
+                .uploadedBy(currentUser)
                 .uploadedAt(LocalDateTime.now())
+                .updatedBy(currentUser)
+                .updatedAt(LocalDateTime.now())
                 .source("UPLOADED")
                 .build();
         
@@ -105,6 +143,8 @@ public class PodService {
             savedPod.setStatus("MISSING_FILE");
             savedPod.setNotes((savedPod.getNotes() != null ? savedPod.getNotes() + " " : "") + 
                 "WARNING: No file uploaded");
+            savedPod.setUpdatedBy(currentUser);
+            savedPod.setUpdatedAt(LocalDateTime.now());
             savedPod = podRepository.save(savedPod);
             return mapToResponse(savedPod);
         }
@@ -115,18 +155,26 @@ public class PodService {
             String fileUrl = storageService.uploadAndConvertFile(file, savedPod.getPodNumber(), conversionService);
             
             if (fileUrl != null && !fileUrl.isEmpty()) {
+                // Store document reference
+                String documentReference = generateDocumentReference(savedPod.getPodNumber(), file.getOriginalFilename());
+                
                 savedPod.setFileUrl(fileUrl);
                 savedPod.setFileName(savedPod.getPodNumber() + ".pdf");
                 savedPod.setFileSize(formatFileSize(file.getSize()));
                 savedPod.setDocumentType("PDF");
+                savedPod.setDocumentReference(documentReference);
                 savedPod.setStatus(request.getStatus() != null ? request.getStatus() : "PENDING");
+                savedPod.setUpdatedBy(currentUser);
+                savedPod.setUpdatedAt(LocalDateTime.now());
                 savedPod = podRepository.save(savedPod);
-                log.info("✅ File uploaded successfully for POD: {}", savedPod.getPodNumber());
+                log.info("✅ File uploaded successfully for POD: {} with reference: {}", savedPod.getPodNumber(), documentReference);
             } else {
                 log.error("❌ File upload returned null URL for POD: {}", savedPod.getPodNumber());
                 savedPod.setStatus("UPLOAD_FAILED");
                 savedPod.setNotes((savedPod.getNotes() != null ? savedPod.getNotes() + " " : "") + 
                     "ERROR: File upload failed - no URL returned");
+                savedPod.setUpdatedBy(currentUser);
+                savedPod.setUpdatedAt(LocalDateTime.now());
                 savedPod = podRepository.save(savedPod);
             }
             
@@ -135,6 +183,8 @@ public class PodService {
             savedPod.setStatus("UPLOAD_FAILED");
             savedPod.setNotes((savedPod.getNotes() != null ? savedPod.getNotes() + " " : "") + 
                 "ERROR: " + e.getMessage());
+            savedPod.setUpdatedBy(currentUser);
+            savedPod.setUpdatedAt(LocalDateTime.now());
             savedPod = podRepository.save(savedPod);
         }
         
@@ -143,31 +193,119 @@ public class PodService {
     }
 
     /**
-     * Scan a new POD from driver
+     * Append a new POD document to an existing trip
+     */
+    public PodResponseDTO appendPodToTrip(Long tripId, MultipartFile file, String notes) {
+        log.info("Appending POD document to trip: {}", tripId);
+        
+        String currentUser = getCurrentUsername();
+        
+        // Validate trip exists
+        if (!tripRepository.existsById(tripId)) {
+            throw new RuntimeException("Trip not found with id: " + tripId);
+        }
+        
+        // Get existing PODs for this trip
+        List<Pod> existingPods = podRepository.findByTripId(tripId);
+        String customerName = existingPods.isEmpty() ? "Adhoc Customer" : existingPods.get(0).getCustomerName();
+        int appendCount = existingPods.size() + 1;
+        
+        // Create new POD for appending
+        Pod pod = Pod.builder()
+                .tripId(tripId)
+                .customerName(customerName)
+                .deliveryDate(LocalDate.now())
+                .status("PENDING")
+                .documentType("PDF")
+                .notes(notes != null ? notes : "Appended document #" + appendCount)
+                .uploadedBy(currentUser)
+                .uploadedAt(LocalDateTime.now())
+                .updatedBy(currentUser)
+                .updatedAt(LocalDateTime.now())
+                .source("APPENDED")
+                .build();
+        
+        Pod savedPod = podRepository.save(pod);
+        
+        // Upload file
+        if (file != null && !file.isEmpty()) {
+            try {
+                String fileUrl = storageService.uploadAndConvertFile(file, savedPod.getPodNumber(), conversionService);
+                
+                if (fileUrl != null && !fileUrl.isEmpty()) {
+                    String documentReference = generateDocumentReference(savedPod.getPodNumber(), file.getOriginalFilename());
+                    
+                    savedPod.setFileUrl(fileUrl);
+                    savedPod.setFileName(savedPod.getPodNumber() + ".pdf");
+                    savedPod.setFileSize(formatFileSize(file.getSize()));
+                    savedPod.setDocumentType("PDF");
+                    savedPod.setDocumentReference(documentReference);
+                    savedPod.setUpdatedBy(currentUser);
+                    savedPod.setUpdatedAt(LocalDateTime.now());
+                    savedPod = podRepository.save(savedPod);
+                    log.info("✅ Appended file uploaded successfully for POD: {} with reference: {}", savedPod.getPodNumber(), documentReference);
+                } else {
+                    log.error("❌ File upload returned null URL for appended POD: {}", savedPod.getPodNumber());
+                    savedPod.setStatus("UPLOAD_FAILED");
+                    savedPod.setUpdatedBy(currentUser);
+                    savedPod.setUpdatedAt(LocalDateTime.now());
+                    savedPod = podRepository.save(savedPod);
+                }
+            } catch (Exception e) {
+                log.error("❌ Error uploading appended file: {}", e.getMessage(), e);
+                savedPod.setStatus("UPLOAD_FAILED");
+                savedPod.setUpdatedBy(currentUser);
+                savedPod.setUpdatedAt(LocalDateTime.now());
+                savedPod = podRepository.save(savedPod);
+            }
+        } else {
+            savedPod.setStatus("MISSING_FILE");
+            savedPod.setNotes("No file provided for appended document");
+            savedPod.setUpdatedBy(currentUser);
+            savedPod.setUpdatedAt(LocalDateTime.now());
+            savedPod = podRepository.save(savedPod);
+        }
+        
+        return mapToResponse(savedPod);
+    }
+
+    /**
+     * Scan a new POD from driver with support for appending
      */
     public PodResponseDTO scanPod(Long tripId, String driverName, String deliveryDate, 
                                    String customerName, String notes, MultipartFile file) {
         log.info("Scanning POD from driver for trip: {}", tripId);
+        
+        String currentUser = getCurrentUsername();
         
         // Validate trip exists
         if (!tripRepository.existsById(tripId)) {
             throw new RuntimeException("Trip not found with id: " + tripId);
         }
 
+        // Check for existing PODs
+        List<Pod> existingPods = podRepository.findByTripId(tripId);
+        if (!existingPods.isEmpty()) {
+            log.info("Found {} existing PODs for trip {}, appending scanned document", existingPods.size(), tripId);
+        }
+
         // Parse delivery date
-        LocalDate parsedDeliveryDate = LocalDate.parse(deliveryDate, DateTimeFormatter.ISO_LOCAL_DATE);
+        LocalDate parsedDeliveryDate = deliveryDate != null ? 
+            LocalDate.parse(deliveryDate, DateTimeFormatter.ISO_LOCAL_DATE) : LocalDate.now();
 
         // Create POD
         Pod pod = Pod.builder()
                 .tripId(tripId)
-                .driverName(driverName)
+                .driverName(driverName != null ? driverName : "Unknown Driver")
                 .deliveryDate(parsedDeliveryDate)
                 .customerName(customerName != null ? customerName : "Adhoc Customer")
-                .notes(notes != null ? notes : "Scanned from driver")
+                .notes(notes != null ? notes : "Scanned from driver" + (existingPods.isEmpty() ? "" : " (Appended)"))
                 .status("SCANNED")
                 .source("SCANNED")
-                .uploadedBy("Driver")
+                .uploadedBy(currentUser)
                 .uploadedAt(LocalDateTime.now())
+                .updatedBy(currentUser)
+                .updatedAt(LocalDateTime.now())
                 .documentType("PDF")
                 .build();
 
@@ -178,25 +316,36 @@ public class PodService {
             try {
                 String fileUrl = storageService.uploadAndConvertFile(file, savedPod.getPodNumber(), conversionService);
                 if (fileUrl != null && !fileUrl.isEmpty()) {
+                    String documentReference = generateDocumentReference(savedPod.getPodNumber(), file.getOriginalFilename());
+                    
                     savedPod.setFileUrl(fileUrl);
                     savedPod.setFileName(savedPod.getPodNumber() + ".pdf");
                     savedPod.setFileSize(formatFileSize(file.getSize()));
                     savedPod.setDocumentType("PDF");
+                    savedPod.setDocumentReference(documentReference);
+                    savedPod.setUpdatedBy(currentUser);
+                    savedPod.setUpdatedAt(LocalDateTime.now());
                     savedPod = podRepository.save(savedPod);
-                    log.info("Scanned file uploaded and converted for POD: {}", savedPod.getPodNumber());
+                    log.info("Scanned file uploaded and converted for POD: {} with reference: {}", savedPod.getPodNumber(), documentReference);
                 } else {
                     log.error("File upload returned null URL for scanned POD: {}", savedPod.getPodNumber());
                     savedPod.setStatus("UPLOAD_FAILED");
+                    savedPod.setUpdatedBy(currentUser);
+                    savedPod.setUpdatedAt(LocalDateTime.now());
                     savedPod = podRepository.save(savedPod);
                 }
             } catch (Exception e) {
                 log.error("Failed to upload scanned file for POD: {}", savedPod.getPodNumber(), e);
                 savedPod.setStatus("UPLOAD_FAILED");
+                savedPod.setUpdatedBy(currentUser);
+                savedPod.setUpdatedAt(LocalDateTime.now());
                 savedPod = podRepository.save(savedPod);
             }
         } else {
             log.warn("No file provided for scanned POD: {}", savedPod.getPodNumber());
             savedPod.setStatus("MISSING_FILE");
+            savedPod.setUpdatedBy(currentUser);
+            savedPod.setUpdatedAt(LocalDateTime.now());
             savedPod = podRepository.save(savedPod);
         }
 
@@ -211,6 +360,8 @@ public class PodService {
         log.info("========================================");
         log.info("📤 Re-uploading file for POD ID: {}", id);
         log.info("========================================");
+        
+        String currentUser = getCurrentUsername();
         
         Pod pod = podRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
@@ -249,19 +400,24 @@ public class PodService {
             
             log.info("✅ File uploaded successfully: {}", fileUrl);
             
+            // Generate new document reference
+            String documentReference = generateDocumentReference(pod.getPodNumber(), file.getOriginalFilename());
+            
             // Update POD with new file info
             pod.setFileUrl(fileUrl);
             pod.setFileName(pod.getPodNumber() + ".pdf");
             pod.setFileSize(formatFileSize(file.getSize()));
             pod.setDocumentType("PDF");
+            pod.setDocumentReference(documentReference);
             pod.setStatus("PENDING");
+            pod.setUpdatedBy(currentUser);
             pod.setUpdatedAt(LocalDateTime.now());
-            pod.setUpdatedBy("System");
             pod.setNotes((pod.getNotes() != null ? pod.getNotes() + " " : "") + 
-                "File re-uploaded on " + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+                "File re-uploaded on " + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) + 
+                " by " + currentUser);
             
             Pod updatedPod = podRepository.save(pod);
-            log.info("✅ POD {} updated successfully with new file", pod.getPodNumber());
+            log.info("✅ POD {} updated successfully with new file and reference: {}", pod.getPodNumber(), documentReference);
             log.info("========================================");
             
             return mapToResponse(updatedPod);
@@ -284,6 +440,8 @@ public class PodService {
         
         log.info("Found {} PODs without files", count);
         
+        String currentUser = getCurrentUsername();
+        
         for (Pod pod : podsWithoutFiles) {
             try {
                 // Mark as missing file
@@ -291,7 +449,7 @@ public class PodService {
                 pod.setNotes((pod.getNotes() != null ? pod.getNotes() + " " : "") + 
                     "MIGRATION: File missing. Please re-upload.");
                 pod.setUpdatedAt(LocalDateTime.now());
-                pod.setUpdatedBy("System");
+                pod.setUpdatedBy(currentUser);
                 podRepository.save(pod);
                 
                 log.info("✅ Marked POD {} (ID: {}) as MISSING_FILE", pod.getPodNumber(), pod.getId());
@@ -305,31 +463,56 @@ public class PodService {
     }
 
     /**
-     * Debrief a POD
+     * Debrief a POD with default values and current user tracking
      */
     public PodResponseDTO debriefPod(Long id, DebriefRequestDTO debriefRequest) {
+        log.info("Debriefing POD: {}", id);
+        
+        String currentUser = getCurrentUsername();
+        
         Pod pod = podRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
 
-        pod.setStatus(debriefRequest.getStatus());
+        // Set status with default if not provided
+        pod.setStatus(debriefRequest.getStatus() != null ? debriefRequest.getStatus() : "DELIVERED");
+        
+        // Set notes with default if not provided
         pod.setNotes(debriefRequest.getNotes() != null ? debriefRequest.getNotes() : pod.getNotes());
-        pod.setReceivedBy(debriefRequest.getReceivedBy());
-        pod.setQualityRating(debriefRequest.getQualityRating());
+        
+        // Set received by with default if not provided
+        pod.setReceivedBy(debriefRequest.getReceivedBy() != null ? debriefRequest.getReceivedBy() : currentUser);
+        
+        // Set quality rating with default
+        pod.setQualityRating(debriefRequest.getQualityRating() != null ? debriefRequest.getQualityRating() : 3);
+        
+        // Set issues found
         if (debriefRequest.getIssuesFound() != null && !debriefRequest.getIssuesFound().isEmpty()) {
             pod.setIssuesFound(String.join(", ", debriefRequest.getIssuesFound()));
         } else {
-            pod.setIssuesFound(null);
+            pod.setIssuesFound("None");
         }
-        pod.setAdditionalInfo(debriefRequest.getAdditionalInfo());
-        pod.setDeliveryCondition(debriefRequest.getDeliveryCondition());
-        pod.setDebriefNotes(debriefRequest.getDebriefNotes());
-        pod.setDebriefedBy(debriefRequest.getDebriefedBy() != null ? 
-                debriefRequest.getDebriefedBy() : "System");
+        
+        // Set additional info with default
+        pod.setAdditionalInfo(debriefRequest.getAdditionalInfo() != null ? debriefRequest.getAdditionalInfo() : "N/A");
+        
+        // Set delivery condition with default
+        pod.setDeliveryCondition(debriefRequest.getDeliveryCondition() != null ? 
+            debriefRequest.getDeliveryCondition() : "Good");
+        
+        // Set debrief notes with default "No Endorsements"
+        pod.setDebriefNotes(debriefRequest.getDebriefNotes() != null && !debriefRequest.getDebriefNotes().isEmpty() ? 
+            debriefRequest.getDebriefNotes() : "No Endorsements");
+        
+        // Set debriefed by to current user
+        pod.setDebriefedBy(currentUser);
         pod.setDebriefedAt(LocalDateTime.now());
+        
+        // Set updated by to current user
+        pod.setUpdatedBy(currentUser);
         pod.setUpdatedAt(LocalDateTime.now());
 
         Pod updatedPod = podRepository.save(pod);
-        log.info("POD {} debriefed with status: {}", id, debriefRequest.getStatus());
+        log.info("POD {} debriefed with status: {} by: {}", id, pod.getStatus(), currentUser);
         return mapToResponse(updatedPod);
     }
 
@@ -451,7 +634,7 @@ public class PodService {
         if (filename == null || !filename.contains(".")) {
             return "pdf";
         }
-        return filename.substring(filename.lastIndexOf(".") + 1).toUpperCase();
+        return filename.substring(filename.lastIndexOf(".") + 1).toLowerCase();
     }
 
     /**
@@ -569,6 +752,7 @@ public class PodService {
      * Update POD
      */
     public PodResponseDTO updatePod(Long id, PodRequestDTO request) {
+        String currentUser = getCurrentUsername();
         Pod pod = podRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
 
@@ -581,9 +765,11 @@ public class PodService {
         pod.setFileUrl(request.getFileUrl());
         pod.setFileName(request.getFileName());
         pod.setNotes(request.getNotes());
+        pod.setUpdatedBy(currentUser);
+        pod.setUpdatedAt(LocalDateTime.now());
 
         Pod updated = podRepository.save(pod);
-        log.info("POD updated with ID: {}", updated.getId());
+        log.info("POD updated with ID: {} by: {}", updated.getId(), currentUser);
         return mapToResponse(updated);
     }
 
@@ -591,12 +777,15 @@ public class PodService {
      * Update POD status
      */
     public PodResponseDTO updatePodStatus(Long id, String status) {
+        String currentUser = getCurrentUsername();
         Pod pod = podRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
 
         pod.setStatus(status);
+        pod.setUpdatedBy(currentUser);
+        pod.setUpdatedAt(LocalDateTime.now());
         Pod updated = podRepository.save(pod);
-        log.info("POD {} status updated to: {}", id, status);
+        log.info("POD {} status updated to: {} by: {}", id, status, currentUser);
         return mapToResponse(updated);
     }
 
@@ -604,14 +793,17 @@ public class PodService {
      * Verify POD
      */
     public PodResponseDTO verifyPod(Long id, String verifiedBy) {
+        String currentUser = getCurrentUsername();
         Pod pod = podRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
 
         pod.setStatus("VERIFIED");
-        pod.setVerifiedBy(verifiedBy);
+        pod.setVerifiedBy(verifiedBy != null ? verifiedBy : currentUser);
         pod.setVerifiedAt(LocalDateTime.now());
+        pod.setUpdatedBy(currentUser);
+        pod.setUpdatedAt(LocalDateTime.now());
         Pod updated = podRepository.save(pod);
-        log.info("POD {} verified by: {}", id, verifiedBy);
+        log.info("POD {} verified by: {}", id, verifiedBy != null ? verifiedBy : currentUser);
         return mapToResponse(updated);
     }
 
@@ -619,15 +811,18 @@ public class PodService {
      * Reject POD
      */
     public PodResponseDTO rejectPod(Long id, String rejectedBy, String reason) {
+        String currentUser = getCurrentUsername();
         Pod pod = podRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
 
         pod.setStatus("REJECTED");
-        pod.setRejectedBy(rejectedBy);
+        pod.setRejectedBy(rejectedBy != null ? rejectedBy : currentUser);
         pod.setRejectedAt(LocalDateTime.now());
-        pod.setRejectionReason(reason);
+        pod.setRejectionReason(reason != null ? reason : "No reason provided");
+        pod.setUpdatedBy(currentUser);
+        pod.setUpdatedAt(LocalDateTime.now());
         Pod updated = podRepository.save(pod);
-        log.info("POD {} rejected by: {}, reason: {}", id, rejectedBy, reason);
+        log.info("POD {} rejected by: {}, reason: {}", id, rejectedBy != null ? rejectedBy : currentUser, reason);
         return mapToResponse(updated);
     }
 
@@ -652,6 +847,7 @@ public class PodService {
         long verified = podRepository.countByStatus("VERIFIED");
         long rejected = podRepository.countByStatus("REJECTED");
         long scanned = podRepository.countBySource("SCANNED");
+        long appended = podRepository.countBySource("APPENDED");
         
         long pendingDebrief = podRepository.countPendingDebrief();
         
@@ -711,6 +907,7 @@ public class PodService {
                     .fileSize(pod.getFileSize())
                     .fileUrl(pod.getFileUrl())
                     .fileName(pod.getFileName())
+                    .documentReference(pod.getDocumentReference())
                     .notes(pod.getNotes())
                     .uploadedBy(pod.getUploadedBy())
                     .uploadedAt(pod.getUploadedAt())
@@ -723,6 +920,7 @@ public class PodService {
                     .debriefedBy(pod.getDebriefedBy())
                     .receivedBy(pod.getReceivedBy())
                     .qualityRating(pod.getQualityRating())
+                    .issuesFound(pod.getIssuesFound())
                     .deliveryCondition(pod.getDeliveryCondition())
                     .debriefNotes(pod.getDebriefNotes())
                     .additionalInfo(pod.getAdditionalInfo())
