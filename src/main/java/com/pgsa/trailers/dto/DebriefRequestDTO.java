@@ -29,7 +29,7 @@ public class DebriefRequestDTO {
     @NotNull(message = "Quality rating is required")
     private Integer qualityRating;
     
-    private List<String> issuesFound;
+    private String issuesFound; 
     
     private String additionalInfo;
     
