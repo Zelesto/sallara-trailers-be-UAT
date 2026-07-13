@@ -47,7 +47,7 @@ public interface PodRepository extends JpaRepository<Pod, Long> {
     long countBySource(String source);
 
     /**
-     * Count PODs by trip ID - This is the missing method!
+     * Count PODs by trip ID
      */
     long countByTripId(Long tripId);
 
@@ -228,10 +228,16 @@ public interface PodRepository extends JpaRepository<Pod, Long> {
     List<Pod> findNotDebriefedByTripId(@Param("tripId") Long tripId);
 
     /**
-     * Get the latest POD for a trip
+     * Get the latest POD for a trip - FIXED: Return a List or Page, not Optional
      */
     @Query("SELECT p FROM Pod p WHERE p.tripId = :tripId ORDER BY p.createdAt DESC")
-    Optional<Pod> findLatestByTripId(@Param("tripId") Long tripId, Pageable pageable);
+    List<Pod> findLatestByTripId(@Param("tripId") Long tripId, Pageable pageable);
+
+    /**
+     * Get the latest POD for a trip - Alternative: Return Optional without Pageable
+     */
+    @Query("SELECT p FROM Pod p WHERE p.tripId = :tripId ORDER BY p.createdAt DESC")
+    Optional<Pod> findLatestByTripId(@Param("tripId") Long tripId);
 
     /**
      * Count total PODs with file URLs
