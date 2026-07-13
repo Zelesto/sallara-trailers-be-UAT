@@ -68,6 +68,14 @@ public class PodService {
     }
 
     /**
+     * Get POD entity by ID (for internal use)
+     */
+    public Pod getPodEntity(Long id) {
+        return podRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("POD not found with ID: " + id));
+    }
+
+    /**
      * Create a new POD
      */
     public PodResponseDTO createPod(PodRequestDTO request, MultipartFile file) {
@@ -262,6 +270,38 @@ public class PodService {
             log.error("❌ Failed to re-upload file for POD: {}", pod.getPodNumber(), e);
             throw new RuntimeException("Failed to upload file: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Fix missing files - Mark all PODs without files
+     */
+    @Transactional
+    public int fixMissingFiles() {
+        log.info("🔧 Starting batch fix for PODs without files");
+        
+        List<Pod> podsWithoutFiles = podRepository.findByFileUrlIsNullOrFileUrlIsEmpty();
+        int count = podsWithoutFiles.size();
+        
+        log.info("Found {} PODs without files", count);
+        
+        for (Pod pod : podsWithoutFiles) {
+            try {
+                // Mark as missing file
+                pod.setStatus("MISSING_FILE");
+                pod.setNotes((pod.getNotes() != null ? pod.getNotes() + " " : "") + 
+                    "MIGRATION: File missing. Please re-upload.");
+                pod.setUpdatedAt(LocalDateTime.now());
+                pod.setUpdatedBy("System");
+                podRepository.save(pod);
+                
+                log.info("✅ Marked POD {} (ID: {}) as MISSING_FILE", pod.getPodNumber(), pod.getId());
+            } catch (Exception e) {
+                log.error("❌ Failed to update POD {}: {}", pod.getPodNumber(), e.getMessage());
+            }
+        }
+        
+        log.info("✅ Batch fix complete. Updated {} PODs", count);
+        return count;
     }
 
     /**
