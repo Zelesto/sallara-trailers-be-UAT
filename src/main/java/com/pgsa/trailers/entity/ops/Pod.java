@@ -11,96 +11,98 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 
+@Entity
+@Table(name = "pods")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Entity
-@Table(name = "pods")
 public class Pod {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "pod_number", unique = true, nullable = false, length = 50)
+    @Column(name = "pod_number", unique = true, nullable = false)
     private String podNumber;
 
-    @Column(name = "trip_id", nullable = false)
+    @Column(name = "trip_id")
     private Long tripId;
 
-    @Column(name = "customer_name", nullable = false, length = 255)
+    @Column(name = "trip_number")
+    private String tripNumber;
+
+    @Column(name = "customer_name")
     private String customerName;
 
-    @Column(name = "driver_name", length = 255)
+    @Column(name = "driver_name")
     private String driverName;
 
-    @Column(name = "delivery_date", nullable = false)
+    @Column(name = "delivery_date")
     private LocalDate deliveryDate;
 
-    @Column(name = "status", length = 50)
-    @Builder.Default
-    private String status = "PENDING";
+    @Column(name = "status")
+    private String status;
 
-    @Column(name = "source", length = 50)
-    @Builder.Default
-    private String source = "UPLOADED";
+    @Column(name = "source")
+    private String source;
 
-    @Column(name = "document_type", length = 50)
+    @Column(name = "document_type")
     private String documentType;
 
-    @Column(name = "file_size", length = 50)
+    @Column(name = "file_size")
     private String fileSize;
 
-    @Column(name = "file_url", length = 500)
+    @Column(name = "file_url", length = 1000)
     private String fileUrl;
 
-    @Column(name = "file_name", length = 255)
+    @Column(name = "file_name")
     private String fileName;
+
+    @Column(name = "document_reference")  // NEW FIELD
+    private String documentReference;
 
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
-    @Column(name = "uploaded_by", length = 100)
+    @Column(name = "uploaded_by")
     private String uploadedBy;
 
     @Column(name = "uploaded_at")
     private LocalDateTime uploadedAt;
 
-    @Column(name = "verified_by", length = 100)
+    @Column(name = "verified_by")
     private String verifiedBy;
 
     @Column(name = "verified_at")
     private LocalDateTime verifiedAt;
 
-    @Column(name = "rejected_by", length = 100)
+    @Column(name = "rejected_by")
     private String rejectedBy;
 
     @Column(name = "rejected_at")
     private LocalDateTime rejectedAt;
 
-    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    @Column(name = "rejection_reason")
     private String rejectionReason;
 
-    // Debrief fields
+    @Column(name = "debriefed_by")
+    private String debriefedBy;
+
     @Column(name = "debriefed_at")
     private LocalDateTime debriefedAt;
 
-    @Column(name = "debriefed_by", length = 100)
-    private String debriefedBy;
-
-    @Column(name = "received_by", length = 100)
+    @Column(name = "received_by")
     private String receivedBy;
 
     @Column(name = "quality_rating")
     private Integer qualityRating;
 
-    @Column(name = "issues_found", columnDefinition = "TEXT")
+    @Column(name = "issues_found")
     private String issuesFound;
 
-    @Column(name = "delivery_condition", length = 50)
+    @Column(name = "delivery_condition")
     private String deliveryCondition;
 
     @Column(name = "debrief_notes", columnDefinition = "TEXT")
@@ -109,27 +111,27 @@ public class Pod {
     @Column(name = "additional_info", columnDefinition = "TEXT")
     private String additionalInfo;
 
-    @CreationTimestamp
     @Column(name = "created_at", updatable = false)
+    @CreationTimestamp
     private LocalDateTime createdAt;
 
-    @Column(name = "created_by", length = 100)
+    @Column(name = "created_by")
     private String createdBy;
 
-    @UpdateTimestamp
     @Column(name = "updated_at")
+    @UpdateTimestamp
     private LocalDateTime updatedAt;
 
-    @Column(name = "updated_by", length = 100)
+    @Column(name = "updated_by")
     private String updatedBy;
 
     @PrePersist
-    public void prePersist() {
+    protected void onCreate() {
         if (podNumber == null) {
-            podNumber = generatePodNumber();
+            podNumber = "POD-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 1000);
         }
-        if (uploadedAt == null) {
-            uploadedAt = LocalDateTime.now();
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
         }
         if (status == null) {
             status = "PENDING";
@@ -137,9 +139,13 @@ public class Pod {
         if (source == null) {
             source = "UPLOADED";
         }
+        if (documentType == null) {
+            documentType = "PDF";
+        }
     }
 
-    private String generatePodNumber() {
-        return "POD-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 1000);
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 }
