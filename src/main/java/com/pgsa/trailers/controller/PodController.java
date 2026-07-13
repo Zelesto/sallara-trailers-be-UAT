@@ -59,21 +59,35 @@ public class PodController {
     /**
      * Create a new POD with optional file upload
      */
-    @PostMapping(consumes = {MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<PodResponseDTO> createPod(
-            @RequestPart(value = "podData", required = false) PodRequestDTO podRequest,
-            @RequestPart(value = "file", required = false) MultipartFile file) {
-        log.info("📝 Creating new POD with file: {}", file != null ? file.getOriginalFilename() : "No file");
-        
-        try {
-            PodResponseDTO createdPod = podService.createPod(podRequest, file);
-            return ResponseEntity.status(HttpStatus.CREATED).body(createdPod);
-        } catch (Exception e) {
-            log.error("❌ Error creating POD: {}", e.getMessage(), e);
-            throw e;
+   @PostMapping(consumes = {MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_JSON_VALUE})
+public ResponseEntity<?> createPod(
+        @RequestPart(value = "podData", required = false) PodRequestDTO podRequest,
+        @RequestPart(value = "file", required = false) MultipartFile file) {
+    log.info("📝 Creating new POD with file: {}", file != null ? file.getOriginalFilename() : "No file");
+    
+    try {
+        // If podRequest is null, create a default one
+        if (podRequest == null) {
+            log.warn("podRequest is null, creating default");
+            podRequest = new PodRequestDTO();
         }
+        
+        // Log the request for debugging
+        log.info("PodRequest: {}", podRequest);
+        
+        PodResponseDTO createdPod = podService.createPod(podRequest, file);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdPod);
+    } catch (Exception e) {
+        log.error("❌ Error creating POD: {}", e.getMessage(), e);
+        // Return detailed error for debugging
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(Map.of(
+                "error", "Failed to create POD",
+                "message", e.getMessage(),
+                "type", e.getClass().getSimpleName()
+            ));
     }
-
+}
     /**
      * Scan a new POD from driver
      */
