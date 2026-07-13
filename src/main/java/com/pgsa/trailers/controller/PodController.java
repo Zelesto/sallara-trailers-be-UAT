@@ -351,21 +351,74 @@ private boolean isValidFileType(String contentType) {
     // ============================================
 
     @GetMapping("/{id}/download")
-    public ResponseEntity<?> downloadPodDocument(@PathVariable Long id) {
-        log.info("Downloading POD document: {}", id);
-        try {
-            String fileUrl = podService.getPodFileUrl(id);
-            if (fileUrl == null || fileUrl.isEmpty()) {
-                log.warn("No file URL found for POD: {}", id);
-                return ResponseEntity.notFound().build();
-            }
-            return ResponseEntity.ok(fileUrl);
-        } catch (Exception e) {
-            log.error("Error downloading POD document {}: {}", id, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to download document: " + e.getMessage());
+public ResponseEntity<?> downloadPod(@PathVariable Long id) {
+    try {
+        log.info("📥 Download request for POD ID: {}", id);
+        
+        // Get the POD
+        Pod pod = podService.getPodEntity(id);
+        if (pod == null) {
+            log.warn("❌ POD not found: {}", id);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("error", "POD not found"));
         }
+        
+        String fileUrl = pod.getFileUrl();
+        if (fileUrl == null || fileUrl.isEmpty()) {
+            log.warn("❌ No file URL for POD: {}", id);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("error", "No file associated with this POD"));
+        }
+        
+        log.info("📥 File URL: {}", fileUrl);
+        
+        try {
+            // Download from Supabase
+            byte[] fileData = storageService.downloadFile(fileUrl);
+            
+            if (fileData == null || fileData.length == 0) {
+                log.warn("❌ File data is empty for POD: {}", id);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "File data is empty"));
+            }
+            
+            log.info("✅ File size: {} bytes", fileData.length);
+            
+            String fileName = pod.getFileName() != null ? pod.getFileName() : pod.getPodNumber() + ".pdf";
+            String contentType = getContentType(pod.getDocumentType());
+            
+            // Return the actual file
+            return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, 
+                    "attachment; filename=\"" + fileName + "\"")
+                .header(HttpHeaders.CONTENT_TYPE, contentType)
+                .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(fileData.length))
+                .body(fileData);
+                
+        } catch (Exception e) {
+            log.error("❌ Error downloading file from storage: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Failed to download file: " + e.getMessage()));
+        }
+        
+    } catch (Exception e) {
+        log.error("❌ Error in download endpoint: {}", e.getMessage(), e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(Map.of("error", "Download failed: " + e.getMessage()));
     }
+}
+
+private String getContentType(String documentType) {
+    if (documentType == null) return "application/pdf";
+    return switch (documentType.toLowerCase()) {
+        case "pdf" -> "application/pdf";
+        case "jpg", "jpeg" -> "image/jpeg";
+        case "png" -> "image/png";
+        case "doc" -> "application/msword";
+        case "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        default -> "application/octet-stream";
+    };
+}
 
     @GetMapping("/{id}/view")
     public ResponseEntity<?> viewPodDocument(@PathVariable Long id) {
