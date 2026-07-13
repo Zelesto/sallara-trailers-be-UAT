@@ -34,6 +34,7 @@ public class PodResponseDTO {
     private String fileSize;
     private String fileUrl;
     private String fileName;
+    private String documentReference;  // ADD THIS FIELD
     private String notes;
     
     // Upload Information
