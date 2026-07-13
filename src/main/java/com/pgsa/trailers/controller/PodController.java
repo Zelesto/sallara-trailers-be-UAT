@@ -58,6 +58,57 @@ public class PodController {
         }
     }
 
+    // Add to PodController.java
+
+@PostMapping("/{id}/reupload")
+public ResponseEntity<?> reuploadFile(
+        @PathVariable Long id,
+        @RequestParam("file") MultipartFile file) {
+    try {
+        log.info("Received re-upload request for POD ID: {}", id);
+        
+        // Validate file
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body("File is required");
+        }
+        
+        // Validate file size (max 10MB)
+        if (file.getSize() > 10 * 1024 * 1024) {
+            return ResponseEntity.badRequest().body("File size exceeds 10MB limit");
+        }
+        
+        // Validate file type (optional)
+        String contentType = file.getContentType();
+        if (contentType != null && !isValidFileType(contentType)) {
+            return ResponseEntity.badRequest().body("Invalid file type. Supported: PDF, JPG, PNG, DOC, DOCX");
+        }
+        
+        PodResponseDTO updatedPod = podService.reuploadFile(id, file);
+        return ResponseEntity.ok(updatedPod);
+        
+    } catch (RuntimeException e) {
+        log.error("Error re-uploading file for POD {}: {}", id, e.getMessage());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body("Failed to upload file: " + e.getMessage());
+    } catch (Exception e) {
+        log.error("Unexpected error re-uploading file for POD {}: {}", id, e, e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body("Unexpected error: " + e.getMessage());
+    }
+}
+
+private boolean isValidFileType(String contentType) {
+    if (contentType == null) return false;
+    
+    String lowerContentType = contentType.toLowerCase();
+    return lowerContentType.contains("pdf") ||
+           lowerContentType.contains("jpeg") ||
+           lowerContentType.contains("jpg") ||
+           lowerContentType.contains("png") ||
+           lowerContentType.contains("msword") ||
+           lowerContentType.contains("wordprocessingml");
+}
+    
     // ============================================
     // CREATE POD - WITH FILE UPLOAD
     // ============================================
