@@ -882,63 +882,75 @@ public class PodService {
         }
     }
 
-    /**
-     * Safely map Pod to response DTO - handles all exceptions
-     */
-    private PodResponseDTO mapToResponseSafe(Pod pod) {
-        if (pod == null) {
-            return null;
+   /**
+ * Safely map Pod to response DTO - handles all exceptions
+ */
+private PodResponseDTO mapToResponseSafe(Pod pod) {
+    if (pod == null) {
+        return null;
+    }
+    
+    try {
+        String tripNumber = getTripNumber(pod.getTripId());
+        
+        // Convert issuesFound from String to List<String>
+        List<String> issuesList = null;
+        if (pod.getIssuesFound() != null && !pod.getIssuesFound().isEmpty()) {
+            // If it's a comma-separated list
+            if (pod.getIssuesFound().contains(",")) {
+                issuesList = Arrays.asList(pod.getIssuesFound().split("\\s*,\\s*"));
+            } else if (!pod.getIssuesFound().equals("None") && !pod.getIssuesFound().equals("N/A")) {
+                // Single issue
+                issuesList = List.of(pod.getIssuesFound());
+            }
         }
         
-        try {
-            String tripNumber = getTripNumber(pod.getTripId());
-            
-            return PodResponseDTO.builder()
-                    .id(pod.getId())
-                    .podNumber(pod.getPodNumber() != null ? pod.getPodNumber() : "N/A")
-                    .tripId(pod.getTripId())
-                    .tripNumber(tripNumber)
-                    .customerName(pod.getCustomerName() != null ? pod.getCustomerName() : "N/A")
-                    .driverName(pod.getDriverName())
-                    .deliveryDate(pod.getDeliveryDate())
-                    .status(pod.getStatus() != null ? pod.getStatus() : "PENDING")
-                    .source(pod.getSource() != null ? pod.getSource() : "UPLOADED")
-                    .documentType(pod.getDocumentType())
-                    .fileSize(pod.getFileSize())
-                    .fileUrl(pod.getFileUrl())
-                    .fileName(pod.getFileName())
-                    .documentReference(pod.getDocumentReference())
-                    .notes(pod.getNotes())
-                    .uploadedBy(pod.getUploadedBy())
-                    .uploadedAt(pod.getUploadedAt())
-                    .verifiedBy(pod.getVerifiedBy())
-                    .verifiedAt(pod.getVerifiedAt())
-                    .rejectedBy(pod.getRejectedBy())
-                    .rejectedAt(pod.getRejectedAt())
-                    .rejectionReason(pod.getRejectionReason())
-                    .debriefedAt(pod.getDebriefedAt())
-                    .debriefedBy(pod.getDebriefedBy())
-                    .receivedBy(pod.getReceivedBy())
-                    .qualityRating(pod.getQualityRating())
-                    .issuesFound(pod.getIssuesFound())
-                    .deliveryCondition(pod.getDeliveryCondition())
-                    .debriefNotes(pod.getDebriefNotes())
-                    .additionalInfo(pod.getAdditionalInfo())
-                    .createdAt(pod.getCreatedAt())
-                    .createdBy(pod.getCreatedBy())
-                    .updatedAt(pod.getUpdatedAt())
-                    .updatedBy(pod.getUpdatedBy())
-                    .build();
-                    
-        } catch (Exception e) {
-            log.error("Error in mapToResponseSafe for pod {}: {}", pod.getId(), e.getMessage(), e);
-            return PodResponseDTO.builder()
-                    .id(pod.getId())
-                    .podNumber(pod.getPodNumber() != null ? pod.getPodNumber() : "N/A")
-                    .status("ERROR")
-                    .build();
-        }
+        return PodResponseDTO.builder()
+                .id(pod.getId())
+                .podNumber(pod.getPodNumber() != null ? pod.getPodNumber() : "N/A")
+                .tripId(pod.getTripId())
+                .tripNumber(tripNumber)
+                .customerName(pod.getCustomerName() != null ? pod.getCustomerName() : "N/A")
+                .driverName(pod.getDriverName())
+                .deliveryDate(pod.getDeliveryDate())
+                .status(pod.getStatus() != null ? pod.getStatus() : "PENDING")
+                .source(pod.getSource() != null ? pod.getSource() : "UPLOADED")
+                .documentType(pod.getDocumentType())
+                .fileSize(pod.getFileSize())
+                .fileUrl(pod.getFileUrl())
+                .fileName(pod.getFileName())
+                .documentReference(pod.getDocumentReference())
+                .notes(pod.getNotes())
+                .uploadedBy(pod.getUploadedBy())
+                .uploadedAt(pod.getUploadedAt())
+                .verifiedBy(pod.getVerifiedBy())
+                .verifiedAt(pod.getVerifiedAt())
+                .rejectedBy(pod.getRejectedBy())
+                .rejectedAt(pod.getRejectedAt())
+                .rejectionReason(pod.getRejectionReason())
+                .debriefedAt(pod.getDebriefedAt())
+                .debriefedBy(pod.getDebriefedBy())
+                .receivedBy(pod.getReceivedBy())
+                .qualityRating(pod.getQualityRating())
+                .issuesFound(issuesList)  // FIXED: Use List<String> instead of String
+                .deliveryCondition(pod.getDeliveryCondition())
+                .debriefNotes(pod.getDebriefNotes())
+                .additionalInfo(pod.getAdditionalInfo())
+                .createdAt(pod.getCreatedAt())
+                .createdBy(pod.getCreatedBy())
+                .updatedAt(pod.getUpdatedAt())
+                .updatedBy(pod.getUpdatedBy())
+                .build();
+                
+    } catch (Exception e) {
+        log.error("Error in mapToResponseSafe for pod {}: {}", pod.getId(), e.getMessage(), e);
+        return PodResponseDTO.builder()
+                .id(pod.getId())
+                .podNumber(pod.getPodNumber() != null ? pod.getPodNumber() : "N/A")
+                .status("ERROR")
+                .build();
     }
+}
 
     /**
      * Original mapToResponse method - delegates to safe version
