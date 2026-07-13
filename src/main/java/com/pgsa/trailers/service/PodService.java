@@ -968,7 +968,7 @@ public class PodService {
                 .debriefedBy(pod.getDebriefedBy())
                 .receivedBy(pod.getReceivedBy())
                 .qualityRating(pod.getQualityRating())
-                .issuesFound(issuesList)
+                 .issuesFound(pod.getIssuesFound())
                 .deliveryCondition(pod.getDeliveryCondition())
                 .debriefNotes(pod.getDebriefNotes())
                 .additionalInfo(pod.getAdditionalInfo())
