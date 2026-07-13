@@ -6,6 +6,8 @@ import com.pgsa.trailers.dto.PodRequestDTO;
 import com.pgsa.trailers.dto.PodResponseDTO;
 import com.pgsa.trailers.dto.PodStatistics;
 import com.pgsa.trailers.dto.StatusHistoryDTO;
+import com.pgsa.trailers.entity.ops.Pod;
+import com.pgsa.trailers.repository.PodRepository;
 import com.pgsa.trailers.service.PodService;
 import com.pgsa.trailers.service.SupabaseStorageService;
 import jakarta.validation.Valid;
@@ -19,12 +21,14 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/pods")
@@ -35,6 +39,22 @@ public class PodController {
 
     private final PodService podService;
     private final SupabaseStorageService storageService;
+    private final PodRepository podRepository;
+
+    /**
+     * Get current logged in username
+     */
+    private String getCurrentUsername() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated()) {
+                return authentication.getName();
+            }
+        } catch (Exception e) {
+            log.warn("Could not get current username: {}", e.getMessage());
+        }
+        return "System";
+    }
 
     /**
      * Create a new POD with optional file upload
@@ -136,89 +156,88 @@ public class PodController {
     }
 
     /**
- * Append a document to an existing trip
- */
-@PostMapping(value = "/append/{tripId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-public ResponseEntity<PodResponseDTO> appendPodToTrip(
-        @PathVariable Long tripId,
-        @RequestParam("file") MultipartFile file,
-        @RequestParam(value = "notes", required = false) String notes) {
-    log.info("📎 Appending POD document to trip: {}", tripId);
-    
-    try {
-        PodResponseDTO appendedPod = podService.appendPodToTrip(tripId, file, notes);
-        return ResponseEntity.status(HttpStatus.CREATED).body(appendedPod);
-    } catch (Exception e) {
-        log.error("❌ Error appending POD to trip {}: {}", tripId, e.getMessage(), e);
-        throw e;
-    }
-}
-
-/**
- * Get all PODs for a trip with document references
- */
-@GetMapping("/trip/{tripId}/documents")
-public ResponseEntity<Map<String, Object>> getTripDocuments(@PathVariable Long tripId) {
-    log.info("📋 Getting all documents for trip: {}", tripId);
-    
-    try {
-        List<PodResponseDTO> pods = podService.getPodsByTrip(tripId);
+     * Append a document to an existing trip
+     */
+    @PostMapping(value = "/append/{tripId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PodResponseDTO> appendPodToTrip(
+            @PathVariable Long tripId,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "notes", required = false) String notes) {
+        log.info("📎 Appending POD document to trip: {}", tripId);
         
-        Map<String, Object> response = new HashMap<>();
-        response.put("tripId", tripId);
-        response.put("totalDocuments", pods.size());
-        response.put("documents", pods);
-        
-        // Get document references
-        List<Map<String, String>> documentRefs = pods.stream()
-            .filter(p -> p.getDocumentReference() != null)
-            .map(p -> {
-                Map<String, String> ref = new HashMap<>();
-                ref.put("podNumber", p.getPodNumber());
-                ref.put("documentReference", p.getDocumentReference());
-                ref.put("fileName", p.getFileName());
-                ref.put("status", p.getStatus());
-                return ref;
-            })
-            .collect(Collectors.toList());
-        
-        response.put("documentReferences", documentRefs);
-        
-        return ResponseEntity.ok(response);
-    } catch (Exception e) {
-        log.error("❌ Error getting trip documents: {}", e.getMessage(), e);
-        throw e;
-    }
-}
-
-/**
- * Update debrief notes with default
- */
-@PatchMapping("/{id}/debrief-notes")
-public ResponseEntity<PodResponseDTO> updateDebriefNotes(
-        @PathVariable Long id,
-        @RequestBody Map<String, String> request) {
-    log.info("📝 Updating debrief notes for POD: {}", id);
-    
-    try {
-        String debriefNotes = request.get("debriefNotes");
-        if (debriefNotes == null || debriefNotes.isEmpty()) {
-            debriefNotes = "No Endorsements";
+        try {
+            PodResponseDTO appendedPod = podService.appendPodToTrip(tripId, file, notes);
+            return ResponseEntity.status(HttpStatus.CREATED).body(appendedPod);
+        } catch (Exception e) {
+            log.error("❌ Error appending POD to trip {}: {}", tripId, e.getMessage(), e);
+            throw e;
         }
-        
-        Pod pod = podService.getPodEntity(id);
-        pod.setDebriefNotes(debriefNotes);
-        pod.setUpdatedBy(getCurrentUsername());
-        pod.setUpdatedAt(LocalDateTime.now());
-        Pod updatedPod = podRepository.save(pod);
-        
-        return ResponseEntity.ok(podService.mapToResponse(updatedPod));
-    } catch (Exception e) {
-        log.error("❌ Error updating debrief notes: {}", e.getMessage(), e);
-        throw e;
     }
-}
-    
+
+    /**
+     * Get all PODs for a trip with document references
+     */
+    @GetMapping("/trip/{tripId}/documents")
+    public ResponseEntity<Map<String, Object>> getTripDocuments(@PathVariable Long tripId) {
+        log.info("📋 Getting all documents for trip: {}", tripId);
+        
+        try {
+            List<PodResponseDTO> pods = podService.getPodsByTrip(tripId);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("tripId", tripId);
+            response.put("totalDocuments", pods.size());
+            response.put("documents", pods);
+            
+            // Get document references
+            List<Map<String, String>> documentRefs = pods.stream()
+                .filter(p -> p.getDocumentReference() != null)
+                .map(p -> {
+                    Map<String, String> ref = new HashMap<>();
+                    ref.put("podNumber", p.getPodNumber());
+                    ref.put("documentReference", p.getDocumentReference());
+                    ref.put("fileName", p.getFileName());
+                    ref.put("status", p.getStatus());
+                    return ref;
+                })
+                .collect(Collectors.toList());
+            
+            response.put("documentReferences", documentRefs);
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("❌ Error getting trip documents: {}", e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    /**
+     * Update debrief notes with default
+     */
+    @PatchMapping("/{id}/debrief-notes")
+    public ResponseEntity<PodResponseDTO> updateDebriefNotes(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request) {
+        log.info("📝 Updating debrief notes for POD: {}", id);
+        
+        try {
+            String debriefNotes = request.get("debriefNotes");
+            if (debriefNotes == null || debriefNotes.isEmpty()) {
+                debriefNotes = "No Endorsements";
+            }
+            
+            Pod pod = podService.getPodEntity(id);
+            pod.setDebriefNotes(debriefNotes);
+            pod.setUpdatedBy(getCurrentUsername());
+            pod.setUpdatedAt(LocalDateTime.now());
+            Pod updatedPod = podRepository.save(pod);
+            
+            return ResponseEntity.ok(podService.getPodById(id));
+        } catch (Exception e) {
+            log.error("❌ Error updating debrief notes: {}", e.getMessage(), e);
+            throw e;
+        }
+    }
 
     /**
      * Download POD document
@@ -495,7 +514,7 @@ public ResponseEntity<PodResponseDTO> updateDebriefNotes(
         try {
             String verifiedBy = verifyRequest.get("verifiedBy");
             if (verifiedBy == null || verifiedBy.isEmpty()) {
-                verifiedBy = "System";
+                verifiedBy = getCurrentUsername();
             }
             
             PodResponseDTO verifiedPod = podService.verifyPod(id, verifiedBy);
@@ -518,7 +537,7 @@ public ResponseEntity<PodResponseDTO> updateDebriefNotes(
         try {
             String rejectedBy = rejectRequest.get("rejectedBy");
             if (rejectedBy == null || rejectedBy.isEmpty()) {
-                rejectedBy = "System";
+                rejectedBy = getCurrentUsername();
             }
             
             String reason = rejectRequest.get("reason");
