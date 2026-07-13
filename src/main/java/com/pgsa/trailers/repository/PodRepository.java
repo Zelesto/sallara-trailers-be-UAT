@@ -9,7 +9,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -17,86 +16,177 @@ import java.util.Optional;
 @Repository
 public interface PodRepository extends JpaRepository<Pod, Long> {
 
+    /**
+     * Find POD by POD number
+     */
     Optional<Pod> findByPodNumber(String podNumber);
 
+    /**
+     * Find PODs by trip ID
+     */
     List<Pod> findByTripId(Long tripId);
 
+    /**
+     * Find PODs by trip ID with pagination
+     */
     Page<Pod> findByTripId(Long tripId, Pageable pageable);
 
+    /**
+     * Find PODs by status
+     */
     Page<Pod> findByStatus(String status, Pageable pageable);
 
-    Page<Pod> findByCustomerNameContainingIgnoreCase(String customerName, Pageable pageable);
-
-    // Count methods
+    /**
+     * Count PODs by status
+     */
     long countByStatus(String status);
-    
+
+    /**
+     * Count PODs by source
+     */
     long countBySource(String source);
-    
-    long countByTripId(Long tripId);
-    
+
+    /**
+     * Search PODs by pod number, customer name, or trip number
+     */
+    @Query("SELECT p FROM Pod p WHERE " +
+           "LOWER(p.podNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(p.customerName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(p.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(p.driverName) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
+    Page<Pod> searchPods(@Param("searchTerm") String searchTerm, Pageable pageable);
+
+    /**
+     * Count PODs pending debrief
+     */
     @Query("SELECT COUNT(p) FROM Pod p WHERE p.status IN ('PENDING', 'SCANNED')")
     long countPendingDebrief();
-    
+
+    /**
+     * Count PODs scanned since a specific time
+     */
     @Query("SELECT COUNT(p) FROM Pod p WHERE p.source = 'SCANNED' AND p.uploadedAt >= :since")
     long countScannedSince(@Param("since") LocalDateTime since);
 
-    // Search methods
-    @Query("SELECT p FROM Pod p WHERE " +
-           "LOWER(p.podNumber) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(p.customerName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(p.driverName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(p.status) LIKE LOWER(CONCAT('%', :search, '%'))")
-    Page<Pod> searchPods(@Param("search") String search, Pageable pageable);
+    /**
+     * Find PODs with null or empty file URL
+     * This is the method that was missing
+     */
+    @Query("SELECT p FROM Pod p WHERE p.fileUrl IS NULL OR p.fileUrl = ''")
+    List<Pod> findByFileUrlIsNullOrFileUrlIsEmpty();
 
+    /**
+     * Find PODs with null or empty file URL with pagination
+     */
+    @Query("SELECT p FROM Pod p WHERE p.fileUrl IS NULL OR p.fileUrl = ''")
+    Page<Pod> findByFileUrlIsNullOrFileUrlIsEmpty(Pageable pageable);
+
+    /**
+     * Find PODs by status and file URL null or empty
+     */
+    @Query("SELECT p FROM Pod p WHERE p.status = :status AND (p.fileUrl IS NULL OR p.fileUrl = '')")
+    List<Pod> findByStatusAndFileUrlIsNullOrEmpty(@Param("status") String status);
+
+    /**
+     * Find PODs by delivery date range
+     */
     @Query("SELECT p FROM Pod p WHERE p.deliveryDate BETWEEN :startDate AND :endDate")
-    List<Pod> findPodsByDateRange(@Param("startDate") LocalDate startDate, 
-                                   @Param("endDate") LocalDate endDate);
+    List<Pod> findByDeliveryDateBetween(@Param("startDate") LocalDateTime startDate, 
+                                        @Param("endDate") LocalDateTime endDate);
 
-    // Find by status and source
-    Page<Pod> findByStatusAndSource(String status, String source, Pageable pageable);
-    
-    List<Pod> findByStatusAndSource(String status, String source);
-    
-    // Find by source
-    Page<Pod> findBySource(String source, Pageable pageable);
-    
-    List<Pod> findBySource(String source);
+    /**
+     * Find PODs by customer name
+     */
+    List<Pod> findByCustomerNameContainingIgnoreCase(String customerName);
 
-    // Existence checks
-    boolean existsByTripId(Long tripId);
-    
-    @Query("SELECT CASE WHEN COUNT(p) > 0 THEN true ELSE false END FROM Pod p WHERE p.tripId = :tripId AND p.status = :status")
-    boolean existsByTripIdAndStatus(@Param("tripId") Long tripId, @Param("status") String status);
+    /**
+     * Find PODs by status and trip ID
+     */
+    List<Pod> findByStatusAndTripId(String status, Long tripId);
 
-    // Delete methods
-    void deleteByTripId(Long tripId);
-    
-    @Query("DELETE FROM Pod p WHERE p.tripId = :tripId")
-    void deleteAllByTripId(@Param("tripId") Long tripId);
+    /**
+     * Find PODs by source and status
+     */
+    List<Pod> findBySourceAndStatus(String source, String status);
 
-    // Statistics query - get POD counts by status
+    /**
+     * Count PODs by status and source
+     */
+    long countByStatusAndSource(String status, String source);
+
+    /**
+     * Get all PODs with file URLs
+     */
+    @Query("SELECT p FROM Pod p WHERE p.fileUrl IS NOT NULL AND p.fileUrl != ''")
+    List<Pod> findAllWithFileUrls();
+
+    /**
+     * Get all PODs without file URLs
+     */
+    @Query("SELECT p FROM Pod p WHERE p.fileUrl IS NULL OR p.fileUrl = ''")
+    List<Pod> findAllWithoutFileUrls();
+
+    /**
+     * Find PODs by pod number containing
+     */
+    List<Pod> findByPodNumberContainingIgnoreCase(String podNumber);
+
+    /**
+     * Find PODs by driver name
+     */
+    List<Pod> findByDriverNameContainingIgnoreCase(String driverName);
+
+    /**
+     * Find PODs by notes containing
+     */
+    List<Pod> findByNotesContainingIgnoreCase(String notes);
+
+    /**
+     * Get POD statistics by status
+     */
     @Query("SELECT p.status, COUNT(p) FROM Pod p GROUP BY p.status")
-    List<Object[]> countPodsByStatus();
+    List<Object[]> countByStatusGroup();
 
-    // Get recent PODs
-    @Query("SELECT p FROM Pod p ORDER BY p.createdAt DESC")
-    Page<Pod> findRecentPods(Pageable pageable);
-    
-    // Get PODs with file
-    @Query("SELECT p FROM Pod p WHERE p.fileUrl IS NOT NULL")
-    Page<Pod> findPodsWithFile(Pageable pageable);
-    
-    // Get PODs without file
-    @Query("SELECT p FROM Pod p WHERE p.fileUrl IS NULL")
-    Page<Pod> findPodsWithoutFile(Pageable pageable);
+    /**
+     * Get POD statistics by source
+     */
+    @Query("SELECT p.source, COUNT(p) FROM Pod p GROUP BY p.source")
+    List<Object[]> countBySourceGroup();
 
-    // Get PODs by trip number (if trip number is stored or via join)
-    @Query("SELECT p FROM Pod p JOIN Trip t ON p.tripId = t.id WHERE t.tripNumber LIKE CONCAT('%', :tripNumber, '%')")
-    Page<Pod> findByTripNumberContaining(@Param("tripNumber") String tripNumber, Pageable pageable);
+    /**
+     * Find PODs created between dates
+     */
+    @Query("SELECT p FROM Pod p WHERE p.createdAt BETWEEN :startDate AND :endDate")
+    List<Pod> findByCreatedAtBetween(@Param("startDate") LocalDateTime startDate,
+                                     @Param("endDate") LocalDateTime endDate);
 
-    // Get PODs uploaded by a specific user
-    Page<Pod> findByUploadedBy(String uploadedBy, Pageable pageable);
+    /**
+     * Find PODs by trip number (join with trip entity)
+     */
+    @Query("SELECT p FROM Pod p WHERE p.tripNumber = :tripNumber")
+    List<Pod> findByTripNumber(@Param("tripNumber") String tripNumber);
 
-    // Get PODs with status in a list
-    Page<Pod> findByStatusIn(List<String> statuses, Pageable pageable);
+    /**
+     * Find PODs that are not debriefed
+     */
+    @Query("SELECT p FROM Pod p WHERE p.debriefedAt IS NULL")
+    List<Pod> findNotDebriefed();
+
+    /**
+     * Find PODs debriefed after a specific time
+     */
+    @Query("SELECT p FROM Pod p WHERE p.debriefedAt >= :since")
+    List<Pod> findDebriefedSince(@Param("since") LocalDateTime since);
+
+    /**
+     * Count PODs by delivery date
+     */
+    @Query("SELECT p.deliveryDate, COUNT(p) FROM Pod p GROUP BY p.deliveryDate")
+    List<Object[]> countByDeliveryDateGroup();
+
+    /**
+     * Find recent PODs (last 7 days)
+     */
+    @Query("SELECT p FROM Pod p WHERE p.createdAt >= :since ORDER BY p.createdAt DESC")
+    List<Pod> findRecentPods(@Param("since") LocalDateTime since, Pageable pageable);
 }
