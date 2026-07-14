@@ -130,8 +130,8 @@ public class Load extends BaseEntity {
     @Column(name = "last_status_update")
     private LocalDateTime lastStatusUpdate;
 
-    @Column(name = "audit_trail", columnDefinition = "json")
-    private String auditTrail;
+    @Column(name = "audit_trail", columnDefinition = "TEXT")
+private String auditTrail;
 
     @OneToMany(mappedBy = "load", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Trip> trips = new ArrayList<>();
