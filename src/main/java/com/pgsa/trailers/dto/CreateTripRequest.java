@@ -27,7 +27,7 @@ public class CreateTripRequest {
        CUSTOMER & LOAD RELATIONSHIPS
        ======================== */
     private Long customerId;  // Link to customer for invoicing
-    private String loadId;    // Link to load for consolidation
+    private String loadId;    // Link to load for consolidation (load number)
 
     /* ========================
        IDENTITY
@@ -40,7 +40,6 @@ public class CreateTripRequest {
        ======================== */
     private TripStatus status;
     private String approvalStatus;
-    //private String priority;
 
     /* ========================
        PLANNING
@@ -142,10 +141,10 @@ public class CreateTripRequest {
     private String driverNotes;
 
     /* ========================
-       REFERENCES
+       REFERENCES - CRITICAL FOR LOAD GROUPING
        ======================== */
     @Size(max = 100, message = "Reference number cannot exceed 100 characters")
-    private String referenceNumber;
+    private String referenceNumber;  // Ref# for grouping trips into loads
 
     @Size(max = 100, message = "Purchase order number cannot exceed 100 characters")
     private String purchaseOrderNumber;
@@ -167,12 +166,4 @@ public class CreateTripRequest {
 
     private String routeDetails;
     private String checkpoints;
-
-    private String referenceNumber; 
-    private String loadId; 
-
-    /* ========================
-       AUDIT
-       ======================== */
-   // private String auditTrail;
 }
