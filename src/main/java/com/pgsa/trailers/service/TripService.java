@@ -522,121 +522,145 @@ public TripResponse createTrip(CreateTripRequest request, Long userId) {
         log.info("Deleted trip ID: {}", id);
     }
 
-    /* ========================
-       UPDATE (PATCH SAFE)
-       ======================== */
-    @Transactional
-    public TripResponse updateTrip(Long tripId, UpdateTripRequest request, Long userId) {
-        log.debug("Updating trip ID: {} with request", tripId);
-        
-        Trip trip = findTripOrThrow(tripId);
-        
-        tripValidator.validateCanUpdate(trip);
-        
-        LocalDateTime now = LocalDateTime.now();
+   /* ========================
+   UPDATE (PATCH SAFE)
+   ======================== */
+@Transactional
+public TripResponse updateTrip(Long tripId, UpdateTripRequest request, Long userId) {
+    log.debug("Updating trip ID: {} with request", tripId);
+    
+    Trip trip = findTripOrThrow(tripId);
+    
+    tripValidator.validateCanUpdate(trip);
+    
+    LocalDateTime now = LocalDateTime.now();
 
-        if (request.getVehicleId() != null) {
-            Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
-                    .orElseThrow(() -> new TripValidationException("Vehicle not found with ID: " + request.getVehicleId()));
-            trip.setVehicle(vehicle);
-        }
-
-        if (request.getDriverId() != null) {
-            Driver driver = driverRepository.findById(request.getDriverId())
-                    .orElseThrow(() -> new TripValidationException("Driver not found with ID: " + request.getDriverId()));
-            trip.setDriver(driver);
-        }
-
-        if (request.getSupervisorId() != null) {
-            Driver supervisor = driverRepository.findById(request.getSupervisorId())
-                    .orElseThrow(() -> new TripValidationException("Supervisor not found with ID: " + request.getSupervisorId()));
-            trip.setSupervisor(supervisor);
-        }
-
-        // Update customer if provided
-        if (request.getCustomerId() != null && request.getCustomerId() > 0) {
-            Customer customer = customerRepository.findById(request.getCustomerId())
-                    .orElseThrow(() -> new TripValidationException("Customer not found with ID: " + request.getCustomerId()));
-            trip.setCustomerId(customer.getId());
-        }
-
-        // Update load if provided - loadId is String (loadNumber)
-        if (request.getLoadId() != null) {
-            if (!request.getLoadId().isEmpty()) {
-                Load load = loadRepository.findByLoadNumber(request.getLoadId())
-                        .orElseThrow(() -> new TripValidationException("Load not found with number: " + request.getLoadId()));
-                trip.setLoad(load);
-                trip.setLoadId(load.getLoadNumber());  // String
-                trip.setLoadNumber(load.getLoadNumber());
-                trip.setLoadType(load.getCommodityType());
-                trip.setLoadDescription(load.getDescription());
-                trip.setLoadStatus(load.getStatus());
-            } else {
-                trip.setLoad(null);
-                trip.setLoadId(null);
-                trip.setLoadNumber(null);
-                trip.setLoadType(null);
-                trip.setLoadDescription(null);
-                trip.setLoadStatus(null);
-            }
-        }
-
-        Optional.ofNullable(request.getOriginLocation()).ifPresent(trip::setOriginLocation);
-        Optional.ofNullable(request.getDestinationLocation()).ifPresent(trip::setDestinationLocation);
-        
-        Optional.ofNullable(request.getOriginStreetAddress()).ifPresent(trip::setOriginStreetAddress);
-        Optional.ofNullable(request.getOriginCity()).ifPresent(trip::setOriginCity);
-        Optional.ofNullable(request.getOriginZipCode()).ifPresent(trip::setOriginZipCode);
-        Optional.ofNullable(request.getOriginProvince()).ifPresent(trip::setOriginProvince);
-
-        Optional.ofNullable(request.getDestinationStreetAddress()).ifPresent(trip::setDestinationStreetAddress);
-        Optional.ofNullable(request.getDestinationCity()).ifPresent(trip::setDestinationCity);
-        Optional.ofNullable(request.getDestinationZipCode()).ifPresent(trip::setDestinationZipCode);
-        Optional.ofNullable(request.getDestinationProvince()).ifPresent(trip::setDestinationProvince);
-
-        Optional.ofNullable(request.getActualStartDate()).ifPresent(trip::setActualStartDate);
-        Optional.ofNullable(request.getActualEndDate()).ifPresent(trip::setActualEndDate);
-
-        Optional.ofNullable(request.getActualStartOdometer()).ifPresent(trip::setActualStartOdometer);
-        Optional.ofNullable(request.getActualEndOdometer()).ifPresent(trip::setActualEndOdometer);
-        
-        if (request.getActualStartOdometer() != null && request.getActualEndOdometer() != null) {
-            trip.setActualDistanceKm(request.getActualEndOdometer().subtract(request.getActualStartOdometer()));
-        }
-
-        Optional.ofNullable(request.getPlannedStartDate()).ifPresent(trip::setPlannedStartDate);
-        Optional.ofNullable(request.getPlannedEndDate()).ifPresent(trip::setPlannedEndDate);
-        Optional.ofNullable(request.getPlannedDistanceKm()).ifPresent(trip::setPlannedDistanceKm);
-        Optional.ofNullable(request.getEstimatedDurationHours()).ifPresent(trip::setEstimatedDurationHours);
-
-        Optional.ofNullable(request.getTollCost()).ifPresent(trip::setTollCost);
-        Optional.ofNullable(request.getOtherExpenses()).ifPresent(trip::setOtherExpenses);
-        
-        Optional.ofNullable(request.getFuelConsumedLiters()).ifPresent(trip::setFuelConsumedLiters);
-        Optional.ofNullable(request.getDriverNotes()).ifPresent(trip::setDriverNotes);
-
-        if (request.getStatus() != null && request.getStatus() != trip.getStatus()) {
-            tripValidator.validateStatusTransition(trip.getStatus(), request.getStatus());
-            trip.setStatus(request.getStatus());
-            trip.setLastStatusUpdate(now);
-            
-            if (request.getStatus() == TripStatus.CANCELLED) {
-                trip.setCancelledAt(now);
-            }
-        }
-
-        trip.setUpdatedAt(now);
-        trip.setUpdatedBy(userId);
-        
-        trip.updateOriginLocationFromComponents();
-        trip.updateDestinationLocationFromComponents();
-
-        Trip saved = tripRepository.save(trip);
-        log.info("Updated trip ID: {}", tripId);
-
-        return tripResponseMapper.toResponse(saved);
+    if (request.getVehicleId() != null) {
+        Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
+                .orElseThrow(() -> new TripValidationException("Vehicle not found with ID: " + request.getVehicleId()));
+        trip.setVehicle(vehicle);
     }
 
+    if (request.getDriverId() != null) {
+        Driver driver = driverRepository.findById(request.getDriverId())
+                .orElseThrow(() -> new TripValidationException("Driver not found with ID: " + request.getDriverId()));
+        trip.setDriver(driver);
+    }
+
+    if (request.getSupervisorId() != null) {
+        Driver supervisor = driverRepository.findById(request.getSupervisorId())
+                .orElseThrow(() -> new TripValidationException("Supervisor not found with ID: " + request.getSupervisorId()));
+        trip.setSupervisor(supervisor);
+    }
+
+    // Update customer if provided
+    if (request.getCustomerId() != null && request.getCustomerId() > 0) {
+        Customer customer = customerRepository.findById(request.getCustomerId())
+                .orElseThrow(() -> new TripValidationException("Customer not found with ID: " + request.getCustomerId()));
+        trip.setCustomerId(customer.getId());
+    }
+
+    // Update load if provided - loadId is String (loadNumber)
+    if (request.getLoadId() != null) {
+        if (!request.getLoadId().isEmpty()) {
+            Load load = loadRepository.findByLoadNumber(request.getLoadId())
+                    .orElseThrow(() -> new TripValidationException("Load not found with number: " + request.getLoadId()));
+            trip.setLoad(load);
+            trip.setLoadId(load.getLoadNumber());  // String
+            trip.setLoadNumber(load.getLoadNumber());
+            trip.setLoadType(load.getCommodityType());
+            trip.setLoadDescription(load.getDescription());
+            trip.setLoadStatus(load.getStatus());
+        } else {
+            trip.setLoad(null);
+            trip.setLoadId(null);
+            trip.setLoadNumber(null);
+            trip.setLoadType(null);
+            trip.setLoadDescription(null);
+            trip.setLoadStatus(null);
+        }
+    }
+
+    /* ========================
+       DEPOT TRACKING - NEW
+       ======================== */
+    if (request.getFromDepotKm() != null) {
+        trip.setFromDepotKm(request.getFromDepotKm());
+    }
+    if (request.getToDepotKm() != null) {
+        trip.setToDepotKm(request.getToDepotKm());
+    }
+    if (request.getDepartedFrom() != null) {
+        trip.setDepartedFrom(request.getDepartedFrom());
+    }
+    if (request.getDepartureLocation() != null) {
+        trip.setDepartureLocation(request.getDepartureLocation());
+    }
+    if (request.getIsFromDepot() != null) {
+        trip.setIsFromDepot(request.getIsFromDepot());
+    }
+
+    Optional.ofNullable(request.getOriginLocation()).ifPresent(trip::setOriginLocation);
+    Optional.ofNullable(request.getDestinationLocation()).ifPresent(trip::setDestinationLocation);
+    
+    Optional.ofNullable(request.getOriginStreetAddress()).ifPresent(trip::setOriginStreetAddress);
+    Optional.ofNullable(request.getOriginCity()).ifPresent(trip::setOriginCity);
+    Optional.ofNullable(request.getOriginZipCode()).ifPresent(trip::setOriginZipCode);
+    Optional.ofNullable(request.getOriginProvince()).ifPresent(trip::setOriginProvince);
+
+    Optional.ofNullable(request.getDestinationStreetAddress()).ifPresent(trip::setDestinationStreetAddress);
+    Optional.ofNullable(request.getDestinationCity()).ifPresent(trip::setDestinationCity);
+    Optional.ofNullable(request.getDestinationZipCode()).ifPresent(trip::setDestinationZipCode);
+    Optional.ofNullable(request.getDestinationProvince()).ifPresent(trip::setDestinationProvince);
+
+    Optional.ofNullable(request.getActualStartDate()).ifPresent(trip::setActualStartDate);
+    Optional.ofNullable(request.getActualEndDate()).ifPresent(trip::setActualEndDate);
+
+    Optional.ofNullable(request.getActualStartOdometer()).ifPresent(trip::setActualStartOdometer);
+    Optional.ofNullable(request.getActualEndOdometer()).ifPresent(trip::setActualEndOdometer);
+    
+    if (request.getActualStartOdometer() != null && request.getActualEndOdometer() != null) {
+        trip.setActualDistanceKm(request.getActualEndOdometer().subtract(request.getActualStartOdometer()));
+    }
+
+    Optional.ofNullable(request.getPlannedStartDate()).ifPresent(trip::setPlannedStartDate);
+    Optional.ofNullable(request.getPlannedEndDate()).ifPresent(trip::setPlannedEndDate);
+    Optional.ofNullable(request.getPlannedDistanceKm()).ifPresent(trip::setPlannedDistanceKm);
+    Optional.ofNullable(request.getEstimatedDurationHours()).ifPresent(trip::setEstimatedDurationHours);
+
+    Optional.ofNullable(request.getTollCost()).ifPresent(trip::setTollCost);
+    Optional.ofNullable(request.getOtherExpenses()).ifPresent(trip::setOtherExpenses);
+    
+    Optional.ofNullable(request.getFuelConsumedLiters()).ifPresent(trip::setFuelConsumedLiters);
+    Optional.ofNullable(request.getDriverNotes()).ifPresent(trip::setDriverNotes);
+
+    if (request.getStatus() != null && request.getStatus() != trip.getStatus()) {
+        tripValidator.validateStatusTransition(trip.getStatus(), request.getStatus());
+        trip.setStatus(request.getStatus());
+        trip.setLastStatusUpdate(now);
+        
+        if (request.getStatus() == TripStatus.CANCELLED) {
+            trip.setCancelledAt(now);
+        }
+    }
+
+    trip.setUpdatedAt(now);
+    trip.setUpdatedBy(userId);
+    
+    trip.updateOriginLocationFromComponents();
+    trip.updateDestinationLocationFromComponents();
+
+    // If trip has a load, recalculate depot totals
+    if (trip.getLoad() != null) {
+        trip.getLoad().recalculateDepotTotals();
+        loadRepository.save(trip.getLoad());
+    }
+
+    Trip saved = tripRepository.save(trip);
+    log.info("Updated trip ID: {}", tripId);
+
+    return tripResponseMapper.toResponse(saved);
+}
     // Add these methods to TripService.java after the existing methods
 
     /* ========================
