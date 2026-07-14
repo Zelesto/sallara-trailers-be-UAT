@@ -26,7 +26,6 @@ public class TripFinalisationService {
     private final PodRepository podRepository;
     private final LoadRepository loadRepository;
     private final TripMetricsService tripMetricsService;
-    private final LoadService loadService;
 
     @Transactional
     public void finalizeTrip(Long tripId) {
@@ -157,44 +156,64 @@ public class TripFinalisationService {
 
             // 11. Update Load - mark trip as completed in load
             log.debug("Step 11: Updating Load...");
-            if (trip.getLoadId() != null && !trip.getLoadId().isEmpty()) {
-                try {
-                    // Find the load by load number
-                    Load load = loadRepository.findByLoadNumber(trip.getLoadId())
-                            .orElse(null);
-                    
-                    if (load != null) {
-                        // Update load statistics
-                        load.setTripsCount(load.getTrips() != null ? load.getTrips().size() : 0);
+            try {
+                // Try to find the load using loadId (String)
+                if (trip.getLoadId() != null && !trip.getLoadId().isEmpty()) {
+                    try {
+                        // Try to parse as Long first (for backward compatibility)
+                        Long loadIdLong = null;
+                        try {
+                            loadIdLong = Long.parseLong(trip.getLoadId());
+                        } catch (NumberFormatException e) {
+                            // If not a number, it's a load number
+                            log.debug("LoadId is a string: {}", trip.getLoadId());
+                        }
                         
-                        // Check if all trips in load are completed
-                        boolean allCompleted = true;
-                        if (load.getTrips() != null) {
-                            for (Trip t : load.getTrips()) {
-                                if (t.getStatus() != TripStatus.COMPLETED && t.getStatus() != TripStatus.FINALIZED) {
-                                    allCompleted = false;
-                                    break;
+                        Load load = null;
+                        if (loadIdLong != null) {
+                            load = loadRepository.findById(loadIdLong).orElse(null);
+                        }
+                        if (load == null) {
+                            // Try to find by load number
+                            load = loadRepository.findByLoadNumber(trip.getLoadId()).orElse(null);
+                        }
+                        
+                        if (load != null) {
+                            // Update load statistics
+                            load.setTripsCount(load.getTrips() != null ? load.getTrips().size() : 0);
+                            
+                            // Check if all trips in load are completed
+                            boolean allCompleted = true;
+                            if (load.getTrips() != null) {
+                                for (Trip t : load.getTrips()) {
+                                    if (t.getStatus() != TripStatus.COMPLETED && t.getStatus() != TripStatus.FINALIZED) {
+                                        allCompleted = false;
+                                        break;
+                                    }
                                 }
                             }
+                            
+                            if (allCompleted && load.getTripsCount() > 0) {
+                                load.setStatus("COMPLETED");
+                                log.info("✅ All trips in load {} are completed", load.getLoadNumber());
+                            }
+                            
+                            load.setLastStatusUpdate(LocalDateTime.now());
+                            loadRepository.save(load);
+                            log.info("✅ Load {} updated successfully", load.getLoadNumber());
+                        } else {
+                            log.warn("⚠️ Load not found for trip {}: loadId={}", tripId, trip.getLoadId());
                         }
-                        
-                        if (allCompleted && load.getTripsCount() > 0) {
-                            load.setStatus("COMPLETED");
-                            log.info("✅ All trips in load {} are completed", load.getLoadNumber());
-                        }
-                        
-                        load.setLastStatusUpdate(LocalDateTime.now());
-                        loadRepository.save(load);
-                        log.info("✅ Load {} updated successfully", load.getLoadNumber());
-                    } else {
-                        log.warn("⚠️ Load not found for trip {}: loadId={}", tripId, trip.getLoadId());
+                    } catch (Exception e) {
+                        log.error("❌ Error updating load for trip {}: {}", tripId, e.getMessage());
+                        // Don't block finalization if load update fails
                     }
-                } catch (Exception e) {
-                    log.error("❌ Error updating load for trip {}: {}", tripId, e.getMessage());
-                    // Don't block finalization if load update fails
+                } else {
+                    log.warn("⚠️ Trip {} has no load assigned", tripId);
                 }
-            } else {
-                log.warn("⚠️ Trip {} has no load assigned", tripId);
+            } catch (Exception e) {
+                log.error("❌ Error in load update: {}", e.getMessage());
+                // Don't block finalization
             }
 
             // 12. Save trip
