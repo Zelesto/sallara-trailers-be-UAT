@@ -10,7 +10,11 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "depots")
+@Table(name = "depots", indexes = {
+        @Index(name = "idx_depots_depot_code", columnList = "depot_code", unique = true),
+        @Index(name = "idx_depots_city", columnList = "city"),
+        @Index(name = "idx_depots_is_active", columnList = "is_active")
+})
 @Data
 @Builder
 @NoArgsConstructor
@@ -54,10 +58,10 @@ public class Depot {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @Column(name = "created_by")
+    @Column(name = "created_by", length = 100)
     private String createdBy;
 
-    @Column(name = "updated_by")
+    @Column(name = "updated_by", length = 100)
     private String updatedBy;
 
     @PrePersist
@@ -73,6 +77,9 @@ public class Depot {
         updatedAt = LocalDateTime.now();
     }
 
+    /**
+     * Get full address as a single string
+     */
     public String getFullAddress() {
         StringBuilder sb = new StringBuilder();
         if (streetAddress != null && !streetAddress.isEmpty()) {
@@ -91,5 +98,15 @@ public class Depot {
             sb.append(province);
         }
         return sb.toString();
+    }
+
+    /**
+     * Get coordinates as string for API calls
+     */
+    public String getCoordinates() {
+        if (latitude != null && longitude != null) {
+            return latitude + "," + longitude;
+        }
+        return null;
     }
 }
