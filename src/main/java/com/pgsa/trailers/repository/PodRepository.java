@@ -264,7 +264,31 @@ public interface PodRepository extends JpaRepository<Pod, Long> {
     @Query("SELECT p.tripId, COUNT(p) FROM Pod p WHERE p.tripId IN :tripIds GROUP BY p.tripId")
     List<Object[]> countByTripIdIn(@Param("tripIds") List<Long> tripIds);
 
+/**Trip Finalization*/
+    /**
+ * Count PODs by trip ID and status in list - FOR TRIP FINALIZATION
+ */
+@Query("SELECT COUNT(p) FROM Pod p WHERE p.tripId = :tripId AND p.status IN :statuses")
+long countByTripIdAndStatusIn(@Param("tripId") Long tripId, @Param("statuses") List<String> statuses);
 
+/**
+ * Count PODs by trip ID and status not in list - FOR TRIP FINALIZATION
+ */
+@Query("SELECT COUNT(p) FROM Pod p WHERE p.tripId = :tripId AND p.status NOT IN :statuses")
+long countByTripIdAndStatusNotIn(@Param("tripId") Long tripId, @Param("statuses") List<String> statuses);
+
+/**
+ * Find all PODs for a trip with specific statuses
+ */
+@Query("SELECT p FROM Pod p WHERE p.tripId = :tripId AND p.status IN :statuses")
+List<Pod> findByTripIdAndStatusIn(@Param("tripId") Long tripId, @Param("statuses") List<String> statuses);
+
+/**
+ * Find all PODs for a trip with status not in list
+ */
+@Query("SELECT p FROM Pod p WHERE p.tripId = :tripId AND p.status NOT IN :statuses")
+List<Pod> findByTripIdAndStatusNotIn(@Param("tripId") Long tripId, @Param("statuses") List<String> statuses);
+    
 
 
 /**
