@@ -168,6 +168,9 @@ public class CreateTripRequest {
     private String routeDetails;
     private String checkpoints;
 
+    private String referenceNumber; 
+    private String loadId; 
+
     /* ========================
        AUDIT
        ======================== */
