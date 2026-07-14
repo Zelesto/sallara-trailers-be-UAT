@@ -1,4 +1,3 @@
-// src/main/java/com/pgsa/trailers/entity/ops/Trip.java
 package com.pgsa.trailers.entity.ops;
 
 import com.pgsa.trailers.entity.assets.Driver;
@@ -34,7 +33,9 @@ import java.util.Map;
                 @Index(name = "idx_trip_customer", columnList = "customer_id"),
                 @Index(name = "idx_trip_origin_city", columnList = "origin_city"),
                 @Index(name = "idx_trip_destination_city", columnList = "destination_city"),
-                @Index(name = "idx_trip_created_at", columnList = "created_at")
+                @Index(name = "idx_trip_created_at", columnList = "created_at"),
+                @Index(name = "idx_trip_departed_from", columnList = "departed_from"),
+                @Index(name = "idx_trip_is_from_depot", columnList = "is_from_depot")
         }
 )
 @EntityListeners(AuditingEntityListener.class)
@@ -344,6 +345,24 @@ public class Trip {
     private TripMetrics metrics;
 
     /* ========================
+       DEPOT TRACKING - NEW FIELDS
+       ======================== */
+    @Column(name = "from_depot_km", precision = 10, scale = 2)
+    private BigDecimal fromDepotKm;
+
+    @Column(name = "to_depot_km", precision = 10, scale = 2)
+    private BigDecimal toDepotKm;
+
+    @Column(name = "departed_from", length = 50)
+    private String departedFrom; // DEPOT, LAST_DROP, FREEHAND
+
+    @Column(name = "departure_location", columnDefinition = "TEXT")
+    private String departureLocation; // For freehand or system location
+
+    @Column(name = "is_from_depot")
+    private Boolean isFromDepot = false;
+
+    /* ========================
        Business Methods
        ======================== */
 
@@ -378,6 +397,15 @@ public class Trip {
 
     public boolean isActive() {
         return status == TripStatus.PLANNED || status == TripStatus.IN_PROGRESS || status == TripStatus.ON_HOLD;
+    }
+
+    /**
+     * Calculate total depot kilometers (from + to)
+     */
+    public BigDecimal getTotalDepotKm() {
+        BigDecimal from = fromDepotKm != null ? fromDepotKm : BigDecimal.ZERO;
+        BigDecimal to = toDepotKm != null ? toDepotKm : BigDecimal.ZERO;
+        return from.add(to);
     }
 
     /* ========================
@@ -455,6 +483,9 @@ public class Trip {
         }
         if (isActive == null) {
             isActive = true;
+        }
+        if (isFromDepot == null) {
+            isFromDepot = false;
         }
         updateOriginLocationFromComponents();
         updateDestinationLocationFromComponents();
