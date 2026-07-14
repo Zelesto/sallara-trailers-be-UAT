@@ -1,3 +1,4 @@
+// src/main/java/com/pgsa/trailers/entity/ops/Load.java
 package com.pgsa.trailers.entity.ops;
 
 import com.pgsa.trailers.config.BaseEntity;
@@ -24,12 +25,16 @@ import java.util.List;
         @Index(name = "idx_load_load_number", columnList = "load_number", unique = true),
         @Index(name = "idx_load_status", columnList = "status"),
         @Index(name = "idx_load_customer", columnList = "customer_id"),
-        @Index(name = "idx_load_loading_date", columnList = "loading_date")
+        @Index(name = "idx_load_loading_date", columnList = "loading_date"),
+        @Index(name = "idx_load_reference_number", columnList = "reference_number")
 })
 public class Load extends BaseEntity {
 
     @Column(name = "load_number", unique = true, nullable = false, length = 50)
     private String loadNumber;
+
+    @Column(name = "reference_number", length = 100)
+    private String referenceNumber;  // Ref# for grouping trips
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
@@ -131,7 +136,19 @@ public class Load extends BaseEntity {
     private LocalDateTime lastStatusUpdate;
 
     @Column(name = "audit_trail", columnDefinition = "TEXT")
-private String auditTrail;
+    private String auditTrail;
+
+    /* ========================
+       DEPOT TRACKING - NEW FIELDS
+       ======================== */
+    @Column(name = "total_from_depot_km", precision = 10, scale = 2)
+    private BigDecimal totalFromDepotKm = BigDecimal.ZERO;
+
+    @Column(name = "total_to_depot_km", precision = 10, scale = 2)
+    private BigDecimal totalToDepotKm = BigDecimal.ZERO;
+
+    @Column(name = "total_depot_km", precision = 10, scale = 2)
+    private BigDecimal totalDepotKm = BigDecimal.ZERO;
 
     @OneToMany(mappedBy = "load", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Trip> trips = new ArrayList<>();
@@ -149,6 +166,7 @@ private String auditTrail;
             this.tripsCount = 0;
         }
         this.tripsCount++;
+        recalculateDepotTotals();
     }
 
     public void removeTrip(Trip trip) {
@@ -161,6 +179,7 @@ private String auditTrail;
         if (this.tripsCount != null && this.tripsCount > 0) {
             this.tripsCount--;
         }
+        recalculateDepotTotals();
     }
 
     public boolean isEmpty() {
@@ -197,6 +216,54 @@ private String auditTrail;
         return BigDecimal.ZERO;
     }
 
+    /**
+     * Get the total number of trips in this load
+     */
+    public int getTotalTrips() {
+        return trips != null ? trips.size() : 0;
+    }
+
+    /**
+     * Get the number of completed trips in this load
+     */
+    public int getCompletedTrips() {
+        if (trips == null || trips.isEmpty()) {
+            return 0;
+        }
+        return (int) trips.stream()
+                .filter(t -> t.getStatus() != null && 
+                    (t.getStatus().name().equals("COMPLETED") || 
+                     t.getStatus().name().equals("FINALIZED")))
+                .count();
+    }
+
+    /**
+     * Recalculate depot totals from all trips in the load
+     */
+    public void recalculateDepotTotals() {
+        if (trips == null || trips.isEmpty()) {
+            totalFromDepotKm = BigDecimal.ZERO;
+            totalToDepotKm = BigDecimal.ZERO;
+            totalDepotKm = BigDecimal.ZERO;
+            return;
+        }
+        
+        totalFromDepotKm = trips.stream()
+                .map(Trip::getFromDepotKm)
+                .filter(km -> km != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        totalToDepotKm = trips.stream()
+                .map(Trip::getToDepotKm)
+                .filter(km -> km != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        totalDepotKm = trips.stream()
+                .map(Trip::getTotalDepotKm)
+                .filter(km -> km != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     @PrePersist
     protected void onCreate() {
         if (status == null) {
@@ -223,6 +290,18 @@ private String auditTrail;
         if (lastStatusUpdate == null) {
             lastStatusUpdate = LocalDateTime.now();
         }
+        if (referenceNumber == null) {
+            referenceNumber = "";
+        }
+        if (totalFromDepotKm == null) {
+            totalFromDepotKm = BigDecimal.ZERO;
+        }
+        if (totalToDepotKm == null) {
+            totalToDepotKm = BigDecimal.ZERO;
+        }
+        if (totalDepotKm == null) {
+            totalDepotKm = BigDecimal.ZERO;
+        }
     }
 
     @PreUpdate
@@ -237,6 +316,7 @@ private String auditTrail;
         }
         lastStatusUpdate = LocalDateTime.now();
         tripsCount = trips != null ? trips.size() : 0;
+        recalculateDepotTotals();
     }
 
     public String getType() {
