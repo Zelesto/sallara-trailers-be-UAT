@@ -153,7 +153,8 @@ public TripResponse createTrip(CreateTripRequest request, Long userId) {
             load.setCommodityType(request.getCommodityType());
             load.setStatus("ACTIVE");
             load.setTripsCount(0);
-            load.setCreatedBy(userId);
+            // FIX: Convert userId to String for createdBy
+            load.setCreatedBy(userId != null ? String.valueOf(userId) : "System");
             load.setCreatedAt(LocalDateTime.now());
             load.setUpdatedAt(LocalDateTime.now());
             load.setLastStatusUpdate(LocalDateTime.now());
