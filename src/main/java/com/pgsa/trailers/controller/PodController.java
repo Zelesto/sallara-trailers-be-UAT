@@ -88,6 +88,48 @@ public ResponseEntity<?> createPod(
             ));
     }
 }
+
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+public ResponseEntity<?> createPodWithFormData(
+        @RequestParam("tripId") Long tripId,
+        @RequestParam(value = "customerName", required = false) String customerName,
+        @RequestParam(value = "deliveryDate", required = false) String deliveryDate,
+        @RequestParam(value = "status", required = false) String status,
+        @RequestParam(value = "notes", required = false) String notes,
+        @RequestParam(value = "file", required = false) MultipartFile file) {
+    
+    log.info("📝 Creating POD with form data - tripId: {}, customerName: {}", tripId, customerName);
+    
+    try {
+        // Build PodRequestDTO from individual fields
+        PodRequestDTO podRequest = new PodRequestDTO();
+        podRequest.setTripId(tripId);
+        podRequest.setCustomerName(customerName != null ? customerName : "Adhoc Customer");
+        
+        if (deliveryDate != null && !deliveryDate.isEmpty()) {
+            try {
+                podRequest.setDeliveryDate(LocalDate.parse(deliveryDate));
+            } catch (Exception e) {
+                log.warn("Invalid delivery date format: {}, using current date", deliveryDate);
+                podRequest.setDeliveryDate(LocalDate.now());
+            }
+        } else {
+            podRequest.setDeliveryDate(LocalDate.now());
+        }
+        
+        podRequest.setStatus(status != null ? status : "PENDING");
+        podRequest.setNotes(notes);
+        
+        PodResponseDTO createdPod = podService.createPod(podRequest, file);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdPod);
+        
+    } catch (Exception e) {
+        log.error("❌ Error creating POD: {}", e.getMessage(), e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(Map.of("error", "Failed to create POD", "message", e.getMessage()));
+    }
+}
+    
     /**
      * Scan a new POD from driver
      */
