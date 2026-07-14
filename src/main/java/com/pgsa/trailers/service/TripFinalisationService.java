@@ -1,11 +1,13 @@
 package com.pgsa.trailers.service;
 
+import com.pgsa.trailers.entity.ops.Load;
 import com.pgsa.trailers.entity.ops.Trip;
 import com.pgsa.trailers.entity.ops.TripMetrics;
 import com.pgsa.trailers.enums.TripStatus;
 import com.pgsa.trailers.entity.suppliers.TripValidationException;
 import com.pgsa.trailers.repository.TripRepository;
 import com.pgsa.trailers.repository.PodRepository;
+import com.pgsa.trailers.repository.LoadRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -13,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -21,7 +24,9 @@ public class TripFinalisationService {
 
     private final TripRepository tripRepository;
     private final PodRepository podRepository;
+    private final LoadRepository loadRepository;
     private final TripMetricsService tripMetricsService;
+    private final LoadService loadService;
 
     @Transactional
     public void finalizeTrip(Long tripId) {
@@ -49,8 +54,41 @@ public class TripFinalisationService {
             }
             log.info("✅ Trip status is COMPLETED");
 
-            // 4. Handle missing location data
-            log.debug("Step 4: Checking location data...");
+            // 4. CRITICAL: Check if trip has at least one POD
+            log.debug("Step 4: Checking PODs...");
+            long podCount = podRepository.countByTripId(tripId);
+            log.info("📦 Trip {} has {} PODs", tripId, podCount);
+            
+            if (podCount == 0) {
+                log.error("❌ Cannot finalize trip {}: No PODs found", tripId);
+                throw new TripValidationException(
+                    "Cannot finalize trip. The trip must have at least one POD document. " +
+                    "Please upload a POD before finalizing."
+                );
+            }
+            log.info("✅ Trip has {} POD(s)", podCount);
+
+            // 5. Check if all PODs are in valid status (DELIVERED or VERIFIED)
+            log.debug("Step 5: Checking POD statuses...");
+            long validPods = podRepository.countByTripIdAndStatusIn(
+                tripId, List.of("DELIVERED", "VERIFIED")
+            );
+            
+            if (validPods < podCount) {
+                long invalidPods = podCount - validPods;
+                log.warn("⚠️ {} POD(s) are not in DELIVERED or VERIFIED status", invalidPods);
+                throw new TripValidationException(
+                    String.format(
+                        "Cannot finalize trip. %d out of %d POD(s) are not in DELIVERED or VERIFIED status. " +
+                        "Please ensure all PODs are properly debriefed.",
+                        invalidPods, podCount
+                    )
+                );
+            }
+            log.info("✅ All {} PODs are in valid status (DELIVERED/VERIFIED)", podCount);
+
+            // 6. Handle missing location data
+            log.debug("Step 6: Checking location data...");
             if (trip.getOriginLocation() == null || trip.getOriginLocation().isEmpty()) {
                 log.warn("⚠️ Trip {} has no origin location, using placeholder", tripId);
                 trip.setOriginLocation("Unknown Origin");
@@ -60,8 +98,8 @@ public class TripFinalisationService {
                 trip.setDestinationLocation("Unknown Destination");
             }
 
-            // 5. Handle metrics
-            log.debug("Step 5: Checking metrics...");
+            // 7. Handle metrics
+            log.debug("Step 7: Checking metrics...");
             TripMetrics metrics = trip.getMetrics();
             if (metrics == null) {
                 log.warn("⚠️ Trip metrics missing for trip {}, creating new metrics", tripId);
@@ -76,25 +114,8 @@ public class TripFinalisationService {
                 log.info("✅ Metrics found for trip {}", tripId);
             }
 
-            // 6. Check PODs
-            log.debug("Step 6: Checking PODs...");
-            long podCount = 0;
-            try {
-                podCount = podRepository.countByTripId(tripId);
-                log.info("📦 Trip {} has {} PODs", tripId, podCount);
-            } catch (Exception e) {
-                log.error("❌ Error counting PODs for trip {}: {}", tripId, e.getMessage(), e);
-                // Continue with finalization - don't block
-                log.warn("⚠️ Proceeding with finalization despite POD count error");
-            }
-
-            // 7. POD validation - optional
-            if (podCount == 0) {
-                log.warn("⚠️ Trip {} has no PODs. Proceeding with finalization (POD check is optional)", tripId);
-            }
-
             // 8. Calculate final metrics
-            log.debug("Step 7: Calculating final metrics...");
+            log.debug("Step 8: Calculating final metrics...");
             boolean isFinalized = metrics.isFinalized();
             log.info("Metrics finalized status: {}", isFinalized);
 
@@ -113,7 +134,7 @@ public class TripFinalisationService {
             }
 
             // 9. Calculate variances
-            log.debug("Step 8: Calculating variances...");
+            log.debug("Step 9: Calculating variances...");
             if (trip.getPlannedDistanceKm() != null && metrics.getTotalDistanceKm() != null) {
                 BigDecimal variance = metrics.getTotalDistanceKm().subtract(trip.getPlannedDistanceKm());
                 metrics.setPlannedVsActualDistanceVarianceKm(variance);
@@ -127,15 +148,57 @@ public class TripFinalisationService {
             }
 
             // 10. Mark as finalized
-            log.debug("Step 9: Marking as finalized...");
+            log.debug("Step 10: Marking as finalized...");
             metrics.setFinalized(true);
             metrics.setFinalizedAt(LocalDateTime.now());
 
             trip.setStatus(TripStatus.FINALIZED);
             trip.setLastStatusUpdate(LocalDateTime.now());
 
-            // 11. Save
-            log.debug("Step 10: Saving trip...");
+            // 11. Update Load - mark trip as completed in load
+            log.debug("Step 11: Updating Load...");
+            if (trip.getLoadId() != null && !trip.getLoadId().isEmpty()) {
+                try {
+                    // Find the load by load number
+                    Load load = loadRepository.findByLoadNumber(trip.getLoadId())
+                            .orElse(null);
+                    
+                    if (load != null) {
+                        // Update load statistics
+                        load.setTripsCount(load.getTrips() != null ? load.getTrips().size() : 0);
+                        
+                        // Check if all trips in load are completed
+                        boolean allCompleted = true;
+                        if (load.getTrips() != null) {
+                            for (Trip t : load.getTrips()) {
+                                if (t.getStatus() != TripStatus.COMPLETED && t.getStatus() != TripStatus.FINALIZED) {
+                                    allCompleted = false;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if (allCompleted && load.getTripsCount() > 0) {
+                            load.setStatus("COMPLETED");
+                            log.info("✅ All trips in load {} are completed", load.getLoadNumber());
+                        }
+                        
+                        load.setLastStatusUpdate(LocalDateTime.now());
+                        loadRepository.save(load);
+                        log.info("✅ Load {} updated successfully", load.getLoadNumber());
+                    } else {
+                        log.warn("⚠️ Load not found for trip {}: loadId={}", tripId, trip.getLoadId());
+                    }
+                } catch (Exception e) {
+                    log.error("❌ Error updating load for trip {}: {}", tripId, e.getMessage());
+                    // Don't block finalization if load update fails
+                }
+            } else {
+                log.warn("⚠️ Trip {} has no load assigned", tripId);
+            }
+
+            // 12. Save trip
+            log.debug("Step 12: Saving trip...");
             tripRepository.save(trip);
             
             log.info("✅ SUCCESSFULLY finalized trip ID: {} - {}", tripId, trip.getTripNumber());
@@ -149,22 +212,33 @@ public class TripFinalisationService {
         }
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public boolean canFinalize(Long tripId) {
         try {
             Trip trip = tripRepository.findById(tripId)
                     .orElseThrow(() -> new TripValidationException("Trip not found"));
             
+            // Check if trip is COMPLETED
             if (!TripStatus.COMPLETED.equals(trip.getStatus())) {
                 log.debug("Trip {} cannot be finalized - status is {}", tripId, trip.getStatus());
                 return false;
             }
             
+            // Check if trip has at least one POD
             long podCount = podRepository.countByTripId(tripId);
-            boolean hasPods = podCount > 0;
+            if (podCount == 0) {
+                log.debug("Trip {} has no PODs - cannot finalize", tripId);
+                return false;
+            }
             
-            if (!hasPods) {
-                log.debug("Trip {} has no PODs", tripId);
+            // Check if all PODs are in valid status
+            long validPods = podRepository.countByTripIdAndStatusIn(
+                tripId, List.of("DELIVERED", "VERIFIED")
+            );
+            
+            if (validPods < podCount) {
+                log.debug("Trip {} has {} invalid POD(s)", tripId, podCount - validPods);
+                return false;
             }
             
             return true;
@@ -173,5 +247,46 @@ public class TripFinalisationService {
             log.error("Error checking if trip {} can be finalized: {}", tripId, e.getMessage());
             return false;
         }
+    }
+
+    @Transactional(readOnly = true)
+    public TripFinalizationStatus getFinalizationStatus(Long tripId) {
+        Trip trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new TripValidationException("Trip not found with ID: " + tripId));
+        
+        long podCount = podRepository.countByTripId(tripId);
+        boolean hasPods = podCount > 0;
+        
+        // Check if all PODs are in valid status
+        long validPods = podRepository.countByTripIdAndStatusIn(
+            tripId, List.of("DELIVERED", "VERIFIED")
+        );
+        long invalidPods = podCount - validPods;
+        
+        boolean canFinalize = hasPods && invalidPods == 0 && trip.getStatus() == TripStatus.COMPLETED;
+        
+        return TripFinalizationStatus.builder()
+            .tripId(tripId)
+            .tripNumber(trip.getTripNumber())
+            .currentStatus(trip.getStatus())
+            .canBeFinalized(canFinalize)
+            .hasPods(hasPods)
+            .podCount(podCount)
+            .invalidPods(invalidPods)
+            .message(getFinalizationMessage(hasPods, invalidPods, trip.getStatus()))
+            .build();
+    }
+
+    private String getFinalizationMessage(boolean hasPods, long invalidPods, TripStatus status) {
+        if (status != TripStatus.COMPLETED) {
+            return String.format("Cannot finalize: Trip is %s. Must be COMPLETED first.", status);
+        }
+        if (!hasPods) {
+            return "Cannot finalize: No POD documents uploaded. Please upload at least one POD.";
+        }
+        if (invalidPods > 0) {
+            return String.format("Cannot finalize: %d POD(s) are not in DELIVERED or VERIFIED status.", invalidPods);
+        }
+        return "Trip is ready for finalization.";
     }
 }
