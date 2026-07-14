@@ -3,6 +3,7 @@ package com.pgsa.trailers.dto;
 
 import com.pgsa.trailers.enums.TripStatus;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
@@ -121,7 +122,6 @@ public class UpdateTripRequest {
     // ======================== WORKFLOW ========================
     private TripStatus status;
     private String approvalStatus;
-    //private String priority;
 
     // ======================== NOTES ========================
     private String driverNotes;
@@ -147,4 +147,21 @@ public class UpdateTripRequest {
     
     private String routeDetails;
     private String checkpoints;
+
+    /* ========================
+       DEPOT TRACKING - NEW FIELDS
+       ======================== */
+    @PositiveOrZero(message = "From depot kilometers must be zero or positive")
+    private BigDecimal fromDepotKm;
+
+    @PositiveOrZero(message = "To depot kilometers must be zero or positive")
+    private BigDecimal toDepotKm;
+
+    @Size(max = 50, message = "Departed from cannot exceed 50 characters")
+    private String departedFrom; // DEPOT, LAST_DROP, FREEHAND
+
+    @Size(max = 255, message = "Departure location cannot exceed 255 characters")
+    private String departureLocation; // For freehand or system location
+
+    private Boolean isFromDepot = false;
 }
