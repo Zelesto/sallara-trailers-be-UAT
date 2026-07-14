@@ -51,6 +51,7 @@ public interface LoadRepository extends JpaRepository<Load, Long> {
     @Query("SELECT l FROM Load l WHERE l.loadingDate <= :now AND (l.unloadingDate IS NULL OR l.unloadingDate > :now)")
     List<Load> findCurrentLoads(@Param("now") LocalDateTime now);
 
+    Optional<Load> findByReferenceNumber(String referenceNumber);
     
  // ======================== CUSTOMER ========================
 
