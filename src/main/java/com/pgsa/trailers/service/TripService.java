@@ -55,6 +55,7 @@ public class TripService {
     private final TripResponseMapper tripResponseMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final TripValidator tripValidator;
+    private final SequenceService sequenceService;
 
     /* ========================
        CREATE
@@ -203,7 +204,7 @@ public class TripService {
             log.info("ℹ️ No load associated with this trip");
         }
 
-        trip.setTripNumber(tripNumberGenerator.generate());
+        trip.setTripNumber(sequenceService.generateFormattedSequence("trip", "TRP"));
         trip.setStatus(request.getStatus() != null ? request.getStatus() : TripStatus.DRAFT);
         trip.setCreatedBy(userId);
         trip.setLastStatusUpdate(LocalDateTime.now());
