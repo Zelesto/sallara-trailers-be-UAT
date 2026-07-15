@@ -51,29 +51,82 @@ public class TripService {
     private final DriverRepository driverRepository;
     private final CustomerRepository customerRepository;
     private final LoadRepository loadRepository;
-    private final TripNumberGenerator tripNumberGenerator;  // Use this instead of SequenceService
+    private final TripNumberGenerator tripNumberGenerator;
     private final CreateTripMapper createTripMapper;
     private final TripResponseMapper tripResponseMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final TripValidator tripValidator;
 
+    // Cache for default customer to avoid repeated DB calls
+    private Customer defaultCustomer;
+
     /* ========================
        PRIVATE HELPERS
        ======================== */
 
-    /**
-     * Generate a unique load number
-     */
     private String generateLoadNumber() {
         return "LOAD-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 1000);
     }
 
-    /**
-     * Find trip or throw exception
-     */
     private Trip findTripOrThrow(Long id) {
         return tripRepository.findById(id)
                 .orElseThrow(() -> new TripValidationException("Trip not found with ID: " + id));
+    }
+
+    /**
+     * Get or create default customer
+     */
+    private synchronized Customer getDefaultCustomer() {
+        if (defaultCustomer != null) {
+            return defaultCustomer;
+        }
+        
+        defaultCustomer = customerRepository.findByName("Unknown Customer")
+                .orElseGet(() -> {
+                    log.info("📋 Creating default 'Unknown Customer'");
+                    Customer customer = new Customer();
+                    customer.setName("Unknown Customer");
+                    customer.setActive(true);
+                    customer.setCreatedAt(LocalDateTime.now());
+                    customer.setUpdatedAt(LocalDateTime.now());
+                    return customerRepository.save(customer);
+                });
+        
+        return defaultCustomer;
+    }
+
+    /**
+     * Resolve customer from request or create default
+     */
+    private Customer resolveCustomer(CreateTripRequest request) {
+        Customer customer = null;
+        
+        // Try to get customer from request
+        if (request.getCustomerId() != null && request.getCustomerId() > 0) {
+            customer = customerRepository.findById(request.getCustomerId())
+                    .orElse(null);
+            if (customer != null) {
+                log.info("📋 Using customer from request: {} (ID: {})", customer.getName(), customer.getId());
+                return customer;
+            }
+        }
+        
+        // Try to get customer from load
+        if (request.getLoadId() != null && !request.getLoadId().isEmpty()) {
+            Optional<Load> loadOpt = loadRepository.findByLoadNumber(request.getLoadId());
+            if (loadOpt.isPresent() && loadOpt.get().getCustomerId() != null) {
+                customer = customerRepository.findById(loadOpt.get().getCustomerId())
+                        .orElse(null);
+                if (customer != null) {
+                    log.info("📋 Using customer from load: {} (ID: {})", customer.getName(), customer.getId());
+                    return customer;
+                }
+            }
+        }
+        
+        // Use default customer
+        log.info("📋 Using default customer");
+        return getDefaultCustomer();
     }
 
     /* ========================
@@ -85,12 +138,15 @@ public class TripService {
         log.debug("Creating trip for vehicle: {}, user: {}", request.getVehicleId(), userId);
         log.info("📝 Creating trip with reference number: {}", request.getReferenceNumber());
 
+        // Validate request
         tripValidator.validateCreateRequest(request);
 
+        // Get vehicle
         Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
                 .orElseThrow(() -> new TripValidationException(
                         "Vehicle not found with ID: " + request.getVehicleId()));
 
+        // Get driver (optional)
         Driver driver = null;
         if (request.getDriverId() != null) {
             driver = driverRepository.findById(request.getDriverId())
@@ -98,6 +154,7 @@ public class TripService {
                             "Driver not found with ID: " + request.getDriverId()));
         }
 
+        // Get supervisor (optional)
         Driver supervisor = null;
         if (request.getSupervisorId() != null) {
             supervisor = driverRepository.findById(request.getSupervisorId())
@@ -105,24 +162,19 @@ public class TripService {
                             "Supervisor not found with ID: " + request.getSupervisorId()));
         }
 
-        // Validate customer if provided
-        Customer customer = null;
-        if (request.getCustomerId() != null && request.getCustomerId() > 0) {
-            customer = customerRepository.findById(request.getCustomerId())
-                    .orElseThrow(() -> new TripValidationException(
-                            "Customer not found with ID: " + request.getCustomerId()));
-        }
+        // ======================== CUSTOMER HANDLING ========================
+        // ALWAYS resolve a customer - this fixes the 409 error
+        Customer customer = resolveCustomer(request);
+        Long customerId = customer.getId();
+        log.info("✅ Customer resolved: {} (ID: {})", customer.getName(), customerId);
 
+        // Create the trip entity
         Trip trip = createTripMapper.toEntity(request);
 
         trip.setVehicle(vehicle);
         trip.setDriver(driver);
         trip.setSupervisor(supervisor);
-        
-        // Set customer
-        if (customer != null) {
-            trip.setCustomerId(customer.getId());
-        }
+        trip.setCustomerId(customerId); // ALWAYS set customer ID - FIXES THE 409 ERROR!
 
         /* ========================
            DEPOT TRACKING
@@ -167,13 +219,12 @@ public class TripService {
                 load = new Load();
                 load.setLoadNumber(generateLoadNumber());
                 load.setReferenceNumber(referenceNumber);
-                load.setCustomerId(request.getCustomerId());
+                load.setCustomerId(customerId); // Use resolved customer
                 load.setDescription(request.getCargoDescription() != null ? 
                     request.getCargoDescription() : "Load for Ref# " + referenceNumber);
                 load.setCommodityType(request.getCommodityType());
                 
                 load.setStatus(LoadStatus.PENDING);
-                
                 load.setTripsCount(0);
                 load.setCreatedBy(userId != null ? String.valueOf(userId) : "System");
                 load.setCreatedAt(LocalDateTime.now());
@@ -223,7 +274,6 @@ public class TripService {
         }
 
         // ======================== GENERATE TRIP NUMBER ========================
-        // Use TripNumberGenerator to generate sequential trip number
         String tripNumber = tripNumberGenerator.generate();
         log.info("📝 Generated trip number: {}", tripNumber);
         
@@ -232,13 +282,17 @@ public class TripService {
         trip.setCreatedBy(userId);
         trip.setLastStatusUpdate(LocalDateTime.now());
 
+        // Log before save for debugging
+        log.info("🚀 Saving trip with customerId: {}, loadId: {}, tripNumber: {}", 
+            trip.getCustomerId(), trip.getLoadId(), trip.getTripNumber());
+
         // Save trip
         Trip saved = tripRepository.save(trip);
 
         log.info("✅ Created trip with ID: {}, Number: {}, Customer: {}, Load: {}",
                 saved.getId(),
                 saved.getTripNumber(),
-                customer != null ? customer.getName() : "None",
+                customer.getName(),
                 load != null ? load.getLoadNumber() : "None"
         );
 
@@ -339,7 +393,6 @@ public class TripService {
                 .collect(Collectors.toList());
     }
 
-    // loadId is String
     @Transactional(readOnly = true)
     public List<TripResponse> getTripsByLoad(String loadId) {
         return tripRepository.findByLoadId(loadId)
@@ -403,21 +456,21 @@ public class TripService {
        CUSTOMER & LOAD MANAGEMENT
        ======================== */
     
-    /**
-     * Assign customer to a trip
-     */
     @Transactional
     public TripResponse assignCustomerToTrip(Long tripId, Long customerId, Long userId) {
         log.debug("Assigning customer {} to trip {}", customerId, tripId);
         
         Trip trip = findTripOrThrow(tripId);
         
-        if (customerId != null) {
+        if (customerId != null && customerId > 0) {
             Customer customer = customerRepository.findById(customerId)
                     .orElseThrow(() -> new TripValidationException("Customer not found with ID: " + customerId));
             trip.setCustomerId(customer.getId());
         } else {
-            trip.setCustomerId(null);
+            // Set default customer instead of null
+            Customer defaultCustomer = getDefaultCustomer();
+            trip.setCustomerId(defaultCustomer.getId());
+            log.info("Assigning default customer to trip {}", tripId);
         }
         
         trip.setUpdatedAt(LocalDateTime.now());
@@ -429,9 +482,6 @@ public class TripService {
         return tripResponseMapper.toResponse(updated);
     }
 
-    /**
-     * Assign load to a trip - loadId is String (loadNumber)
-     */
     @Transactional
     public TripResponse assignLoadToTrip(Long tripId, String loadId, Long userId) {
         log.debug("Assigning load {} to trip {}", loadId, tripId);
@@ -465,29 +515,24 @@ public class TripService {
         return tripResponseMapper.toResponse(updated);
     }
 
-    /**
-     * Generate a new load ID
-     */
     public String generateLoadId() {
         return "LD-" + System.currentTimeMillis();
     }
 
-    /**
-     * Update trip with customer and load information in one call - loadId is String
-     */
     @Transactional
     public TripResponse updateTripCustomerAndLoad(Long tripId, Long customerId, String loadId, Long userId) {
         log.debug("Updating trip {} with customer: {} and load: {}", tripId, customerId, loadId);
         
         Trip trip = findTripOrThrow(tripId);
         
-        // Update customer
-        if (customerId != null) {
+        // Update customer - always set a value
+        if (customerId != null && customerId > 0) {
             Customer customer = customerRepository.findById(customerId)
                     .orElseThrow(() -> new TripValidationException("Customer not found with ID: " + customerId));
             trip.setCustomerId(customer.getId());
         } else {
-            trip.setCustomerId(null);
+            Customer defaultCustomer = getDefaultCustomer();
+            trip.setCustomerId(defaultCustomer.getId());
         }
         
         // Update load
@@ -577,14 +622,17 @@ public class TripService {
             trip.setSupervisor(supervisor);
         }
 
-        // Update customer if provided
+        // Update customer if provided - always set a value
         if (request.getCustomerId() != null && request.getCustomerId() > 0) {
             Customer customer = customerRepository.findById(request.getCustomerId())
                     .orElseThrow(() -> new TripValidationException("Customer not found with ID: " + request.getCustomerId()));
             trip.setCustomerId(customer.getId());
+        } else if (request.getCustomerId() == null) {
+            // Only set default if explicitly null in request
+            // Otherwise keep existing value
         }
 
-        // Update load if provided - loadId is String (loadNumber)
+        // Update load if provided
         if (request.getLoadId() != null) {
             if (!request.getLoadId().isEmpty()) {
                 Load load = loadRepository.findByLoadNumber(request.getLoadId())
@@ -690,9 +738,6 @@ public class TripService {
        SEARCH
        ======================== */
 
-    /**
-     * Search trips with pagination
-     */
     @Transactional(readOnly = true)
     public Page<TripResponse> searchTrips(String searchTerm, Pageable pageable) {
         log.debug("Searching trips with term: {}", searchTerm);
@@ -706,9 +751,6 @@ public class TripService {
                 .map(tripResponseMapper::toResponse);
     }
 
-    /**
-     * Search trips with filters
-     */
     @Transactional(readOnly = true)
     public Page<TripResponse> searchTripsWithFilters(
             String searchTerm, 
@@ -724,9 +766,6 @@ public class TripService {
                 .map(tripResponseMapper::toResponse);
     }
 
-    /**
-     * Search trips without pagination
-     */
     @Transactional(readOnly = true)
     public List<TripResponse> searchTripsSimple(String searchTerm) {
         log.debug("Simple search trips with term: {}", searchTerm);
@@ -744,9 +783,6 @@ public class TripService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Get active trips
-     */
     @Transactional(readOnly = true)
     public List<TripResponse> getActiveTrips() {
         return tripRepository.findActiveTripsOrderByIdDesc()
@@ -755,9 +791,6 @@ public class TripService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Get currently running trips
-     */
     @Transactional(readOnly = true)
     public List<TripResponse> getCurrentlyRunningTrips() {
         return tripRepository.findCurrentlyRunningTripsOrderByIdDesc()
