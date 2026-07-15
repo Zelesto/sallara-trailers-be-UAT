@@ -6,6 +6,7 @@ import com.pgsa.trailers.dto.TripSummaryDTO;
 import com.pgsa.trailers.entity.ops.Customer;
 import com.pgsa.trailers.entity.ops.Load;
 import com.pgsa.trailers.entity.ops.Trip;
+import com.pgsa.trailers.enums.LoadStatus;
 import com.pgsa.trailers.enums.TripStatus;
 import com.pgsa.trailers.repository.CustomerRepository;
 import com.pgsa.trailers.repository.LoadRepository;
@@ -34,6 +35,7 @@ public class LoadService {
     private final LoadRepository loadRepository;
     private final TripRepository tripRepository;
     private final CustomerRepository customerRepository;
+    private final SequenceService sequenceService;
 
     // =============================================
     // CREATE
@@ -64,8 +66,8 @@ public class LoadService {
             throw new RuntimeException("Customer not found with ID: " + request.getCustomerId());
         }
 
-        // Generate load number
-        String loadNumber = generateLoadNumber();
+        // Generate load number using sequence
+        String loadNumber = sequenceService.generateFormattedSequence("load", "LOAD");
 
         Load load = Load.builder()
                 .loadNumber(loadNumber)
@@ -75,7 +77,7 @@ public class LoadService {
                 .volumeCubicM(request.getVolumeCubicM())
                 .loadingDate(request.getLoadingDate())
                 .unloadingDate(request.getUnloadingDate())
-                .status("PENDING")
+                .status(LoadStatus.PENDING)
                 .commodityType(request.getCommodityType())
                 .palletCount(request.getPalletCount())
                 .containerNumber(request.getContainerNumber())
@@ -146,8 +148,8 @@ public class LoadService {
     }
 
     @Transactional(readOnly = true)
-    public List<LoadResponseDTO> getLoadsByStatus(String status) {
-        return loadRepository.findByStatus(status)
+    public List<LoadResponseDTO> getLoadsByStatus(LoadStatus status) {
+        return loadRepository.findByStatus(status.name())
                 .stream()
                 .map(this::mapToResponseDTO)
                 .collect(Collectors.toList());
@@ -170,6 +172,13 @@ public class LoadService {
         load.setVolumeCubicM(request.getVolumeCubicM());
         load.setLoadingDate(request.getLoadingDate());
         load.setUnloadingDate(request.getUnloadingDate());
+        if (request.getStatus() != null) {
+            try {
+                load.setStatus(LoadStatus.valueOf(request.getStatus()));
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid status: {}, keeping existing status", request.getStatus());
+            }
+        }
         load.setCommodityType(request.getCommodityType());
         load.setPalletCount(request.getPalletCount());
         load.setContainerNumber(request.getContainerNumber());
@@ -253,7 +262,7 @@ public class LoadService {
             customerId, startOfDay, endOfDay);
 
         return loads.stream()
-                .filter(l -> !"COMPLETED".equals(l.getStatus()) && !"CANCELLED".equals(l.getStatus()))
+                .filter(l -> l.getStatus() != LoadStatus.COMPLETED && l.getStatus() != LoadStatus.CANCELLED)
                 .findFirst()
                 .orElse(null);
     }
@@ -371,23 +380,16 @@ public class LoadService {
                 .allMatch(t -> t.getStatus() == TripStatus.COMPLETED);
         
         if (allCompleted) {
-            load.setStatus("COMPLETED");
+            load.setStatus(LoadStatus.COMPLETED);
         } else {
             boolean anyStarted = load.getTrips().stream()
                     .anyMatch(t -> t.getStatus() == TripStatus.IN_PROGRESS);
             if (anyStarted) {
-                load.setStatus("IN_PROGRESS");
+                load.setStatus(LoadStatus.IN_TRANSIT);
             } else {
-                load.setStatus("PENDING");
+                load.setStatus(LoadStatus.PENDING);
             }
         }
-    }
-
-    /**
-     * Generate a unique load number
-     */
-    private String generateLoadNumber() {
-        return "LD-" + System.currentTimeMillis();
     }
 
     /**
@@ -462,7 +464,7 @@ public class LoadService {
                 .volumeCubicM(load.getVolumeCubicM())
                 .loadingDate(load.getLoadingDate())
                 .unloadingDate(load.getUnloadingDate())
-                .status(load.getStatus())
+                .status(load.getStatus() != null ? load.getStatus().name() : null)
                 .commodityType(load.getCommodityType())
                 .palletCount(load.getPalletCount())
                 .containerNumber(load.getContainerNumber())
