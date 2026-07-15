@@ -11,4 +11,5 @@ import java.util.Optional;
 public interface SequenceRepository extends JpaRepository<Sequence, Long> {
 
     Optional<Sequence> findByTableNameAndYear(String tableName, Integer year);
+    List<Sequence> findByTableName(String tableName);
 }
