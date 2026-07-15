@@ -2,6 +2,7 @@
 package com.pgsa.trailers.repository;
 
 import com.pgsa.trailers.entity.ops.Load;
+import com.pgsa.trailers.enums.LoadStatus;  // ADD THIS IMPORT
 import com.pgsa.trailers.enums.TripStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,10 +26,16 @@ public interface LoadRepository extends JpaRepository<Load, Long> {
     
     // ======================== FIND BY STATUS ========================
     
+    // FIXED: Use LoadStatus enum instead of String
     @Query("SELECT l FROM Load l WHERE l.status = :status")
-List<Load> findByStatus(@Param("status") LoadStatus status);
+    List<Load> findByStatus(@Param("status") LoadStatus status);
     
-    Page<Load> findByStatus(String status, Pageable pageable);
+    // For pagination with LoadStatus enum
+    @Query("SELECT l FROM Load l WHERE l.status = :status")
+    Page<Load> findByStatus(@Param("status") LoadStatus status, Pageable pageable);
+    
+    // Also keep String version for backward compatibility if needed
+    Page<Load> findByStatusString(String status, Pageable pageable);
     
     // ======================== FIND BY DATE RANGE ========================
     
@@ -54,11 +61,9 @@ List<Load> findByStatus(@Param("status") LoadStatus status);
 
     Optional<Load> findByReferenceNumber(String referenceNumber);
     
- // ======================== CUSTOMER ========================
-
+    // ======================== CUSTOMER ========================
        
     List<Load> findByCustomerId(Long customerId);
-    
     
     @Query("SELECT l FROM Load l WHERE l.customerId = :customerId AND l.loadingDate BETWEEN :startDate AND :endDate")
     List<Load> findByCustomerIdAndLoadingDateBetween(
@@ -66,13 +71,13 @@ List<Load> findByStatus(@Param("status") LoadStatus status);
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
-    
     // ======================== COUNT QUERIES ========================
     
-    long countByStatus(String status);
+    // FIXED: Use LoadStatus enum
+    long countByStatus(LoadStatus status);
     
     @Query("SELECT COUNT(l) FROM Load l WHERE l.status = :status AND l.createdAt BETWEEN :startDate AND :endDate")
-    long countByStatusAndDateRange(@Param("status") String status,
+    long countByStatusAndDateRange(@Param("status") LoadStatus status,
                                    @Param("startDate") LocalDateTime startDate,
                                    @Param("endDate") LocalDateTime endDate);
     
@@ -86,17 +91,18 @@ List<Load> findByStatus(@Param("status") LoadStatus status);
     
     // ======================== EXISTENCE CHECKS ========================
     
-    boolean existsByLoadNumberAndStatus(String loadNumber, String status);
+    boolean existsByLoadNumberAndStatus(String loadNumber, LoadStatus status);
     
     @Query("SELECT CASE WHEN COUNT(l) > 0 THEN true ELSE false END FROM Load l JOIN l.trips t WHERE t.id = :tripId")
     boolean hasLoadAssociatedWithTrip(@Param("tripId") Long tripId);
     
     // ======================== BULK OPERATIONS ========================
     
+    // FIXED: Use LoadStatus enum
     @Query("UPDATE Load l SET l.status = :newStatus WHERE l.id IN :loadIds AND l.status = :currentStatus")
     int updateStatusBulk(@Param("loadIds") List<Long> loadIds,
-                         @Param("newStatus") String newStatus,
-                         @Param("currentStatus") String currentStatus);
+                         @Param("newStatus") LoadStatus newStatus,
+                         @Param("currentStatus") LoadStatus currentStatus);
     
     // ======================== SEARCH ========================
     
@@ -113,7 +119,7 @@ List<Load> findByStatus(@Param("status") LoadStatus status);
            "(:status IS NULL OR l.status = :status) AND " +
            "(:commodityType IS NULL OR l.commodityType = :commodityType)")
     Page<Load> searchLoadsAdvanced(@Param("loadNumber") String loadNumber,
-                                   @Param("status") String status,
+                                   @Param("status") LoadStatus status,
                                    @Param("commodityType") String commodityType,
                                    Pageable pageable);
 }
