@@ -3,8 +3,8 @@ package com.pgsa.trailers.service;
 import com.pgsa.trailers.entity.ops.Load;
 import com.pgsa.trailers.entity.ops.Trip;
 import com.pgsa.trailers.entity.ops.TripMetrics;
-import com.pgsa.trailers.enums.TripStatus;
 import com.pgsa.trailers.enums.LoadStatus;
+import com.pgsa.trailers.enums.TripStatus;
 import com.pgsa.trailers.entity.suppliers.TripValidationException;
 import com.pgsa.trailers.repository.TripRepository;
 import com.pgsa.trailers.repository.PodRepository;
@@ -194,8 +194,9 @@ public class TripFinalisationService {
                                 }
                             }
                             
+                            // FIX: Use LoadStatus enum instead of String
                             if (allCompleted && load.getTripsCount() > 0) {
-                                load.setStatus("COMPLETED");
+                                load.setStatus(LoadStatus.COMPLETED);
                                 log.info("✅ All trips in load {} are completed", load.getLoadNumber());
                             }
                             
