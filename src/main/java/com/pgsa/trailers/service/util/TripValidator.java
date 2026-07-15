@@ -24,6 +24,10 @@ public class TripValidator {
         if (request.getVehicleId() == null) {
             throw new TripValidationException("Vehicle ID is required for trip creation");
         }
+        
+        if (request.getCustomerId() == null || request.getCustomerId() <= 0) {
+            throw new TripValidationException("Customer is required. Please select a customer.");
+        }
 
         if (request.getOriginLocation() == null || request.getOriginLocation().isBlank()) {
             throw new TripValidationException("Origin location is required");
