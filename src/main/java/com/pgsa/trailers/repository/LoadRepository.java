@@ -2,7 +2,7 @@
 package com.pgsa.trailers.repository;
 
 import com.pgsa.trailers.entity.ops.Load;
-import com.pgsa.trailers.enums.LoadStatus;  // ADD THIS IMPORT
+import com.pgsa.trailers.enums.LoadStatus;
 import com.pgsa.trailers.enums.TripStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,16 +26,16 @@ public interface LoadRepository extends JpaRepository<Load, Long> {
     
     // ======================== FIND BY STATUS ========================
     
-    // FIXED: Use LoadStatus enum instead of String
+    // FIXED: Use @Query with LoadStatus enum
     @Query("SELECT l FROM Load l WHERE l.status = :status")
     List<Load> findByStatus(@Param("status") LoadStatus status);
     
-    // For pagination with LoadStatus enum
+    // FIXED: For String status, use a different method name or @Query
     @Query("SELECT l FROM Load l WHERE l.status = :status")
-    Page<Load> findByStatus(@Param("status") LoadStatus status, Pageable pageable);
+    Page<Load> findLoadsByStatus(@Param("status") String status, Pageable pageable);
     
-    // Also keep String version for backward compatibility if needed
-    Page<Load> findByStatusString(String status, Pageable pageable);
+    // Or use derived query with correct naming
+    Page<Load> findByStatus(LoadStatus status, Pageable pageable);
     
     // ======================== FIND BY DATE RANGE ========================
     
@@ -73,8 +73,13 @@ public interface LoadRepository extends JpaRepository<Load, Long> {
 
     // ======================== COUNT QUERIES ========================
     
-    // FIXED: Use LoadStatus enum
-    long countByStatus(LoadStatus status);
+    // FIXED: Use @Query with LoadStatus enum
+    @Query("SELECT COUNT(l) FROM Load l WHERE l.status = :status")
+    long countByStatus(@Param("status") LoadStatus status);
+    
+    // FIXED: For String status
+    @Query("SELECT COUNT(l) FROM Load l WHERE l.status = :status")
+    long countByStatusString(@Param("status") String status);
     
     @Query("SELECT COUNT(l) FROM Load l WHERE l.status = :status AND l.createdAt BETWEEN :startDate AND :endDate")
     long countByStatusAndDateRange(@Param("status") LoadStatus status,
@@ -91,14 +96,16 @@ public interface LoadRepository extends JpaRepository<Load, Long> {
     
     // ======================== EXISTENCE CHECKS ========================
     
-    boolean existsByLoadNumberAndStatus(String loadNumber, LoadStatus status);
+    // FIXED: Use @Query with LoadStatus enum
+    @Query("SELECT CASE WHEN COUNT(l) > 0 THEN true ELSE false END FROM Load l WHERE l.loadNumber = :loadNumber AND l.status = :status")
+    boolean existsByLoadNumberAndStatus(@Param("loadNumber") String loadNumber, @Param("status") LoadStatus status);
     
     @Query("SELECT CASE WHEN COUNT(l) > 0 THEN true ELSE false END FROM Load l JOIN l.trips t WHERE t.id = :tripId")
     boolean hasLoadAssociatedWithTrip(@Param("tripId") Long tripId);
     
     // ======================== BULK OPERATIONS ========================
     
-    // FIXED: Use LoadStatus enum
+    // FIXED: Use @Query with LoadStatus enum
     @Query("UPDATE Load l SET l.status = :newStatus WHERE l.id IN :loadIds AND l.status = :currentStatus")
     int updateStatusBulk(@Param("loadIds") List<Long> loadIds,
                          @Param("newStatus") LoadStatus newStatus,
