@@ -34,13 +34,15 @@ public class TripResponseMapper {
         }
 
         // ======================== LOAD ========================
-          // ======================== LOAD ========================
-if (trip.getLoad() != null) {
+          if (trip.getLoad() != null) {
     response.setLoadId(trip.getLoad().getLoadNumber());  // String
     response.setLoadNumber(trip.getLoad().getLoadNumber());
     response.setLoadType(trip.getLoad().getCommodityType());
     response.setLoadDescription(trip.getLoad().getDescription());
-    response.setLoadStatus(trip.getLoad().getStatus());
+    // FIX: Convert LoadStatus enum to String using .name()
+    response.setLoadStatus(trip.getLoad().getStatus() != null 
+        ? trip.getLoad().getStatus().name() 
+        : null);
 } else if (trip.getLoadId() != null) {
     response.setLoadId(trip.getLoadId());  // String
     response.setLoadNumber(trip.getLoadNumber());
