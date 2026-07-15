@@ -232,25 +232,24 @@ public class TripService {
             log.info("ℹ️ No load associated with this trip");
         }
 
-        // ======================== GENERATE TRIP NUMBER WITH FALLBACK ========================
-        String tripNumber;
-        try {
-            tripNumber = sequenceService.generateFormattedSequence("trip", "TRP");
-            log.info("✅ Generated trip number via sequence: {}", tripNumber);
-        } catch (Exception e) {
-            tripNumber = generateFallbackTripNumber();
-            log.warn("⚠️ Sequence generation failed, using fallback trip number: {}", tripNumber, e);
-        }
-        
-        if (tripNumber == null || tripNumber.isEmpty()) {
-            tripNumber = generateFallbackTripNumber();
-            log.warn("⚠️ Sequence returned null/empty, using fallback trip number: {}", tripNumber);
-        }
-        
-        trip.setTripNumber(tripNumber);
-        trip.setStatus(request.getStatus() != null ? request.getStatus() : TripStatus.DRAFT);
-        trip.setCreatedBy(userId);
-        trip.setLastStatusUpdate(LocalDateTime.now());
+       // ======================== GENERATE TRIP NUMBER ========================
+String tripNumber;
+try {
+    tripNumber = sequenceService.generateFormattedSequence("trip", "TRP");
+    log.info("✅ Generated trip number: '{}'", tripNumber);
+} catch (Exception e) {
+    tripNumber = "TRP-" + System.currentTimeMillis();
+    log.error("❌ Failed to generate trip number, using fallback: {}", tripNumber, e);
+}
+
+// Double-check tripNumber is not null or empty
+if (tripNumber == null || tripNumber.trim().isEmpty()) {
+    tripNumber = "TRP-" + System.currentTimeMillis();
+    log.warn("⚠️ tripNumber was null/empty, using fallback: {}", tripNumber);
+}
+
+trip.setTripNumber(tripNumber);
+log.info("📝 Setting tripNumber to: '{}'", tripNumber);
 
 
         // ======================== DEBUGGING ========================
