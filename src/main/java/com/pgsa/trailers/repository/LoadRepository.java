@@ -25,7 +25,8 @@ public interface LoadRepository extends JpaRepository<Load, Long> {
     
     // ======================== FIND BY STATUS ========================
     
-    List<Load> findByStatus(String status);
+    @Query("SELECT l FROM Load l WHERE l.status = :status")
+List<Load> findByStatus(@Param("status") LoadStatus status);
     
     Page<Load> findByStatus(String status, Pageable pageable);
     
