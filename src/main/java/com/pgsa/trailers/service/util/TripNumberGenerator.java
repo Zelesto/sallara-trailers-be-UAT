@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
 import java.time.Year;
 
 @Component
@@ -24,13 +23,12 @@ public class TripNumberGenerator {
             int year = Year.now().getValue();
             String prefix = "TRP";
             
-            // Use the SequenceService to generate the formatted sequence
-            // This will NEVER return null
+            // Use SequenceService to generate formatted sequence
             String tripNumber = sequenceService.generateFormattedSequence("trip", prefix, year, 3);
             
-            // Double-check that we got a valid value
+            // Safety check - if tripNumber is null, use fallback
             if (tripNumber == null || tripNumber.trim().isEmpty()) {
-                log.warn("⚠️ SequenceService returned null or empty, using fallback");
+                log.warn("⚠️ SequenceService returned null or empty, using timestamp fallback");
                 tripNumber = "TRP-" + System.currentTimeMillis();
             }
             
