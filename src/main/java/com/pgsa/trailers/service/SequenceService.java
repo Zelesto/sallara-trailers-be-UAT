@@ -20,10 +20,6 @@ public class SequenceService {
 
     /**
      * Get the next sequence number for a given table name and year
-     * 
-     * @param tableName The name of the table (e.g., "trip", "load", "pod")
-     * @param year The year (defaults to current year if null)
-     * @return The next sequence number
      */
     @Transactional
     public Long getNextSequenceNumber(String tableName, Integer year) {
@@ -37,32 +33,27 @@ public class SequenceService {
         Optional<Sequence> existing = sequenceRepository.findByTableNameAndYear(tableName, year);
 
         if (existing.isPresent()) {
-            // Increment the next number
-            sequenceRepository.incrementNextNumber(tableName, year);
-            
-            // Get the new number
-            Optional<Long> nextNumber = sequenceRepository.findNextNumberByTableNameAndYear(tableName, year);
-            
-            if (nextNumber.isPresent()) {
-                log.info("✅ Next sequence number for {} in year {}: {}", tableName, year, nextNumber.get());
-                return nextNumber.get();
-            }
-            
-            // Fallback: get from sequence object
+            // Use the repository methods to increment and get the new number
             Sequence sequence = existing.get();
             Long currentNumber = sequence.getNextNumber();
+            
+            // Increment for next time
             sequence.setNextNumber(currentNumber + 1);
             sequence.setUpdatedAt(LocalDateTime.now());
             sequenceRepository.save(sequence);
+            
+            log.info("✅ Next sequence number for {} in year {}: {}", tableName, year, currentNumber);
             return currentNumber;
         } else {
-            // Create new sequence
-            Sequence newSequence = Sequence.builder()
-                    .tableName(tableName)
-                    .year(year)
-                    .nextNumber(2L) // Start at 2 because we're returning 1
-                    .build();
+            // Create new sequence starting at 1
+            Sequence newSequence = new Sequence();
+            newSequence.setTableName(tableName);
+            newSequence.setYear(year);
+            newSequence.setNextNumber(2L); // Next will be 2
+            newSequence.setCreatedAt(LocalDateTime.now());
+            newSequence.setUpdatedAt(LocalDateTime.now());
             sequenceRepository.save(newSequence);
+            
             log.info("✅ Created new sequence for {} in year {}: 1", tableName, year);
             return 1L;
         }
@@ -71,19 +62,12 @@ public class SequenceService {
     /**
      * Get the next sequence number with default year (current year)
      */
-    @Transactional
     public Long getNextSequenceNumber(String tableName) {
         return getNextSequenceNumber(tableName, LocalDateTime.now().getYear());
     }
 
     /**
      * Generate a formatted sequence number (e.g., "TRP-2026-001")
-     * 
-     * @param tableName The table name
-     * @param prefix The prefix (e.g., "TRP", "LOAD", "POD")
-     * @param year The year
-     * @param padLength The number of digits to pad (default 3)
-     * @return Formatted sequence number
      */
     public String generateFormattedSequence(String tableName, String prefix, Integer year, Integer padLength) {
         if (year == null) {
@@ -123,11 +107,12 @@ public class SequenceService {
             sequenceRepository.save(sequence);
             log.info("🔄 Reset sequence for {} in year {} to {}", tableName, year, resetValue);
         } else {
-            Sequence newSequence = Sequence.builder()
-                    .tableName(tableName)
-                    .year(year)
-                    .nextNumber(resetValue)
-                    .build();
+            Sequence newSequence = new Sequence();
+            newSequence.setTableName(tableName);
+            newSequence.setYear(year);
+            newSequence.setNextNumber(resetValue);
+            newSequence.setCreatedAt(LocalDateTime.now());
+            newSequence.setUpdatedAt(LocalDateTime.now());
             sequenceRepository.save(newSequence);
             log.info("🔄 Created sequence for {} in year {} with value {}", tableName, year, resetValue);
         }
