@@ -33,7 +33,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -57,9 +56,6 @@ public class TripService {
     private final ApplicationEventPublisher eventPublisher;
     private final TripValidator tripValidator;
 
-    // Cache for default customer to avoid repeated DB calls
-    private Customer defaultCustomer;
-
     /* ========================
        PRIVATE HELPERS
        ======================== */
@@ -74,59 +70,16 @@ public class TripService {
     }
 
     /**
-     * Get or create default customer
+     * Validate and get customer from request
      */
-    private synchronized Customer getDefaultCustomer() {
-        if (defaultCustomer != null) {
-            return defaultCustomer;
+    private Customer validateAndGetCustomer(CreateTripRequest request) {
+        if (request.getCustomerId() == null || request.getCustomerId() <= 0) {
+            throw new TripValidationException("Customer is required. Please select a customer.");
         }
         
-        defaultCustomer = customerRepository.findByName("Unknown Customer")
-                .orElseGet(() -> {
-                    log.info("📋 Creating default 'Unknown Customer'");
-                    Customer customer = new Customer();
-                    customer.setName("Unknown Customer");
-                    customer.setActive(true);
-                    customer.setCreatedAt(LocalDateTime.now());
-                    customer.setUpdatedAt(LocalDateTime.now());
-                    return customerRepository.save(customer);
-                });
-        
-        return defaultCustomer;
-    }
-
-    /**
-     * Resolve customer from request or create default
-     */
-    private Customer resolveCustomer(CreateTripRequest request) {
-        Customer customer = null;
-        
-        // Try to get customer from request
-        if (request.getCustomerId() != null && request.getCustomerId() > 0) {
-            customer = customerRepository.findById(request.getCustomerId())
-                    .orElse(null);
-            if (customer != null) {
-                log.info("📋 Using customer from request: {} (ID: {})", customer.getName(), customer.getId());
-                return customer;
-            }
-        }
-        
-        // Try to get customer from load
-        if (request.getLoadId() != null && !request.getLoadId().isEmpty()) {
-            Optional<Load> loadOpt = loadRepository.findByLoadNumber(request.getLoadId());
-            if (loadOpt.isPresent() && loadOpt.get().getCustomerId() != null) {
-                customer = customerRepository.findById(loadOpt.get().getCustomerId())
-                        .orElse(null);
-                if (customer != null) {
-                    log.info("📋 Using customer from load: {} (ID: {})", customer.getName(), customer.getId());
-                    return customer;
-                }
-            }
-        }
-        
-        // Use default customer
-        log.info("📋 Using default customer");
-        return getDefaultCustomer();
+        return customerRepository.findById(request.getCustomerId())
+                .orElseThrow(() -> new TripValidationException(
+                        "Customer not found with ID: " + request.getCustomerId()));
     }
 
     /* ========================
@@ -162,11 +115,11 @@ public class TripService {
                             "Supervisor not found with ID: " + request.getSupervisorId()));
         }
 
-        // ======================== CUSTOMER HANDLING ========================
-        // ALWAYS resolve a customer - this fixes the 409 error
-        Customer customer = resolveCustomer(request);
+        // ======================== CUSTOMER VALIDATION ========================
+        // Customer is REQUIRED - user must select one
+        Customer customer = validateAndGetCustomer(request);
         Long customerId = customer.getId();
-        log.info("✅ Customer resolved: {} (ID: {})", customer.getName(), customerId);
+        log.info("✅ Customer validated: {} (ID: {})", customer.getName(), customerId);
 
         // Create the trip entity
         Trip trip = createTripMapper.toEntity(request);
@@ -174,7 +127,9 @@ public class TripService {
         trip.setVehicle(vehicle);
         trip.setDriver(driver);
         trip.setSupervisor(supervisor);
-        trip.setCustomerId(customerId); // ALWAYS set customer ID - FIXES THE 409 ERROR!
+        
+        // Set customer ID from user selection
+        trip.setCustomerId(customerId);
 
         /* ========================
            DEPOT TRACKING
@@ -219,7 +174,7 @@ public class TripService {
                 load = new Load();
                 load.setLoadNumber(generateLoadNumber());
                 load.setReferenceNumber(referenceNumber);
-                load.setCustomerId(customerId); // Use resolved customer
+                load.setCustomerId(customerId); // Use selected customer
                 load.setDescription(request.getCargoDescription() != null ? 
                     request.getCargoDescription() : "Load for Ref# " + referenceNumber);
                 load.setCommodityType(request.getCommodityType());
@@ -462,16 +417,13 @@ public class TripService {
         
         Trip trip = findTripOrThrow(tripId);
         
-        if (customerId != null && customerId > 0) {
-            Customer customer = customerRepository.findById(customerId)
-                    .orElseThrow(() -> new TripValidationException("Customer not found with ID: " + customerId));
-            trip.setCustomerId(customer.getId());
-        } else {
-            // Set default customer instead of null
-            Customer defaultCustomer = getDefaultCustomer();
-            trip.setCustomerId(defaultCustomer.getId());
-            log.info("Assigning default customer to trip {}", tripId);
+        if (customerId == null || customerId <= 0) {
+            throw new TripValidationException("Customer ID is required");
         }
+        
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new TripValidationException("Customer not found with ID: " + customerId));
+        trip.setCustomerId(customer.getId());
         
         trip.setUpdatedAt(LocalDateTime.now());
         trip.setUpdatedBy(userId);
@@ -525,15 +477,14 @@ public class TripService {
         
         Trip trip = findTripOrThrow(tripId);
         
-        // Update customer - always set a value
-        if (customerId != null && customerId > 0) {
-            Customer customer = customerRepository.findById(customerId)
-                    .orElseThrow(() -> new TripValidationException("Customer not found with ID: " + customerId));
-            trip.setCustomerId(customer.getId());
-        } else {
-            Customer defaultCustomer = getDefaultCustomer();
-            trip.setCustomerId(defaultCustomer.getId());
+        // Update customer - must be provided
+        if (customerId == null || customerId <= 0) {
+            throw new TripValidationException("Customer ID is required");
         }
+        
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new TripValidationException("Customer not found with ID: " + customerId));
+        trip.setCustomerId(customer.getId());
         
         // Update load
         if (loadId != null && !loadId.isEmpty()) {
@@ -622,14 +573,14 @@ public class TripService {
             trip.setSupervisor(supervisor);
         }
 
-        // Update customer if provided - always set a value
+        // Update customer if provided
         if (request.getCustomerId() != null && request.getCustomerId() > 0) {
             Customer customer = customerRepository.findById(request.getCustomerId())
                     .orElseThrow(() -> new TripValidationException("Customer not found with ID: " + request.getCustomerId()));
             trip.setCustomerId(customer.getId());
         } else if (request.getCustomerId() == null) {
-            // Only set default if explicitly null in request
-            // Otherwise keep existing value
+            // Keep existing customer
+            // Do nothing
         }
 
         // Update load if provided
