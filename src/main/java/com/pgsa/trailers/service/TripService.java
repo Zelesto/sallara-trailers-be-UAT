@@ -51,15 +51,14 @@ public class TripService {
     private final DriverRepository driverRepository;
     private final CustomerRepository customerRepository;
     private final LoadRepository loadRepository;
-    private final TripNumberGenerator tripNumberGenerator;
+    private final TripNumberGenerator tripNumberGenerator;  // Use this instead of SequenceService
     private final CreateTripMapper createTripMapper;
     private final TripResponseMapper tripResponseMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final TripValidator tripValidator;
-    private final SequenceService sequenceService;
 
     /* ========================
-       PRIVATE HELPERS - MOVED TO TOP
+       PRIVATE HELPERS
        ======================== */
 
     /**
@@ -67,15 +66,6 @@ public class TripService {
      */
     private String generateLoadNumber() {
         return "LOAD-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 1000);
-    }
-
-    /**
-     * Generate a fallback trip number using timestamp
-     */
-    private String generateFallbackTripNumber() {
-        String timestamp = String.valueOf(System.currentTimeMillis());
-        String random = String.format("%03d", (int)(Math.random() * 1000));
-        return "TRP-" + timestamp + "-" + random;
     }
 
     /**
@@ -232,36 +222,16 @@ public class TripService {
             log.info("ℹ️ No load associated with this trip");
         }
 
-       // ======================== GENERATE TRIP NUMBER ========================
-String tripNumber;
-try {
-    tripNumber = sequenceService.generateFormattedSequence("trip", "TRP");
-    log.info("✅ Generated trip number: '{}'", tripNumber);
-} catch (Exception e) {
-    tripNumber = "TRP-" + System.currentTimeMillis();
-    log.error("❌ Failed to generate trip number, using fallback: {}", tripNumber, e);
-}
-
-// Double-check tripNumber is not null or empty
-if (tripNumber == null || tripNumber.trim().isEmpty()) {
-    tripNumber = "TRP-" + System.currentTimeMillis();
-    log.warn("⚠️ tripNumber was null/empty, using fallback: {}", tripNumber);
-}
-
-trip.setTripNumber(tripNumber);
-log.info("📝 Setting tripNumber to: '{}'", tripNumber);
-
-
-        // ======================== DEBUGGING ========================
-log.info("🔍 DEBUG - Trip object before save:");
-log.info("   tripNumber: '{}'", trip.getTripNumber());
-log.info("   status: {}", trip.getStatus());
-log.info("   vehicle: {}", trip.getVehicle() != null ? trip.getVehicle().getId() : "null");
-log.info("   driver: {}", trip.getDriver() != null ? trip.getDriver().getId() : "null");
-log.info("   customer: {}", trip.getCustomer() != null ? trip.getCustomer().getId() : "null");
-log.info("   createdBy: {}", trip.getCreatedBy());
-// ======================== END DEBUG ========================
+        // ======================== GENERATE TRIP NUMBER ========================
+        // Use TripNumberGenerator to generate sequential trip number
+        String tripNumber = tripNumberGenerator.generate();
+        log.info("📝 Generated trip number: {}", tripNumber);
         
+        trip.setTripNumber(tripNumber);
+        trip.setStatus(request.getStatus() != null ? request.getStatus() : TripStatus.DRAFT);
+        trip.setCreatedBy(userId);
+        trip.setLastStatusUpdate(LocalDateTime.now());
+
         // Save trip
         Trip saved = tripRepository.save(trip);
 
