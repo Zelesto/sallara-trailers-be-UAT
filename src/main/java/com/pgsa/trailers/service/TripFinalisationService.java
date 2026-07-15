@@ -4,6 +4,7 @@ import com.pgsa.trailers.entity.ops.Load;
 import com.pgsa.trailers.entity.ops.Trip;
 import com.pgsa.trailers.entity.ops.TripMetrics;
 import com.pgsa.trailers.enums.TripStatus;
+import com.pgsa.trailers.enums.LoadStatus;
 import com.pgsa.trailers.entity.suppliers.TripValidationException;
 import com.pgsa.trailers.repository.TripRepository;
 import com.pgsa.trailers.repository.PodRepository;
