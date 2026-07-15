@@ -20,10 +20,10 @@ public class TripNumberGenerator {
 
     @Transactional
     public String generate() {
-        int year = Year.now().getValue();
-        String prefix = "TRP-" + year + "-";
-        
         try {
+            int year = Year.now().getValue();
+            String prefix = "TRP-" + year + "-";
+            
             // Get or create sequence for trips
             Sequence sequence = sequenceRepository.findByTableNameAndYear("trip", year)
                     .orElseGet(() -> {
@@ -52,7 +52,7 @@ public class TripNumberGenerator {
         } catch (Exception e) {
             log.error("❌ Error generating trip number from sequence: {}", e.getMessage(), e);
             // Fallback: use timestamp
-            String fallback = prefix + System.currentTimeMillis();
+            String fallback = "TRP-" + System.currentTimeMillis();
             log.warn("⚠️ Using fallback trip number: {}", fallback);
             return fallback;
         }
