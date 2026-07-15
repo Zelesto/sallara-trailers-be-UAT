@@ -69,13 +69,17 @@ public class SequenceService {
 
             log.info("🔢 Getting next sequence number for {} in year {}", tableName, year);
 
+            // Make final copies for lambda
+            final String finalTableName = tableName;
+            final Integer finalYear = year;
+
             // Try to find existing sequence or create new one
-            Sequence sequence = sequenceRepository.findByTableNameAndYear(tableName, year)
+            Sequence sequence = sequenceRepository.findByTableNameAndYear(finalTableName, finalYear)
                     .orElseGet(() -> {
-                        log.info("📝 Creating new sequence for {} in year {}", tableName, year);
+                        log.info("📝 Creating new sequence for {} in year {}", finalTableName, finalYear);
                         Sequence newSeq = new Sequence();
-                        newSeq.setTableName(tableName);
-                        newSeq.setYear(year);
+                        newSeq.setTableName(finalTableName);
+                        newSeq.setYear(finalYear);
                         newSeq.setNextNumber(1L);
                         newSeq.setCreatedAt(LocalDateTime.now());
                         newSeq.setUpdatedAt(LocalDateTime.now());
