@@ -41,6 +41,7 @@ public class PodService {
     private final TripRepository tripRepository;
     private final SupabaseStorageService storageService;
     private final FileConversionService conversionService;
+    private final SequenceService sequenceService; 
     
     private final String uploadDir = "uploads/pods/";
 
@@ -111,6 +112,8 @@ public class PodService {
             file != null ? file.getSize() : 0);
         
         String currentUser = getCurrentUsername();
+
+         String podNumber = sequenceService.generateFormattedSequence("pod", "POD");
         
         // Check if POD already exists for this trip
         if (request.getTripId() != null) {
@@ -122,6 +125,7 @@ public class PodService {
         
         // Create POD
         Pod pod = Pod.builder()
+                .podNumber(podNumber) // Set the generated pod number
                 .tripId(request.getTripId())
                 .customerName(request.getCustomerName() != null ? request.getCustomerName() : "Adhoc Customer")
                 .deliveryDate(request.getDeliveryDate() != null ? request.getDeliveryDate() : LocalDate.now())
@@ -285,6 +289,8 @@ public class PodService {
             throw new RuntimeException("Trip not found with id: " + tripId);
         }
 
+        String podNumber = sequenceService.generateFormattedSequence("pod", "POD");
+
         // Check for existing PODs
         List<Pod> existingPods = podRepository.findByTripId(tripId);
         if (!existingPods.isEmpty()) {
@@ -297,6 +303,7 @@ public class PodService {
 
         // Create POD
         Pod pod = Pod.builder()
+            .podNumber(podNumber)
                 .tripId(tripId)
                 .driverName(driverName != null ? driverName : "Unknown Driver")
                 .deliveryDate(parsedDeliveryDate)
