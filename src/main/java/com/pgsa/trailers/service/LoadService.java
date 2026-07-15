@@ -148,12 +148,20 @@ public class LoadService {
     }
 
     @Transactional(readOnly = true)
-    public List<LoadResponseDTO> getLoadsByStatus(LoadStatus status) {
-        return loadRepository.findByStatus(status)
-                .stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+public List<LoadResponseDTO> getLoadsByStatus(String status) {
+    LoadStatus loadStatus;
+    try {
+        loadStatus = LoadStatus.valueOf(status.toUpperCase());
+    } catch (IllegalArgumentException e) {
+        log.warn("Invalid status: {}, returning empty list", status);
+        return new ArrayList<>();
     }
+    return loadRepository.findByStatus(loadStatus)
+            .stream()
+            .map(this::mapToResponseDTO)
+            .collect(Collectors.toList());
+}
+
 
     // =============================================
     // UPDATE
