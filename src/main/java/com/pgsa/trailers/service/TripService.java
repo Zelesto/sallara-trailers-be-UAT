@@ -252,6 +252,17 @@ public class TripService {
         trip.setCreatedBy(userId);
         trip.setLastStatusUpdate(LocalDateTime.now());
 
+
+        // ======================== DEBUGGING ========================
+log.info("🔍 DEBUG - Trip object before save:");
+log.info("   tripNumber: '{}'", trip.getTripNumber());
+log.info("   status: {}", trip.getStatus());
+log.info("   vehicle: {}", trip.getVehicle() != null ? trip.getVehicle().getId() : "null");
+log.info("   driver: {}", trip.getDriver() != null ? trip.getDriver().getId() : "null");
+log.info("   customer: {}", trip.getCustomer() != null ? trip.getCustomer().getId() : "null");
+log.info("   createdBy: {}", trip.getCreatedBy());
+// ======================== END DEBUG ========================
+        
         // Save trip
         Trip saved = tripRepository.save(trip);
 
