@@ -60,7 +60,7 @@ public class TripService {
     /* ========================
        CREATE
        ======================== */
-    @Transactional
+   @Transactional
 public TripResponse createTrip(CreateTripRequest request, Long userId) {
 
     log.debug("Creating trip for vehicle: {}, user: {}", request.getVehicleId(), userId);
@@ -153,7 +153,6 @@ public TripResponse createTrip(CreateTripRequest request, Long userId) {
                 request.getCargoDescription() : "Load for Ref# " + referenceNumber);
             load.setCommodityType(request.getCommodityType());
             
-            // FIX: Use LoadStatus enum instead of String
             load.setStatus(LoadStatus.PENDING);
             
             load.setTripsCount(0);
@@ -181,11 +180,10 @@ public TripResponse createTrip(CreateTripRequest request, Long userId) {
     // Associate load with trip if found/created
     if (load != null) {
         trip.setLoad(load);
-        trip.setLoadId(load.getLoadNumber());  // String
+        trip.setLoadId(load.getLoadNumber());
         trip.setLoadNumber(load.getLoadNumber());
         trip.setLoadType(load.getCommodityType());
         trip.setLoadDescription(load.getDescription());
-        // Convert LoadStatus enum to String for trip
         trip.setLoadStatus(load.getStatus() != null ? load.getStatus().name() : "PENDING");
         
         if (load.getTrips() == null) {
@@ -196,7 +194,6 @@ public TripResponse createTrip(CreateTripRequest request, Long userId) {
         load.setUpdatedAt(LocalDateTime.now());
         load.setLastStatusUpdate(LocalDateTime.now());
         
-        // Recalculate depot totals for the load
         load.recalculateDepotTotals();
         
         loadRepository.save(load);
@@ -206,7 +203,25 @@ public TripResponse createTrip(CreateTripRequest request, Long userId) {
         log.info("ℹ️ No load associated with this trip");
     }
 
-    trip.setTripNumber(sequenceService.generateFormattedSequence("trip", "TRP"));
+    // ======================== GENERATE TRIP NUMBER WITH FALLBACK ========================
+    String tripNumber;
+    try {
+        // Try to generate using sequence
+        tripNumber = sequenceService.generateFormattedSequence("trip", "TRP");
+        log.info("✅ Generated trip number via sequence: {}", tripNumber);
+    } catch (Exception e) {
+        // Fallback: Generate using timestamp
+        tripNumber = generateFallbackTripNumber();
+        log.warn("⚠️ Sequence generation failed, using fallback trip number: {}", tripNumber, e);
+    }
+    
+    // If tripNumber is still null or empty, use timestamp-based fallback
+    if (tripNumber == null || tripNumber.isEmpty()) {
+        tripNumber = generateFallbackTripNumber();
+        log.warn("⚠️ Sequence returned null/empty, using fallback trip number: {}", tripNumber);
+    }
+    
+    trip.setTripNumber(tripNumber);
     trip.setStatus(request.getStatus() != null ? request.getStatus() : TripStatus.DRAFT);
     trip.setCreatedBy(userId);
     trip.setLastStatusUpdate(LocalDateTime.now());
@@ -231,12 +246,14 @@ public TripResponse createTrip(CreateTripRequest request, Long userId) {
     return tripResponseMapper.toResponse(saved);
 }
 
-    /**
-     * Generate a unique load number
-     */
-    private String generateLoadNumber() {
-        return "LOAD-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 1000);
-    }
+/**
+ * Generate a fallback trip number using timestamp
+ */
+private String generateFallbackTripNumber() {
+    String timestamp = String.valueOf(System.currentTimeMillis());
+    String random = String.format("%03d", (int)(Math.random() * 1000));
+    return "TRP-" + timestamp + "-" + random;
+}
 
     /* ========================
        START TRIP
