@@ -81,7 +81,8 @@ public class SecurityConfig {
 
         config.setAllowedOrigins(List.of(
             "https://trailers-1.onrender.com",
-            "http://localhost:5173"
+            "http://localhost:5173",
+            "https://api.openrouteservice.org*"
         ));
 
         config.setAllowedMethods(List.of(
