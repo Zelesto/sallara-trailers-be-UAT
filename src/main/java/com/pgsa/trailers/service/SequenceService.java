@@ -1,4 +1,3 @@
-// src/main/java/com/pgsa/trailers/service/SequenceService.java
 package com.pgsa.trailers.service;
 
 import com.pgsa.trailers.entity.Sequence;
@@ -9,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.Year;
 
 @Service
 @RequiredArgsConstructor
@@ -25,7 +25,7 @@ public class SequenceService {
     public String generateFormattedSequence(String tableName, String prefix, Integer year, Integer padLength) {
         try {
             if (year == null) {
-                year = LocalDateTime.now().getYear();
+                year = Year.now().getValue();
             }
             if (padLength == null) {
                 padLength = 3;
@@ -33,7 +33,6 @@ public class SequenceService {
 
             Long nextNumber = getNextSequenceNumber(tableName, year);
             
-            // If for some reason nextNumber is null, use a fallback
             if (nextNumber == null) {
                 log.warn("⚠️ getNextSequenceNumber returned null, using fallback");
                 nextNumber = System.currentTimeMillis() % 1000;
@@ -46,7 +45,6 @@ public class SequenceService {
             return result;
             
         } catch (Exception e) {
-            // Ultimate fallback - never return null
             log.error("❌ Sequence generation failed, using timestamp fallback", e);
             return "TRP-" + System.currentTimeMillis();
         }
@@ -64,16 +62,15 @@ public class SequenceService {
     public Long getNextSequenceNumber(String tableName, Integer year) {
         try {
             if (year == null) {
-                year = LocalDateTime.now().getYear();
+                year = Year.now().getValue();
             }
 
             log.info("🔢 Getting next sequence number for {} in year {}", tableName, year);
 
-            // Make final copies for lambda
             final String finalTableName = tableName;
             final Integer finalYear = year;
 
-            // Try to find existing sequence or create new one
+            // Try to find existing sequence
             Sequence sequence = sequenceRepository.findByTableNameAndYear(finalTableName, finalYear)
                     .orElseGet(() -> {
                         log.info("📝 Creating new sequence for {} in year {}", finalTableName, finalYear);
@@ -87,7 +84,7 @@ public class SequenceService {
                     });
 
             Long currentNumber = sequence.getNextNumber();
-            log.info("📊 Current sequence value: {}", currentNumber);
+            log.info("📊 Current sequence value for {}: {}", tableName, currentNumber);
             
             // Increment for next time
             sequence.setNextNumber(currentNumber + 1);
