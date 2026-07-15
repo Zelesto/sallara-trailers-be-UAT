@@ -2,6 +2,7 @@
 package com.pgsa.trailers.entity.ops;
 
 import com.pgsa.trailers.config.BaseEntity;
+import com.pgsa.trailers.enums.LoadStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -34,7 +35,7 @@ public class Load extends BaseEntity {
     private String loadNumber;
 
     @Column(name = "reference_number", length = 100)
-    private String referenceNumber;  // Ref# for grouping trips
+    private String referenceNumber;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
@@ -58,8 +59,10 @@ public class Load extends BaseEntity {
     @Column(name = "unloading_date")
     private LocalDateTime unloadingDate;
 
+    // FIX: Use LoadStatus enum instead of String
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 50)
-    private String status;
+    private LoadStatus status;
 
     @Column(name = "commodity_type", length = 100)
     private String commodityType;
@@ -161,7 +164,7 @@ public class Load extends BaseEntity {
         trip.setLoadNumber(this.loadNumber);
         trip.setLoadType(this.commodityType);
         trip.setLoadDescription(this.description);
-        trip.setLoadStatus(this.status);
+        trip.setLoadStatus(this.status != null ? this.status.name() : "PENDING");
         if (this.tripsCount == null) {
             this.tripsCount = 0;
         }
@@ -267,7 +270,7 @@ public class Load extends BaseEntity {
     @PrePersist
     protected void onCreate() {
         if (status == null) {
-            status = "PENDING";
+            status = LoadStatus.PENDING;
         }
         if (priority == null) {
             priority = "NORMAL";
@@ -311,7 +314,7 @@ public class Load extends BaseEntity {
                 trip.setLoadNumber(this.loadNumber);
                 trip.setLoadType(this.commodityType);
                 trip.setLoadDescription(this.description);
-                trip.setLoadStatus(this.status);
+                trip.setLoadStatus(this.status != null ? this.status.name() : "PENDING");
             }
         }
         lastStatusUpdate = LocalDateTime.now();
