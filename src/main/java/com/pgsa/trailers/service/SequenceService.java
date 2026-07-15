@@ -57,6 +57,7 @@ public class SequenceService {
 
     /**
      * Get the next sequence number - never returns null
+     * Handles year with comma (e.g., "2,026") by removing the comma
      */
     @Transactional
     public Long getNextSequenceNumber(String tableName, Integer year) {
@@ -73,6 +74,25 @@ public class SequenceService {
             // Try to find existing sequence
             Sequence sequence = sequenceRepository.findByTableNameAndYear(finalTableName, finalYear)
                     .orElseGet(() -> {
+                        // If not found, try to find by table name and check if year has comma
+                        log.info("📝 Sequence not found for {} in year {}, checking for comma values...", finalTableName, finalYear);
+                        
+                        // Get all sequences for this table and try to find one with matching year (handling comma)
+                        var allSequences = sequenceRepository.findByTableName(finalTableName);
+                        
+                        for (Sequence seq : allSequences) {
+                            Integer seqYear = seq.getYear();
+                            // Check if the year matches when both are converted to strings and commas removed
+                            String seqYearStr = seqYear.toString().replace(",", "");
+                            String targetYearStr = finalYear.toString().replace(",", "");
+                            
+                            if (seqYearStr.equals(targetYearStr)) {
+                                log.info("✅ Found sequence with year: {} (stored as {})", seqYear, seqYearStr);
+                                return seq;
+                            }
+                        }
+                        
+                        // If still not found, create a new one
                         log.info("📝 Creating new sequence for {} in year {}", finalTableName, finalYear);
                         Sequence newSeq = new Sequence();
                         newSeq.setTableName(finalTableName);
@@ -82,6 +102,14 @@ public class SequenceService {
                         newSeq.setUpdatedAt(LocalDateTime.now());
                         return sequenceRepository.save(newSeq);
                     });
+
+            // Double-check: if we found a sequence but the year has a comma, fix it
+            String seqYearStr = sequence.getYear().toString();
+            if (seqYearStr.contains(",")) {
+                log.warn("⚠️ Found sequence year with comma: {}, converting to {}", seqYearStr, seqYearStr.replace(",", ""));
+                sequence.setYear(Integer.parseInt(seqYearStr.replace(",", "")));
+                sequenceRepository.save(sequence);
+            }
 
             Long currentNumber = sequence.getNextNumber();
             log.info("📊 Current sequence value for {}: {}", tableName, currentNumber);
