@@ -229,7 +229,7 @@ public TripResponse createTrip(CreateTripRequest request, Long userId) {
     }
 
     // ======================== GENERATE TRIP NUMBER ========================
-    // CRITICAL: Generate trip number - this MUST NOT return null
+    // Generate trip number - this MUST NOT return null
     String tripNumber = tripNumberGenerator.generate();
     
     // Safety check - if tripNumber is null, use timestamp fallback
