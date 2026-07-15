@@ -77,7 +77,7 @@ public class LoadService {
                 .volumeCubicM(request.getVolumeCubicM())
                 .loadingDate(request.getLoadingDate())
                 .unloadingDate(request.getUnloadingDate())
-                .status(LoadStatus.PENDING)
+                .status(LoadStatus.PENDING)  // FIX: Use enum directly
                 .commodityType(request.getCommodityType())
                 .palletCount(request.getPalletCount())
                 .containerNumber(request.getContainerNumber())
@@ -149,7 +149,7 @@ public class LoadService {
 
     @Transactional(readOnly = true)
     public List<LoadResponseDTO> getLoadsByStatus(LoadStatus status) {
-        return loadRepository.findByStatus(status.name())
+        return loadRepository.findByStatus(status)
                 .stream()
                 .map(this::mapToResponseDTO)
                 .collect(Collectors.toList());
@@ -172,13 +172,17 @@ public class LoadService {
         load.setVolumeCubicM(request.getVolumeCubicM());
         load.setLoadingDate(request.getLoadingDate());
         load.setUnloadingDate(request.getUnloadingDate());
+        
+        // FIX: Convert String status to LoadStatus enum
         if (request.getStatus() != null) {
             try {
-                load.setStatus(LoadStatus.valueOf(request.getStatus()));
+                load.setStatus(LoadStatus.valueOf(request.getStatus().toUpperCase()));
             } catch (IllegalArgumentException e) {
                 log.warn("Invalid status: {}, keeping existing status", request.getStatus());
+                // Keep existing status
             }
         }
+        
         load.setCommodityType(request.getCommodityType());
         load.setPalletCount(request.getPalletCount());
         load.setContainerNumber(request.getContainerNumber());
@@ -283,7 +287,7 @@ public class LoadService {
         // Filter for trips without load and within date range
         // loadId is String, check for null or empty
         return allTrips.stream()
-                .filter(t -> t.getLoadId() == null || t.getLoadId().isEmpty())  // String check
+                .filter(t -> t.getLoadId() == null || t.getLoadId().isEmpty())
                 .filter(t -> t.getPlannedStartDate() != null)
                 .filter(t -> !t.getPlannedStartDate().isBefore(startOfDay) && 
                            !t.getPlannedStartDate().isAfter(endOfDay))
@@ -464,7 +468,7 @@ public class LoadService {
                 .volumeCubicM(load.getVolumeCubicM())
                 .loadingDate(load.getLoadingDate())
                 .unloadingDate(load.getUnloadingDate())
-                .status(load.getStatus() != null ? load.getStatus().name() : null)
+                .status(load.getStatus() != null ? load.getStatus().name() : null)  // FIX: Convert enum to String
                 .commodityType(load.getCommodityType())
                 .palletCount(load.getPalletCount())
                 .containerNumber(load.getContainerNumber())
