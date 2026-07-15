@@ -1,5 +1,6 @@
 package com.pgsa.trailers.controller;
 
+import com.pgsa.trailers.dto.DirectRouteRequest;
 import com.pgsa.trailers.dto.RouteRequest;
 import com.pgsa.trailers.dto.RouteResponse;
 import com.pgsa.trailers.service.routing.RoutingEngine;
@@ -9,10 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
-import java.util.Map;
 import java.util.HashMap;
-
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/routing")
@@ -41,7 +40,7 @@ public class RoutingController {
             
             RouteResponse response = new RouteResponse();
             response.setDistanceKm(result.getDistanceKm().doubleValue());
-            response.setDurationMinutes(result.getDurationHours().doubleValue() * 60); // hours to minutes
+            response.setDurationMinutes(result.getDurationHours().doubleValue() * 60);
             response.setOrigin(request.getOrigin());
             response.setDestination(request.getDestination());
             response.setProvider(result.getProvider());
@@ -161,15 +160,14 @@ public class RoutingController {
      */
     @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> getProviderStatus() {
-        // This would need to be implemented in RoutingEngine
-        return ResponseEntity.ok(Map.of(
-            "status", "available",
-            "providers", Map.of(
-                "ors", true,
-                "google", false,
-                "mapbox", false,
-                "fallback", true
-            )
+        Map<String, Object> status = new HashMap<>();
+        status.put("status", "available");
+        status.put("providers", Map.of(
+            "ors", true,
+            "google", false,
+            "mapbox", false,
+            "fallback", true
         ));
+        return ResponseEntity.ok(status);
     }
 }
