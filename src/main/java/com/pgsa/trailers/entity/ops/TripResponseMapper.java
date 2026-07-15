@@ -25,7 +25,6 @@ public class TripResponseMapper {
         if (trip.getCustomer() != null) {
             response.setCustomerId(trip.getCustomer().getId());
             response.setCustomerName(trip.getCustomer().getName());
-            // Null-safe customer code
             response.setCustomerCode(trip.getCustomer().getCustomerCode() != null 
                 ? trip.getCustomer().getCustomerCode() 
                 : null);
@@ -34,22 +33,22 @@ public class TripResponseMapper {
         }
 
         // ======================== LOAD ========================
-          if (trip.getLoad() != null) {
-    response.setLoadId(trip.getLoad().getLoadNumber());  // String
-    response.setLoadNumber(trip.getLoad().getLoadNumber());
-    response.setLoadType(trip.getLoad().getCommodityType());
-    response.setLoadDescription(trip.getLoad().getDescription());
-    // FIX: Convert LoadStatus enum to String using .name()
-    response.setLoadStatus(trip.getLoad().getStatus() != null 
-        ? trip.getLoad().getStatus().name() 
-        : null);
-} else if (trip.getLoadId() != null) {
-    response.setLoadId(trip.getLoadId());  // String
-    response.setLoadNumber(trip.getLoadNumber());
-    response.setLoadType(trip.getLoadType());
-    response.setLoadDescription(trip.getLoadDescription());
-    response.setLoadStatus(trip.getLoadStatus());
-}
+        if (trip.getLoad() != null) {
+            response.setLoadId(trip.getLoad().getLoadNumber());  // String
+            response.setLoadNumber(trip.getLoad().getLoadNumber());
+            response.setLoadType(trip.getLoad().getCommodityType());
+            response.setLoadDescription(trip.getLoad().getDescription());
+            // FIX: Convert LoadStatus enum to String using .name()
+            response.setLoadStatus(trip.getLoad().getStatus() != null 
+                ? trip.getLoad().getStatus().name() 
+                : null);
+        } else if (trip.getLoadId() != null) {
+            response.setLoadId(trip.getLoadId());  // String
+            response.setLoadNumber(trip.getLoadNumber());
+            response.setLoadType(trip.getLoadType());
+            response.setLoadDescription(trip.getLoadDescription());
+            response.setLoadStatus(trip.getLoadStatus());
+        }
 
         // ======================== LOCATIONS ========================
         response.setOriginLocation(trip.getOriginLocation());
@@ -90,7 +89,6 @@ public class TripResponseMapper {
         // ======================== VEHICLE (NULL SAFE) ========================
         if (trip.getVehicle() != null) {
             response.setVehicleId(trip.getVehicle().getId());
-            // Null-safe registration number
             response.setVehicleRegistration(
                 trip.getVehicle().getRegistrationNumber() != null 
                     ? trip.getVehicle().getRegistrationNumber() 
@@ -198,7 +196,6 @@ public class TripResponseMapper {
         dto.setRevenueAmount(metrics.getRevenueAmount());
         dto.setCostAmount(metrics.getCostAmount());
 
-        // Optional location metrics
         dto.setOriginCityTravelTimeHours(metrics.getOriginCityTravelTimeHours());
         dto.setDestinationCityTravelTimeHours(metrics.getDestinationCityTravelTimeHours());
         dto.setPlannedVsActualDistanceVarianceKm(metrics.getPlannedVsActualDistanceVarianceKm());
