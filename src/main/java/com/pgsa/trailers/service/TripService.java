@@ -133,53 +133,48 @@ public class TripService {
         } 
         // If referenceNumber is provided, find or create a load
         else if (request.getReferenceNumber() != null && !request.getReferenceNumber().trim().isEmpty()) {
-            String referenceNumber = request.getReferenceNumber().trim();
-            log.info("📦 Looking for load with reference number: {}", referenceNumber);
-            
-            // Try to find existing load with this reference number
-            Optional<Load> existingLoad = loadRepository.findByReferenceNumber(referenceNumber);
-            
-            if (existingLoad.isPresent()) {
-                load = existingLoad.get();
-                log.info("📦 Found existing load with Ref# {}: {}", referenceNumber, load.getLoadNumber());
-            } else {
-                // Create a new load with this reference number
-                log.info("📦 Creating new load for Ref#: {}", referenceNumber);
-                load = new Load();
-                load.setLoadNumber(generateLoadNumber());
-                load.setReferenceNumber(referenceNumber);
-                load.setCustomerId(request.getCustomerId());
-                load.setDescription(request.getCargoDescription() != null ? 
-                    request.getCargoDescription() : "Load for Ref# " + referenceNumber);
-                load.setCommodityType(request.getCommodityType());
-                
-                // FIX: Use LoadStatus enum instead of String "ACTIVE"
-                load.setStatus(LoadStatus.PENDING.name()); // This sets "PENDING" which is valid
-                // Alternatively, you can use: load.setStatus("PENDING");
-                
-                load.setTripsCount(0);
-                load.setCreatedBy(userId != null ? String.valueOf(userId) : "System");
-                load.setCreatedAt(LocalDateTime.now());
-                load.setUpdatedAt(LocalDateTime.now());
-                load.setLastStatusUpdate(LocalDateTime.now());
-                load.setAuditTrail("{}");
-                
-                // Set origin/destination from trip
-                load.setOriginLocation(request.getOriginLocation());
-                load.setDestinationLocation(request.getDestinationLocation());
-                
-                // Set depot distances if available
-                if (request.getFromDepotKm() != null) {
-                    load.setTotalFromDepotKm(request.getFromDepotKm());
-                }
-                if (request.getToDepotKm() != null) {
-                    load.setTotalToDepotKm(request.getToDepotKm());
-                }
-                
-                load = loadRepository.save(load);
-                log.info("✅ Created new load: {} for Ref#: {}", load.getLoadNumber(), referenceNumber);
-            }
+    String referenceNumber = request.getReferenceNumber().trim();
+    log.info("📦 Looking for load with reference number: {}", referenceNumber);
+    
+    Optional<Load> existingLoad = loadRepository.findByReferenceNumber(referenceNumber);
+    
+    if (existingLoad.isPresent()) {
+        load = existingLoad.get();
+        log.info("📦 Found existing load with Ref# {}: {}", referenceNumber, load.getLoadNumber());
+    } else {
+        log.info("📦 Creating new load for Ref#: {}", referenceNumber);
+        load = new Load();
+        load.setLoadNumber(generateLoadNumber());
+        load.setReferenceNumber(referenceNumber);
+        load.setCustomerId(request.getCustomerId());
+        load.setDescription(request.getCargoDescription() != null ? 
+            request.getCargoDescription() : "Load for Ref# " + referenceNumber);
+        load.setCommodityType(request.getCommodityType());
+        
+        // FIX: Use LoadStatus enum directly
+        load.setStatus(LoadStatus.PENDING); // This sets the enum value
+        
+        load.setTripsCount(0);
+        load.setCreatedBy(userId != null ? String.valueOf(userId) : "System");
+        load.setCreatedAt(LocalDateTime.now());
+        load.setUpdatedAt(LocalDateTime.now());
+        load.setLastStatusUpdate(LocalDateTime.now());
+        load.setAuditTrail("{}");
+        
+        load.setOriginLocation(request.getOriginLocation());
+        load.setDestinationLocation(request.getDestinationLocation());
+        
+        if (request.getFromDepotKm() != null) {
+            load.setTotalFromDepotKm(request.getFromDepotKm());
         }
+        if (request.getToDepotKm() != null) {
+            load.setTotalToDepotKm(request.getToDepotKm());
+        }
+        
+        load = loadRepository.save(load);
+        log.info("✅ Created new load: {} for Ref#: {}", load.getLoadNumber(), referenceNumber);
+    }
+}
         
         // Associate load with trip if found/created
         if (load != null) {
