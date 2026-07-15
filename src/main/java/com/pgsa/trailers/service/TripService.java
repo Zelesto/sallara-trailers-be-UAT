@@ -184,7 +184,7 @@ public class TripService {
             trip.setLoadNumber(load.getLoadNumber());
             trip.setLoadType(load.getCommodityType());
             trip.setLoadDescription(load.getDescription());
-            trip.setLoadStatus(load.getStatus() != null ? load.getStatus() : "PENDING");
+            trip.setLoadStatus(load.getStatus() != null ? load.getStatus().name() : "PENDING");
             
             if (load.getTrips() == null) {
                 load.setTrips(new ArrayList<>());
@@ -430,7 +430,7 @@ public class TripService {
             trip.setLoadNumber(load.getLoadNumber());
             trip.setLoadType(load.getCommodityType());
             trip.setLoadDescription(load.getDescription());
-            trip.setLoadStatus(load.getStatus() != null ? load.getStatus() : "PENDING");
+            trip.setLoadStatus(load.getStatus() != null ? load.getStatus().name() : "PENDING");
         } else {
             trip.setLoad(null);
             trip.setLoadId(null);
@@ -483,7 +483,7 @@ public class TripService {
             trip.setLoadNumber(load.getLoadNumber());
             trip.setLoadType(load.getCommodityType());
             trip.setLoadDescription(load.getDescription());
-            trip.setLoadStatus(load.getStatus() != null ? load.getStatus() : "PENDING");
+            trip.setLoadStatus(load.getStatus() != null ? load.getStatus().name() : "PENDING");
         } else {
             trip.setLoad(null);
             trip.setLoadId(null);
@@ -578,7 +578,7 @@ public class TripService {
                 trip.setLoadNumber(load.getLoadNumber());
                 trip.setLoadType(load.getCommodityType());
                 trip.setLoadDescription(load.getDescription());
-                trip.setLoadStatus(load.getStatus() != null ? load.getStatus() : "PENDING");
+                trip.setLoadStatus(load.getStatus() != null ? load.getStatus().name() : "PENDING");
             } else {
                 trip.setLoad(null);
                 trip.setLoadId(null);
