@@ -295,7 +295,7 @@ public TripResponse createTrip(CreateTripRequest request, Long userId) {
         log.info("ℹ️ No load associated with this trip");
     }
 
-    // ======================== GENERATE TRIP NUMBER ========================
+        // ======================== GENERATE TRIP NUMBER ========================
     log.info("========================================");
     log.info("🔢 STEP 10: GENERATING TRIP NUMBER");
     log.info("========================================");
@@ -307,10 +307,16 @@ public TripResponse createTrip(CreateTripRequest request, Long userId) {
     log.info("📊 Year: {}, Prefix: {}", year, prefix);
     log.info("🔍 Checking trip number before generation: '{}'", trip.getTripNumber());
     log.info("🔍 Trip object hash: {}", System.identityHashCode(trip));
+    log.info("🔍 JdbcTemplate instance: {}", jdbcTemplate != null ? "injected" : "NULL!");
     
-    // Strategy 1: Try JdbcTemplate direct database generation
+    // Strategy 1: Try JdbcTemplate direct database generation (PROVEN TO WORK)
     try {
-        log.info("🔄 Strategy 1: Attempting database sequence generation...");
+        log.info("🔄 Strategy 1: Attempting database sequence generation with JdbcTemplate...");
+        log.info("   - SQL: INSERT INTO sequence (table_name, year, next_number, created_at, updated_at) " +
+                "VALUES ('trip', ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) " +
+                "ON CONFLICT (table_name, year) DO UPDATE SET next_number = sequence.next_number + 1 " +
+                "RETURNING next_number - 1");
+        log.info("   - Parameters: year={}", year);
         
         Long nextNumber = jdbcTemplate.queryForObject(
             "INSERT INTO sequence (table_name, year, next_number, created_at, updated_at) " +
@@ -326,12 +332,18 @@ public TripResponse createTrip(CreateTripRequest request, Long userId) {
         
     } catch (Exception e) {
         log.error("❌ Strategy 1 FAILED: Error generating trip number from database: {}", e.getMessage(), e);
+        log.error("   - Exception type: {}", e.getClass().getName());
+        log.error("   - Stack trace: ", e);
         
         // Strategy 2: Try using the TripNumberGenerator bean
         try {
             log.info("🔄 Strategy 2: Attempting TripNumberGenerator.generate()...");
+            log.info("   - TripNumberGenerator instance: {}", tripNumberGenerator != null ? "injected" : "NULL!");
+            
             String generated = tripNumberGenerator.generate();
             log.info("🔍 TripNumberGenerator returned: '{}'", generated);
+            log.info("   - Return value is null: {}", generated == null);
+            log.info("   - Return value is empty: {}", generated != null && generated.trim().isEmpty());
             
             if (generated != null && !generated.trim().isEmpty()) {
                 tripNumber = generated;
@@ -341,43 +353,72 @@ public TripResponse createTrip(CreateTripRequest request, Long userId) {
             }
         } catch (Exception ex) {
             log.error("❌ Strategy 2 FAILED: Exception from TripNumberGenerator: {}", ex.getMessage(), ex);
+            log.error("   - Exception type: {}", ex.getClass().getName());
+            log.error("   - Stack trace: ", ex);
         }
     }
     
     // Strategy 3: Timestamp fallback
     if (tripNumber == null || tripNumber.trim().isEmpty()) {
         log.info("🔄 Strategy 3: Using timestamp fallback...");
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS"));
-        tripNumber = "TRP-" + timestamp;
-        log.warn("⚠️ Strategy 3: Using timestamp fallback: '{}'", tripNumber);
+        try {
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS"));
+            tripNumber = "TRP-" + timestamp;
+            log.warn("⚠️ Strategy 3: Using timestamp fallback: '{}'", tripNumber);
+        } catch (Exception e) {
+            log.error("❌ Strategy 3 FAILED: Error generating timestamp: {}", e.getMessage());
+        }
     }
     
-    // Strategy 4: Ultimate fallback
+    // Strategy 4: Millisecond fallback
     if (tripNumber == null || tripNumber.trim().isEmpty()) {
-        log.info("🔄 Strategy 4: Using emergency fallback...");
+        log.info("🔄 Strategy 4: Using millisecond fallback...");
+        try {
+            tripNumber = "TRP-TS-" + System.currentTimeMillis();
+            log.warn("⚠️ Strategy 4: Using millisecond fallback: '{}'", tripNumber);
+        } catch (Exception e) {
+            log.error("❌ Strategy 4 FAILED: Error generating millisecond: {}", e.getMessage());
+        }
+    }
+    
+    // Strategy 5: Ultimate emergency fallback
+    if (tripNumber == null || tripNumber.trim().isEmpty()) {
+        log.info("🔄 Strategy 5: Using emergency fallback...");
         tripNumber = "TRP-EMERG-" + System.currentTimeMillis();
-        log.error("🚨 Strategy 4: EMERGENCY fallback: '{}'", tripNumber);
+        log.error("🚨 Strategy 5: EMERGENCY fallback: '{}'", tripNumber);
     }
     
     log.info("========================================");
     log.info("📝 FINAL TRIP NUMBER: '{}'", tripNumber);
+    log.info("   - Length: {}", tripNumber != null ? tripNumber.length() : 0);
+    log.info("   - Is null: {}", tripNumber == null);
+    log.info("   - Is empty: {}", tripNumber != null && tripNumber.trim().isEmpty());
     log.info("========================================");
     
-    // Set the trip number
+    // Set the trip number with multiple verification steps
     log.info("🔍 Setting trip number on entity...");
     log.info("   - Before set: trip.getTripNumber() = '{}'", trip.getTripNumber());
+    log.info("   - Before set - is null: {}", trip.getTripNumber() == null);
+    
+    // CRITICAL: Set the trip number
     trip.setTripNumber(tripNumber);
     log.info("   - After set: trip.getTripNumber() = '{}'", trip.getTripNumber());
+    log.info("   - After set - is null: {}", trip.getTripNumber() == null);
     log.info("   - tripNumber variable: '{}'", tripNumber);
     
     // Verify the trip number was actually set
     if (trip.getTripNumber() == null || trip.getTripNumber().trim().isEmpty()) {
         log.error("🚨 CRITICAL: Trip number is still null after setting!");
+        log.error("   - tripNumber variable: '{}'", tripNumber);
+        log.error("   - trip.getTripNumber(): '{}'", trip.getTripNumber());
+        
         String emergencyNumber = "TRP-FINAL-" + System.currentTimeMillis();
         trip.setTripNumber(emergencyNumber);
         log.error("🚨 Forced emergency trip number: '{}'", emergencyNumber);
+        log.error("   - After force set: trip.getTripNumber() = '{}'", trip.getTripNumber());
     } else {
         log.info("✅ Trip number verified: '{}'", trip.getTripNumber());
+        log.info("   - Trip number length: {}", trip.getTripNumber().length());
     }
     
     // Set status
@@ -395,17 +436,21 @@ public TripResponse createTrip(CreateTripRequest request, Long userId) {
     log.info("   - Trip Number: '{}'", trip.getTripNumber());
     log.info("   - Trip Number is null: {}", trip.getTripNumber() == null);
     log.info("   - Trip Number is empty: {}", trip.getTripNumber() == null || trip.getTripNumber().trim().isEmpty());
+    log.info("   - Trip Number length: {}", trip.getTripNumber() != null ? trip.getTripNumber().length() : 0);
     log.info("   - Customer ID: {}", trip.getCustomerId());
     log.info("   - Load ID: {}", trip.getLoadId());
     log.info("   - Vehicle ID: {}", trip.getVehicle() != null ? trip.getVehicle().getId() : "null");
+    log.info("   - Vehicle is null: {}", trip.getVehicle() == null);
     log.info("   - Status: {}", trip.getStatus());
     log.info("   - Trip object hash: {}", System.identityHashCode(trip));
+    log.info("   - Entity manager contains trip: {}", entityManager.contains(trip));
     
     // Final safety check
     if (trip.getTripNumber() == null || trip.getTripNumber().trim().isEmpty()) {
         String emergencyNumber = "TRP-FINAL-" + System.currentTimeMillis();
         trip.setTripNumber(emergencyNumber);
         log.error("🚨 CRITICAL: Pre-save check - Forced emergency trip number: '{}'", emergencyNumber);
+        log.error("   - After force: trip.getTripNumber() = '{}'", trip.getTripNumber());
     }
     
     if (trip.getCustomerId() == null) {
@@ -421,12 +466,22 @@ public TripResponse createTrip(CreateTripRequest request, Long userId) {
     log.info("========================================");
     log.info("   - Trip Number being saved: '{}'", trip.getTripNumber());
     log.info("   - Trip object hash: {}", System.identityHashCode(trip));
+    log.info("   - Entity manager contains trip: {}", entityManager.contains(trip));
+    
+    // Force flush to ensure Hibernate sees the change
+    try {
+        entityManager.flush();
+        log.info("   - Flush completed successfully");
+    } catch (Exception e) {
+        log.error("   - Flush failed: {}", e.getMessage(), e);
+    }
     
     Trip saved = tripRepository.save(trip);
 
     log.info("✅ TRIP SAVED SUCCESSFULLY!");
     log.info("   - ID: {}", saved.getId());
     log.info("   - Number: '{}'", saved.getTripNumber());
+    log.info("   - Number is null: {}", saved.getTripNumber() == null);
     log.info("   - Customer: {}", customer.getName());
     log.info("   - Load: {}", load != null ? load.getLoadNumber() : "None");
     log.info("========================================");
