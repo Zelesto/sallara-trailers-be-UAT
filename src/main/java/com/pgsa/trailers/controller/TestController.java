@@ -87,6 +87,24 @@ public class TestController {
     }
 }
 
+@GetMapping("/sequence")
+public ResponseEntity<Map<String, Object>> testSequence() {
+    Map<String, Object> response = new HashMap<>();
+    try {
+        String year = String.valueOf(Year.now().getValue());
+        String result = sequenceService.generateFormattedSequence("trip", "TRP", year, 3);
+        response.put("success", true);
+        response.put("sequence", result);
+        response.put("year", year);
+        log.info("✅ Test generated sequence: {}", result);
+    } catch (Exception e) {
+        response.put("success", false);
+        response.put("error", e.getMessage());
+        log.error("❌ Error generating sequence: {}", e.getMessage(), e);
+    }
+    return ResponseEntity.ok(response);
+}
+
     /**
      * JWT Token analysis endpoint
      */
