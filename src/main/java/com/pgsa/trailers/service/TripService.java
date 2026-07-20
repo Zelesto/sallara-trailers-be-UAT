@@ -13,6 +13,7 @@ import com.pgsa.trailers.entity.ops.TripResponseMapper;
 import com.pgsa.trailers.entity.ops.auto.TripCompletedEvent;
 import com.pgsa.trailers.entity.ops.auto.TripPlannedEvent;
 import com.pgsa.trailers.entity.ops.auto.TripStartedEvent;
+import com.pgsa.trailers.enums.LoadStatus;
 import com.pgsa.trailers.enums.TripStatus;
 import com.pgsa.trailers.entity.suppliers.TripValidationException;
 import com.pgsa.trailers.repository.CustomerRepository;
@@ -27,13 +28,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -53,6 +58,66 @@ public class TripService {
     private final TripResponseMapper tripResponseMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final TripValidator tripValidator;
+    private final JdbcTemplate jdbcTemplate;
+
+    /* ========================
+       PRIVATE HELPERS
+       ======================== */
+
+    private String generateLoadNumber() {
+        return "LOAD-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 1000);
+    }
+
+    private Trip findTripOrThrow(Long id) {
+        return tripRepository.findById(id)
+                .orElseThrow(() -> new TripValidationException("Trip not found with ID: " + id));
+    }
+
+    /**
+     * Validate and get customer from request
+     */
+    private Customer validateAndGetCustomer(CreateTripRequest request) {
+        if (request.getCustomerId() == null || request.getCustomerId() <= 0) {
+            throw new TripValidationException("Customer is required. Please select a customer.");
+        }
+        
+        return customerRepository.findById(request.getCustomerId())
+                .orElseThrow(() -> new TripValidationException(
+                        "Customer not found with ID: " + request.getCustomerId()));
+    }
+
+    /**
+     * Generate trip number directly from database - GUARANTEED to work
+     */
+    private String generateTripNumberDirect() {
+        String year = String.valueOf(java.time.Year.now().getValue());
+        String prefix = "TRP-" + year + "-";
+        
+        try {
+            // Use JdbcTemplate to get the next sequence number
+            Long nextNumber = jdbcTemplate.queryForObject(
+                "INSERT INTO sequence (table_name, year, next_number, created_at, updated_at) " +
+                "VALUES ('trip', ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) " +
+                "ON CONFLICT (table_name, year) DO UPDATE SET next_number = sequence.next_number + 1 " +
+                "RETURNING next_number - 1",
+                new Object[]{year},
+                Long.class
+            );
+            
+            String tripNumber = prefix + String.format("%03d", nextNumber);
+            log.info("✅ Generated trip number from database: {}", tripNumber);
+            return tripNumber;
+            
+        } catch (Exception e) {
+            log.error("❌ Error generating trip number from database: {}", e.getMessage());
+            
+            // Fallback: use timestamp
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS"));
+            String fallback = "TRP-" + timestamp;
+            log.warn("⚠️ Using timestamp fallback: {}", fallback);
+            return fallback;
+        }
+    }
 
     /* ========================
        CREATE
@@ -61,13 +126,17 @@ public class TripService {
     public TripResponse createTrip(CreateTripRequest request, Long userId) {
 
         log.debug("Creating trip for vehicle: {}, user: {}", request.getVehicleId(), userId);
+        log.info("📝 Creating trip with reference number: {}", request.getReferenceNumber());
 
+        // Validate request
         tripValidator.validateCreateRequest(request);
 
+        // Get vehicle
         Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
                 .orElseThrow(() -> new TripValidationException(
                         "Vehicle not found with ID: " + request.getVehicleId()));
 
+        // Get driver (optional)
         Driver driver = null;
         if (request.getDriverId() != null) {
             driver = driverRepository.findById(request.getDriverId())
@@ -75,6 +144,7 @@ public class TripService {
                             "Driver not found with ID: " + request.getDriverId()));
         }
 
+        // Get supervisor (optional)
         Driver supervisor = null;
         if (request.getSupervisorId() != null) {
             supervisor = driverRepository.findById(request.getSupervisorId())
@@ -82,51 +152,150 @@ public class TripService {
                             "Supervisor not found with ID: " + request.getSupervisorId()));
         }
 
-        // Validate customer if provided
-        Customer customer = null;
-        if (request.getCustomerId() != null && request.getCustomerId() > 0) {
-            customer = customerRepository.findById(request.getCustomerId())
-                    .orElseThrow(() -> new TripValidationException(
-                            "Customer not found with ID: " + request.getCustomerId()));
-        }
+        // ======================== CUSTOMER VALIDATION ========================
+        Customer customer = validateAndGetCustomer(request);
+        Long customerId = customer.getId();
+        log.info("✅ Customer validated: {} (ID: {})", customer.getName(), customerId);
 
+        // Create the trip entity
         Trip trip = createTripMapper.toEntity(request);
 
         trip.setVehicle(vehicle);
         trip.setDriver(driver);
         trip.setSupervisor(supervisor);
-        
-        // Set customer
-        if (customer != null) {
-            trip.setCustomerId(customer.getId());
-        }
+        trip.setCustomerId(customerId);
 
-        // Handle load ID if provided - loadId is String (loadNumber)
+        /* ========================
+           DEPOT TRACKING
+           ======================== */
+        if (request.getFromDepotKm() != null) {
+            trip.setFromDepotKm(request.getFromDepotKm());
+        }
+        if (request.getToDepotKm() != null) {
+            trip.setToDepotKm(request.getToDepotKm());
+        }
+        if (request.getDepartedFrom() != null) {
+            trip.setDepartedFrom(request.getDepartedFrom());
+        }
+        if (request.getDepartureLocation() != null) {
+            trip.setDepartureLocation(request.getDepartureLocation());
+        }
+        trip.setIsFromDepot(request.getIsFromDepot() != null ? request.getIsFromDepot() : false);
+
+        // ======================== LOAD HANDLING ========================
+        Load load = null;
+        
         if (request.getLoadId() != null && !request.getLoadId().isEmpty()) {
-            // Load ID is a String (loadNumber)
-            Load load = loadRepository.findByLoadNumber(request.getLoadId())
+            log.info("📦 Using provided loadId: {}", request.getLoadId());
+            load = loadRepository.findByLoadNumber(request.getLoadId())
                     .orElseThrow(() -> new TripValidationException(
                             "Load not found with number: " + request.getLoadId()));
+        } 
+        else if (request.getReferenceNumber() != null && !request.getReferenceNumber().trim().isEmpty()) {
+            String referenceNumber = request.getReferenceNumber().trim();
+            log.info("📦 Looking for load with reference number: {}", referenceNumber);
+            
+            Optional<Load> existingLoad = loadRepository.findByReferenceNumber(referenceNumber);
+            
+            if (existingLoad.isPresent()) {
+                load = existingLoad.get();
+                log.info("📦 Found existing load with Ref# {}: {}", referenceNumber, load.getLoadNumber());
+            } else {
+                log.info("📦 Creating new load for Ref#: {}", referenceNumber);
+                load = new Load();
+                load.setLoadNumber(generateLoadNumber());
+                load.setReferenceNumber(referenceNumber);
+                load.setCustomerId(customerId);
+                load.setDescription(request.getCargoDescription() != null ? 
+                    request.getCargoDescription() : "Load for Ref# " + referenceNumber);
+                load.setCommodityType(request.getCommodityType());
+                
+                load.setStatus(LoadStatus.PENDING);
+                load.setTripsCount(0);
+                load.setCreatedBy(userId != null ? String.valueOf(userId) : "System");
+                load.setCreatedAt(LocalDateTime.now());
+                load.setUpdatedAt(LocalDateTime.now());
+                load.setLastStatusUpdate(LocalDateTime.now());
+                load.setAuditTrail("{}");
+                
+                load.setOriginLocation(request.getOriginLocation());
+                load.setDestinationLocation(request.getDestinationLocation());
+                
+                if (request.getFromDepotKm() != null) {
+                    load.setTotalFromDepotKm(request.getFromDepotKm());
+                }
+                if (request.getToDepotKm() != null) {
+                    load.setTotalToDepotKm(request.getToDepotKm());
+                }
+                
+                load = loadRepository.save(load);
+                log.info("✅ Created new load: {} for Ref#: {}", load.getLoadNumber(), referenceNumber);
+            }
+        }
+        
+        if (load != null) {
             trip.setLoad(load);
-            trip.setLoadId(load.getLoadNumber());  // String
+            trip.setLoadId(load.getLoadNumber());
             trip.setLoadNumber(load.getLoadNumber());
             trip.setLoadType(load.getCommodityType());
             trip.setLoadDescription(load.getDescription());
-            trip.setLoadStatus(load.getStatus());
+            trip.setLoadStatus(load.getStatus() != null ? load.getStatus().name() : "PENDING");
+            
+            if (load.getTrips() == null) {
+                load.setTrips(new ArrayList<>());
+            }
+            load.getTrips().add(trip);
+            load.setTripsCount(load.getTrips().size());
+            load.setUpdatedAt(LocalDateTime.now());
+            load.setLastStatusUpdate(LocalDateTime.now());
+            
+            load.recalculateDepotTotals();
+            
+            loadRepository.save(load);
+            
+            log.info("✅ Trip associated with load: {}", load.getLoadNumber());
+        } else {
+            log.info("ℹ️ No load associated with this trip");
         }
 
-        trip.setTripNumber(tripNumberGenerator.generate());
+        // ======================== GENERATE TRIP NUMBER ========================
+        // DIRECT DATABASE GENERATION - GUARANTEED TO WORK
+        String tripNumber = generateTripNumberDirect();
+        
+        // Set the trip number on the entity
+        trip.setTripNumber(tripNumber);
+        log.info("📝 Trip number set to: {}", trip.getTripNumber());
+        
+        // Set status
         trip.setStatus(request.getStatus() != null ? request.getStatus() : TripStatus.DRAFT);
         trip.setCreatedBy(userId);
         trip.setLastStatusUpdate(LocalDateTime.now());
 
-        // Save trip first
+        // ======================== FINAL PRE-SAVE VALIDATION ========================
+        log.info("🚀 Pre-save validation:");
+        log.info("   - Trip Number: '{}'", trip.getTripNumber());
+        log.info("   - Customer ID: {}", trip.getCustomerId());
+        log.info("   - Load ID: {}", trip.getLoadId());
+        
+        if (trip.getTripNumber() == null || trip.getTripNumber().trim().isEmpty()) {
+            // This should never happen, but just in case
+            String emergencyNumber = "TRP-EMERG-" + System.currentTimeMillis();
+            trip.setTripNumber(emergencyNumber);
+            log.error("🚨 CRITICAL: Forced emergency trip number: {}", emergencyNumber);
+        }
+        
+        if (trip.getCustomerId() == null) {
+            throw new TripValidationException("Customer ID cannot be null before saving");
+        }
+
+        // ======================== SAVE TRIP ========================
         Trip saved = tripRepository.save(trip);
 
-        log.info("Created trip with ID: {}, Number: {}, Customer: {}",
+        log.info("✅ Created trip with ID: {}, Number: {}, Customer: {}, Load: {}",
                 saved.getId(),
                 saved.getTripNumber(),
-                customer != null ? customer.getName() : "None"
+                customer.getName(),
+                load != null ? load.getLoadNumber() : "None"
         );
 
         // Create initial metrics record
@@ -226,7 +395,6 @@ public class TripService {
                 .collect(Collectors.toList());
     }
 
-    // loadId is String
     @Transactional(readOnly = true)
     public List<TripResponse> getTripsByLoad(String loadId) {
         return tripRepository.findByLoadId(loadId)
@@ -290,22 +458,19 @@ public class TripService {
        CUSTOMER & LOAD MANAGEMENT
        ======================== */
     
-    /**
-     * Assign customer to a trip
-     */
     @Transactional
     public TripResponse assignCustomerToTrip(Long tripId, Long customerId, Long userId) {
         log.debug("Assigning customer {} to trip {}", customerId, tripId);
         
         Trip trip = findTripOrThrow(tripId);
         
-        if (customerId != null) {
-            Customer customer = customerRepository.findById(customerId)
-                    .orElseThrow(() -> new TripValidationException("Customer not found with ID: " + customerId));
-            trip.setCustomerId(customer.getId());
-        } else {
-            trip.setCustomerId(null);
+        if (customerId == null || customerId <= 0) {
+            throw new TripValidationException("Customer ID is required");
         }
+        
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new TripValidationException("Customer not found with ID: " + customerId));
+        trip.setCustomerId(customer.getId());
         
         trip.setUpdatedAt(LocalDateTime.now());
         trip.setUpdatedBy(userId);
@@ -316,9 +481,6 @@ public class TripService {
         return tripResponseMapper.toResponse(updated);
     }
 
-    /**
-     * Assign load to a trip - loadId is String (loadNumber)
-     */
     @Transactional
     public TripResponse assignLoadToTrip(Long tripId, String loadId, Long userId) {
         log.debug("Assigning load {} to trip {}", loadId, tripId);
@@ -326,15 +488,14 @@ public class TripService {
         Trip trip = findTripOrThrow(tripId);
         
         if (loadId != null && !loadId.isEmpty()) {
-            // Validate load exists by loadNumber
             Load load = loadRepository.findByLoadNumber(loadId)
                     .orElseThrow(() -> new TripValidationException("Load not found with number: " + loadId));
             trip.setLoad(load);
-            trip.setLoadId(load.getLoadNumber());  // String
+            trip.setLoadId(load.getLoadNumber());
             trip.setLoadNumber(load.getLoadNumber());
             trip.setLoadType(load.getCommodityType());
             trip.setLoadDescription(load.getDescription());
-            trip.setLoadStatus(load.getStatus());
+            trip.setLoadStatus(load.getStatus() != null ? load.getStatus().name() : "PENDING");
         } else {
             trip.setLoad(null);
             trip.setLoadId(null);
@@ -353,41 +514,35 @@ public class TripService {
         return tripResponseMapper.toResponse(updated);
     }
 
-    /**
-     * Generate a new load ID
-     */
     public String generateLoadId() {
         return "LD-" + System.currentTimeMillis();
     }
 
-    /**
-     * Update trip with customer and load information in one call - loadId is String
-     */
     @Transactional
     public TripResponse updateTripCustomerAndLoad(Long tripId, Long customerId, String loadId, Long userId) {
         log.debug("Updating trip {} with customer: {} and load: {}", tripId, customerId, loadId);
         
         Trip trip = findTripOrThrow(tripId);
         
-        // Update customer
-        if (customerId != null) {
-            Customer customer = customerRepository.findById(customerId)
-                    .orElseThrow(() -> new TripValidationException("Customer not found with ID: " + customerId));
-            trip.setCustomerId(customer.getId());
-        } else {
-            trip.setCustomerId(null);
+        // Update customer - must be provided
+        if (customerId == null || customerId <= 0) {
+            throw new TripValidationException("Customer ID is required");
         }
+        
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new TripValidationException("Customer not found with ID: " + customerId));
+        trip.setCustomerId(customer.getId());
         
         // Update load
         if (loadId != null && !loadId.isEmpty()) {
             Load load = loadRepository.findByLoadNumber(loadId)
                     .orElseThrow(() -> new TripValidationException("Load not found with number: " + loadId));
             trip.setLoad(load);
-            trip.setLoadId(load.getLoadNumber());  // String
+            trip.setLoadId(load.getLoadNumber());
             trip.setLoadNumber(load.getLoadNumber());
             trip.setLoadType(load.getCommodityType());
             trip.setLoadDescription(load.getDescription());
-            trip.setLoadStatus(load.getStatus());
+            trip.setLoadStatus(load.getStatus() != null ? load.getStatus().name() : "PENDING");
         } else {
             trip.setLoad(null);
             trip.setLoadId(null);
@@ -470,19 +625,22 @@ public class TripService {
             Customer customer = customerRepository.findById(request.getCustomerId())
                     .orElseThrow(() -> new TripValidationException("Customer not found with ID: " + request.getCustomerId()));
             trip.setCustomerId(customer.getId());
+        } else if (request.getCustomerId() == null) {
+            // Keep existing customer
+            // Do nothing
         }
 
-        // Update load if provided - loadId is String (loadNumber)
+        // Update load if provided
         if (request.getLoadId() != null) {
             if (!request.getLoadId().isEmpty()) {
                 Load load = loadRepository.findByLoadNumber(request.getLoadId())
                         .orElseThrow(() -> new TripValidationException("Load not found with number: " + request.getLoadId()));
                 trip.setLoad(load);
-                trip.setLoadId(load.getLoadNumber());  // String
+                trip.setLoadId(load.getLoadNumber());
                 trip.setLoadNumber(load.getLoadNumber());
                 trip.setLoadType(load.getCommodityType());
                 trip.setLoadDescription(load.getDescription());
-                trip.setLoadStatus(load.getStatus());
+                trip.setLoadStatus(load.getStatus() != null ? load.getStatus().name() : "PENDING");
             } else {
                 trip.setLoad(null);
                 trip.setLoadId(null);
@@ -491,6 +649,25 @@ public class TripService {
                 trip.setLoadDescription(null);
                 trip.setLoadStatus(null);
             }
+        }
+
+        /* ========================
+           DEPOT TRACKING
+           ======================== */
+        if (request.getFromDepotKm() != null) {
+            trip.setFromDepotKm(request.getFromDepotKm());
+        }
+        if (request.getToDepotKm() != null) {
+            trip.setToDepotKm(request.getToDepotKm());
+        }
+        if (request.getDepartedFrom() != null) {
+            trip.setDepartedFrom(request.getDepartedFrom());
+        }
+        if (request.getDepartureLocation() != null) {
+            trip.setDepartureLocation(request.getDepartureLocation());
+        }
+        if (request.getIsFromDepot() != null) {
+            trip.setIsFromDepot(request.getIsFromDepot());
         }
 
         Optional.ofNullable(request.getOriginLocation()).ifPresent(trip::setOriginLocation);
@@ -543,114 +720,80 @@ public class TripService {
         trip.updateOriginLocationFromComponents();
         trip.updateDestinationLocationFromComponents();
 
+        // If trip has a load, recalculate depot totals
+        if (trip.getLoad() != null) {
+            trip.getLoad().recalculateDepotTotals();
+            loadRepository.save(trip.getLoad());
+        }
+
         Trip saved = tripRepository.save(trip);
         log.info("Updated trip ID: {}", tripId);
 
         return tripResponseMapper.toResponse(saved);
     }
 
-    // Add these methods to TripService.java after the existing methods
+    /* ========================
+       SEARCH
+       ======================== */
 
-/* ========================
-   SEARCH
-   ======================== */
-
-/**
- * Search trips with pagination
- * @param searchTerm The search term (can be null or empty)
- * @param pageable Pagination information
- * @return Page of TripResponse
- */
-@Transactional(readOnly = true)
-public Page<TripResponse> searchTrips(String searchTerm, Pageable pageable) {
-    log.debug("Searching trips with term: {}", searchTerm);
-    
-    // If search term is null or empty, return all trips sorted by ID descending
-    if (searchTerm == null || searchTerm.trim().isEmpty()) {
-        return tripRepository.findAllOrderByIdDesc(pageable)
+    @Transactional(readOnly = true)
+    public Page<TripResponse> searchTrips(String searchTerm, Pageable pageable) {
+        log.debug("Searching trips with term: {}", searchTerm);
+        
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            return tripRepository.findAllOrderByIdDesc(pageable)
+                    .map(tripResponseMapper::toResponse);
+        }
+        
+        return tripRepository.searchTrips(searchTerm.trim(), pageable)
                 .map(tripResponseMapper::toResponse);
     }
-    
-    // Otherwise, search with the term
-    return tripRepository.searchTrips(searchTerm.trim(), pageable)
-            .map(tripResponseMapper::toResponse);
-}
 
-/**
- * Search trips with filters (status, city, customer)
- * @param searchTerm The search term (can be null)
- * @param status Filter by status (can be null)
- * @param city Filter by city (can be null)
- * @param customer Filter by customer (can be null)
- * @param pageable Pagination information
- * @return Page of TripResponse
- */
-@Transactional(readOnly = true)
-public Page<TripResponse> searchTripsWithFilters(
-        String searchTerm, 
-        TripStatus status, 
-        String city, 
-        String customer,
-        Pageable pageable) {
-    
-    log.debug("Searching trips with filters - term: {}, status: {}, city: {}, customer: {}", 
-            searchTerm, status, city, customer);
-    
-    return tripRepository.findWithFiltersOrderByIdDesc(searchTerm, status, city, customer, pageable)
-            .map(tripResponseMapper::toResponse);
-}
+    @Transactional(readOnly = true)
+    public Page<TripResponse> searchTripsWithFilters(
+            String searchTerm, 
+            TripStatus status, 
+            String city, 
+            String customer,
+            Pageable pageable) {
+        
+        log.debug("Searching trips with filters - term: {}, status: {}, city: {}, customer: {}", 
+                searchTerm, status, city, customer);
+        
+        return tripRepository.findWithFiltersOrderByIdDesc(searchTerm, status, city, customer, pageable)
+                .map(tripResponseMapper::toResponse);
+    }
 
-/**
- * Search trips without pagination (for dropdowns, autocomplete, etc.)
- * @param searchTerm The search term (can be null or empty)
- * @return List of TripResponse
- */
-@Transactional(readOnly = true)
-public List<TripResponse> searchTripsSimple(String searchTerm) {
-    log.debug("Simple search trips with term: {}", searchTerm);
-    
-    if (searchTerm == null || searchTerm.trim().isEmpty()) {
-        return tripRepository.findAllOrderByIdDesc()
+    @Transactional(readOnly = true)
+    public List<TripResponse> searchTripsSimple(String searchTerm) {
+        log.debug("Simple search trips with term: {}", searchTerm);
+        
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            return tripRepository.findAllOrderByIdDesc()
+                    .stream()
+                    .map(tripResponseMapper::toResponse)
+                    .collect(Collectors.toList());
+        }
+        
+        return tripRepository.searchTripsOrderByIdDesc(searchTerm.trim())
                 .stream()
                 .map(tripResponseMapper::toResponse)
                 .collect(Collectors.toList());
     }
-    
-    return tripRepository.searchTripsOrderByIdDesc(searchTerm.trim())
-            .stream()
-            .map(tripResponseMapper::toResponse)
-            .collect(Collectors.toList());
-}
 
-/**
- * Get active trips (PLANNED, ASSIGNED, IN_PROGRESS, ACTIVE)
- * @return List of TripResponse
- */
-@Transactional(readOnly = true)
-public List<TripResponse> getActiveTrips() {
-    return tripRepository.findActiveTripsOrderByIdDesc()
-            .stream()
-            .map(tripResponseMapper::toResponse)
-            .collect(Collectors.toList());
-}
+    @Transactional(readOnly = true)
+    public List<TripResponse> getActiveTrips() {
+        return tripRepository.findActiveTripsOrderByIdDesc()
+                .stream()
+                .map(tripResponseMapper::toResponse)
+                .collect(Collectors.toList());
+    }
 
-/**
- * Get currently running trips (IN_PROGRESS, ACTIVE)
- * @return List of TripResponse
- */
-@Transactional(readOnly = true)
-public List<TripResponse> getCurrentlyRunningTrips() {
-    return tripRepository.findCurrentlyRunningTripsOrderByIdDesc()
-            .stream()
-            .map(tripResponseMapper::toResponse)
-            .collect(Collectors.toList());
-}
-    
-    /* ========================
-       PRIVATE HELPERS
-       ======================== */
-    private Trip findTripOrThrow(Long id) {
-        return tripRepository.findById(id)
-                .orElseThrow(() -> new TripValidationException("Trip not found with ID: " + id));
+    @Transactional(readOnly = true)
+    public List<TripResponse> getCurrentlyRunningTrips() {
+        return tripRepository.findCurrentlyRunningTripsOrderByIdDesc()
+                .stream()
+                .map(tripResponseMapper::toResponse)
+                .collect(Collectors.toList());
     }
 }
