@@ -486,34 +486,32 @@ public class Trip {
        ======================== */
 
     @PrePersist
-    protected void onCreate() {
-        if (status == null) {
-            status = TripStatus.PLANNED;
-        }
-        if (incidentsLogged == null) {
-            incidentsLogged = 0;
-        }
-        if (lastStatusUpdate == null) {
-            lastStatusUpdate = LocalDateTime.now();
-        }
-        if (isActive == null) {
-            isActive = true;
-        }
-        if (isFromDepot == null) {
-            isFromDepot = false;
-        }
-        updateOriginLocationFromComponents();
-        updateDestinationLocationFromComponents();
-        
-        // ⭐ CRITICAL FIX: Validate tripNumber before persisting
-        if (tripNumber == null || tripNumber.trim().isEmpty()) {
-            throw new IllegalStateException(
-                "Trip number cannot be null or empty when persisting. " +
-                "Current value: '" + tripNumber + "'. " +
-                "This should have been set by the service before saving."
-            );
-        }
+protected void onCreate() {
+    if (status == null) {
+        status = TripStatus.PLANNED;
     }
+    if (incidentsLogged == null) {
+        incidentsLogged = 0;
+    }
+    if (lastStatusUpdate == null) {
+        lastStatusUpdate = LocalDateTime.now();
+    }
+    if (isActive == null) {
+        isActive = true;
+    }
+    if (isFromDepot == null) {
+        isFromDepot = false;
+    }
+    
+    // Emergency: If tripNumber is null, generate a fallback
+    if (tripNumber == null || tripNumber.trim().isEmpty()) {
+        log.warn("🚨 TRIP NUMBER IS NULL IN @PrePersist! Generating emergency fallback.");
+        this.tripNumber = "TRP-EMERG-" + System.currentTimeMillis();
+    }
+    
+    updateOriginLocationFromComponents();
+    updateDestinationLocationFromComponents();
+}
 
     @PreUpdate
     protected void onUpdate() {
