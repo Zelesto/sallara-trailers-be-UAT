@@ -33,11 +33,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -82,48 +80,6 @@ public class TripService {
         return customerRepository.findById(request.getCustomerId())
                 .orElseThrow(() -> new TripValidationException(
                         "Customer not found with ID: " + request.getCustomerId()));
-    }
-
-    /**
-     * GUARANTEED trip number generator - NEVER returns null
-     */
-    private String generateTripNumber() {
-        // Try 1: Use the sequence generator
-        try {
-            String tripNumber = tripNumberGenerator.generate();
-            if (tripNumber != null && !tripNumber.trim().isEmpty()) {
-                log.debug("✅ Generated trip number from sequence: {}", tripNumber);
-                return tripNumber;
-            }
-            log.warn("⚠️ TripNumberGenerator returned null or empty");
-        } catch (Exception e) {
-            log.error("❌ Exception from TripNumberGenerator: {}", e.getMessage());
-        }
-
-        // Try 2: Use timestamp with format TRP-YYYYMMDD-HHMMSS
-        try {
-            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
-            String tripNumber = "TRP-" + timestamp;
-            log.info("📝 Generated timestamp-based trip number: {}", tripNumber);
-            return tripNumber;
-        } catch (Exception e) {
-            log.error("❌ Exception generating timestamp trip number: {}", e.getMessage());
-        }
-
-        // Try 3: Use UUID
-        try {
-            String uuid = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-            String tripNumber = "TRP-UUID-" + uuid;
-            log.info("📝 Generated UUID-based trip number: {}", tripNumber);
-            return tripNumber;
-        } catch (Exception e) {
-            log.error("❌ Exception generating UUID trip number: {}", e.getMessage());
-        }
-
-        // Try 4: Ultimate fallback - milliseconds
-        String tripNumber = "TRP-EMERG-" + System.currentTimeMillis();
-        log.error("🚨 EMERGENCY: Using millisecond-based trip number: {}", tripNumber);
-        return tripNumber;
     }
 
     /* ========================
@@ -266,8 +222,15 @@ public class TripService {
         }
 
         // ======================== GENERATE TRIP NUMBER ========================
-        // GUARANTEED - this will NEVER return null
-        String tripNumber = generateTripNumber();
+        // SIMPLE - same as UAT, but with null safety
+        String tripNumber = tripNumberGenerator.generate();
+        
+        // If null, use emergency fallback
+        if (tripNumber == null || tripNumber.trim().isEmpty()) {
+            log.error("❌ tripNumberGenerator returned null/empty! Using emergency fallback.");
+            tripNumber = "TRP-" + System.currentTimeMillis();
+        }
+        
         log.info("📝 Setting trip number: {}", tripNumber);
         trip.setTripNumber(tripNumber);
         
