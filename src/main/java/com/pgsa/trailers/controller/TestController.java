@@ -1,6 +1,7 @@
 package com.pgsa.trailers.controller;
 
 import com.pgsa.trailers.entity.security.AppUser;
+import com.pgsa.trailers.service.util.TripNumberGenerator;
 import com.pgsa.trailers.repository.AppUserRepository;
 import com.pgsa.trailers.service.security.CustomUserDetailsService;
 import com.pgsa.trailers.service.security.JwtService;
@@ -10,6 +11,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Base64;
 import java.util.HashMap;
@@ -27,6 +31,7 @@ public class TestController {
     private final JwtService jwtService;
     private final CustomUserDetailsService userDetailsService;
     private final AppUserRepository appUserRepository;
+    private final TripNumberGenerator tripNumberGenerator;
 
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> healthCheck() {
@@ -63,6 +68,24 @@ public class TestController {
                     "USER_VERIFICATION_ERROR", e.getMessage()));
         }
     }
+
+    @GetMapping("/trip-number")
+    public ResponseEntity<Map<String, Object>> testTripNumber() {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            String tripNumber = tripNumberGenerator.generate();
+            response.put("success", true);
+            response.put("tripNumber", tripNumber);
+            response.put("message", "Trip number generated successfully");
+            log.info("✅ Test generated trip number: {}", tripNumber);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("error", e.getMessage());
+            log.error("❌ Error generating trip number: {}", e.getMessage(), e);
+        }
+        return ResponseEntity.ok(response);
+    }
+}
 
     /**
      * JWT Token analysis endpoint
