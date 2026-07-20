@@ -20,23 +20,26 @@ public class TripNumberGenerator {
 
     @PostConstruct
     public void init() {
-        log.info("✅ TripNumberGenerator initialized with:");
+        log.info("✅ TripNumberGenerator initialized");
         log.info("   - Table Name: {}", TABLE_NAME);
         log.info("   - Prefix: {}", PREFIX);
         log.info("   - Padding: {}", PADDING);
-        log.info("   - Current Year: {}", Year.now().getValue());
+        log.info("   - SequenceService: {}", sequenceService != null ? "injected" : "NULL!");
     }
 
-    /**
-     * Generate a trip number in format: TRP-2026-001
-     * NEVER returns null - always returns a String
-     */
     public String generate() {
+        log.info("🔢 generate() called - START");
+        
         try {
             String year = String.valueOf(Year.now().getValue());
-            log.debug("🔢 Generating trip number for year: {}", year);
+            log.info("🔢 Current year: {}", year);
             
-            // Use SequenceService to generate formatted sequence
+            log.info("🔢 Calling sequenceService.generateFormattedSequence with:");
+            log.info("   - tableName: {}", TABLE_NAME);
+            log.info("   - prefix: {}", PREFIX);
+            log.info("   - year: {}", year);
+            log.info("   - padLength: {}", PADDING);
+            
             String tripNumber = sequenceService.generateFormattedSequence(
                 TABLE_NAME, 
                 PREFIX, 
@@ -44,28 +47,23 @@ public class TripNumberGenerator {
                 PADDING
             );
             
-            // Safety check - if tripNumber is null, use fallback
+            log.info("🔢 sequenceService returned: '{}'", tripNumber);
+            
             if (tripNumber == null || tripNumber.trim().isEmpty()) {
-                log.warn("⚠️ SequenceService returned null or empty, using timestamp fallback");
-                tripNumber = generateFallback();
+                log.error("❌ tripNumber is null or empty!");
+                String fallback = "TRP-" + System.currentTimeMillis();
+                log.info("🔄 Using fallback: {}", fallback);
+                return fallback;
             }
             
             log.info("✅ Generated trip number: {}", tripNumber);
             return tripNumber;
             
         } catch (Exception e) {
-            log.error("❌ Error generating trip number: {}", e.getMessage(), e);
-            // Ultimate fallback - NEVER return null
-            String fallback = generateFallback();
-            log.warn("⚠️ Using fallback trip number: {}", fallback);
+            log.error("❌ Exception in generate(): {}", e.getMessage(), e);
+            String fallback = "TRP-" + System.currentTimeMillis();
+            log.info("🔄 Using fallback due to exception: {}", fallback);
             return fallback;
         }
-    }
-
-    /**
-     * Generate a fallback trip number using timestamp
-     */
-    private String generateFallback() {
-        return String.format("TRP-FALLBACK-%d", System.currentTimeMillis());
     }
 }
