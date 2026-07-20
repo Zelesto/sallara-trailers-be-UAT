@@ -2,6 +2,7 @@ package com.pgsa.trailers.service;
 
 import com.pgsa.trailers.entity.Sequence;
 import com.pgsa.trailers.repository.SequenceRepository;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -9,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.Year;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -16,6 +18,63 @@ import java.time.Year;
 public class SequenceService {
 
     private final SequenceRepository sequenceRepository;
+
+     @PostConstruct
+    @Transactional
+    public void initSequences() {
+        try {
+            int currentYear = Year.now().getValue();
+            log.info("🔧 Initializing sequences for year: {}", currentYear);
+            
+            // First, fix any existing data with commas
+            List<Sequence> allSequences = sequenceRepository.findAll();
+            for (Sequence seq : allSequences) {
+                String yearStr = seq.getYear().toString();
+                if (yearStr.contains(",")) {
+                    int fixedYear = Integer.parseInt(yearStr.replace(",", ""));
+                    log.warn("⚠️ Fixing year for {} from {} to {}", seq.getTableName(), seq.getYear(), fixedYear);
+                    seq.setYear(fixedYear);
+                    sequenceRepository.save(seq);
+                }
+            }
+            
+            // Check if trip sequence exists for current year
+            if (!sequenceRepository.findByTableNameAndYear("trip", currentYear).isPresent()) {
+                log.info("📝 Creating initial sequence for trip in year {}", currentYear);
+                Sequence sequence = Sequence.builder()
+                        .tableName("trip")
+                        .year(currentYear)
+                        .nextNumber(1L)
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .build();
+                sequenceRepository.save(sequence);
+                log.info("✅ Initial sequence created for trip in year {}", currentYear);
+            } else {
+                log.info("✅ Sequence already exists for trip in year {}", currentYear);
+            }
+            
+            // Do the same for other sequences if needed
+            String[] otherTables = {"load", "pod", "customer", "invoice"};
+            for (String tableName : otherTables) {
+                if (!sequenceRepository.findByTableNameAndYear(tableName, currentYear).isPresent()) {
+                    log.info("📝 Creating sequence for {} in year {}", tableName, currentYear);
+                    Sequence sequence = Sequence.builder()
+                            .tableName(tableName)
+                            .year(currentYear)
+                            .nextNumber(1L)
+                            .createdAt(LocalDateTime.now())
+                            .updatedAt(LocalDateTime.now())
+                            .build();
+                    sequenceRepository.save(sequence);
+                    log.info("✅ Sequence created for {} in year {}", tableName, currentYear);
+                }
+            }
+            
+        } catch (Exception e) {
+            log.error("❌ Failed to initialize sequences: {}", e.getMessage(), e);
+        }
+    }
 
     /**
      * Generate a formatted sequence number (e.g., "TRP-2026-001")
