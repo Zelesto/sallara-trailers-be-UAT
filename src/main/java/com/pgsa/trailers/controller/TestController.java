@@ -79,6 +79,33 @@ public ResponseEntity<Map<String, Object>> testGenerate() {
     }
     return ResponseEntity.ok(response);
 }
+
+    @PostMapping("/test-create")
+public ResponseEntity<Map<String, Object>> testCreateTrip() {
+    Map<String, Object> response = new HashMap<>();
+    try {
+        // Create a simple trip with hardcoded number
+        Trip trip = new Trip();
+        trip.setTripNumber("TRP-TEST-001");
+        trip.setCustomerId(1L);
+        trip.setVehicle(vehicleRepository.findById(1L).orElse(null));
+        trip.setStatus(TripStatus.PLANNED);
+        trip.setOriginLocation("Test Origin");
+        trip.setDestinationLocation("Test Destination");
+        trip.setCreatedAt(LocalDateTime.now());
+        trip.setLastStatusUpdate(LocalDateTime.now());
+        trip.setIsActive(true);
+        
+        Trip saved = tripRepository.save(trip);
+        response.put("success", true);
+        response.put("trip", saved);
+    } catch (Exception e) {
+        response.put("success", false);
+        response.put("error", e.getMessage());
+        log.error("❌ Test create error: {}", e.getMessage(), e);
+    }
+    return ResponseEntity.ok(response);
+}
     
     /**
      * Comprehensive user verification endpoint
