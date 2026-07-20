@@ -261,6 +261,7 @@ public class TripService {
         // ======================== GENERATE TRIP NUMBER ========================
         // DIRECT DATABASE GENERATION - GUARANTEED TO WORK
         String tripNumber = generateTripNumberDirect();
+trip.setTripNumber(tripNumber);
         
         // Set the trip number on the entity
         trip.setTripNumber(tripNumber);
@@ -278,11 +279,10 @@ public class TripService {
         log.info("   - Load ID: {}", trip.getLoadId());
         
         if (trip.getTripNumber() == null || trip.getTripNumber().trim().isEmpty()) {
-            // This should never happen, but just in case
-            String emergencyNumber = "TRP-EMERG-" + System.currentTimeMillis();
-            trip.setTripNumber(emergencyNumber);
-            log.error("🚨 CRITICAL: Forced emergency trip number: {}", emergencyNumber);
-        }
+    String emergencyNumber = "TRP-EMERG-" + System.currentTimeMillis();
+    trip.setTripNumber(emergencyNumber);
+    log.error("🚨 CRITICAL: Forced emergency trip number: {}", emergencyNumber);
+}
         
         if (trip.getCustomerId() == null) {
             throw new TripValidationException("Customer ID cannot be null before saving");
