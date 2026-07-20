@@ -59,73 +59,85 @@ public class SequenceService {
      * Get the next sequence number - never returns null
      * Handles year with comma (e.g., "2,026") by removing the comma
      */
-    @Transactional
-    public Long getNextSequenceNumber(String tableName, Integer year) {
-        try {
-            if (year == null) {
-                year = Year.now().getValue();
-            }
-
-            log.info("🔢 Getting next sequence number for {} in year {}", tableName, year);
-
-            final String finalTableName = tableName;
-            final Integer finalYear = year;
-
-            // Try to find existing sequence
-            Sequence sequence = sequenceRepository.findByTableNameAndYear(finalTableName, finalYear)
-                    .orElseGet(() -> {
-                        // If not found, try to find by table name and check if year has comma
-                        log.info("📝 Sequence not found for {} in year {}, checking for comma values...", finalTableName, finalYear);
-                        
-                        // Get all sequences for this table and try to find one with matching year (handling comma)
-                        var allSequences = sequenceRepository.findByTableName(finalTableName);
-                        
-                        for (Sequence seq : allSequences) {
-                            Integer seqYear = seq.getYear();
-                            // Check if the year matches when both are converted to strings and commas removed
-                            String seqYearStr = seqYear.toString().replace(",", "");
-                            String targetYearStr = finalYear.toString().replace(",", "");
-                            
-                            if (seqYearStr.equals(targetYearStr)) {
-                                log.info("✅ Found sequence with year: {} (stored as {})", seqYear, seqYearStr);
-                                return seq;
-                            }
-                        }
-                        
-                        // If still not found, create a new one
-                        log.info("📝 Creating new sequence for {} in year {}", finalTableName, finalYear);
-                        Sequence newSeq = new Sequence();
-                        newSeq.setTableName(finalTableName);
-                        newSeq.setYear(finalYear);
-                        newSeq.setNextNumber(1L);
-                        newSeq.setCreatedAt(LocalDateTime.now());
-                        newSeq.setUpdatedAt(LocalDateTime.now());
-                        return sequenceRepository.save(newSeq);
-                    });
-
-            // Double-check: if we found a sequence but the year has a comma, fix it
-            String seqYearStr = sequence.getYear().toString();
-            if (seqYearStr.contains(",")) {
-                log.warn("⚠️ Found sequence year with comma: {}, converting to {}", seqYearStr, seqYearStr.replace(",", ""));
-                sequence.setYear(Integer.parseInt(seqYearStr.replace(",", "")));
-                sequenceRepository.save(sequence);
-            }
-
-            Long currentNumber = sequence.getNextNumber();
-            log.info("📊 Current sequence value for {}: {}", tableName, currentNumber);
-            
-            // Increment for next time
-            sequence.setNextNumber(currentNumber + 1);
-            sequence.setUpdatedAt(LocalDateTime.now());
-            sequenceRepository.save(sequence);
-            
-            log.info("✅ Next sequence number for {} in year {}: {}", tableName, year, currentNumber);
-            return currentNumber;
-            
-        } catch (Exception e) {
-            log.error("❌ Failed to get sequence number, using timestamp fallback", e);
-            // Return a timestamp-based number as fallback
-            return System.currentTimeMillis() % 1000;
+   @Transactional
+public Long getNextSequenceNumber(String tableName, Integer year) {
+    try {
+        if (year == null) {
+            year = Year.now().getValue();
         }
+
+        log.info("🔢 Getting next sequence number for {} in year {}", tableName, year);
+
+        final String finalTableName = tableName;
+        final Integer finalYear = year;
+
+        // First, try to find existing sequence with exact match
+        Optional<Sequence> exactMatch = sequenceRepository.findByTableNameAndYear(finalTableName, finalYear);
+        
+        Sequence sequence;
+        if (exactMatch.isPresent()) {
+            sequence = exactMatch.get();
+            log.info("✅ Found exact match for {} in year {}", tableName, year);
+        } else {
+            // If not found, check for sequences with comma in year
+            log.info("📝 No exact match found for {} in year {}, checking for comma values...", finalTableName, finalYear);
+            
+            // Get all sequences for this table
+            List<Sequence> allSequences = sequenceRepository.findByTableName(finalTableName);
+            
+            // Try to find one with matching year (handling comma)
+            String targetYearStr = finalYear.toString();
+            Sequence foundSequence = null;
+            
+            for (Sequence seq : allSequences) {
+                String seqYearStr = seq.getYear().toString().replace(",", "");
+                if (seqYearStr.equals(targetYearStr)) {
+                    foundSequence = seq;
+                    log.info("✅ Found sequence with year: {} (stored as {})", seq.getYear(), seqYearStr);
+                    
+                    // Fix the year to remove comma
+                    if (seq.getYear().toString().contains(",")) {
+                        log.warn("⚠️ Fixing year from {} to {}", seq.getYear(), seqYearStr);
+                        seq.setYear(Integer.parseInt(seqYearStr));
+                        sequenceRepository.save(seq);
+                    }
+                    break;
+                }
+            }
+            
+            if (foundSequence != null) {
+                sequence = foundSequence;
+            } else {
+                // If still not found, create a new one
+                log.info("📝 Creating new sequence for {} in year {}", finalTableName, finalYear);
+                Sequence newSeq = Sequence.builder()
+                    .tableName(finalTableName)
+                    .year(finalYear)
+                    .nextNumber(1L)
+                    .createdAt(LocalDateTime.now())
+                    .updatedAt(LocalDateTime.now())
+                    .build();
+                sequence = sequenceRepository.save(newSeq);
+                log.info("✅ Created new sequence: {} - {}", finalTableName, finalYear);
+            }
+        }
+
+        // Get current number and increment
+        Long currentNumber = sequence.getNextNumber();
+        log.info("📊 Current sequence value for {}: {}", tableName, currentNumber);
+        
+        // Increment for next time
+        sequence.setNextNumber(currentNumber + 1);
+        sequence.setUpdatedAt(LocalDateTime.now());
+        sequenceRepository.save(sequence);
+        
+        log.info("✅ Next sequence number for {} in year {}: {}", tableName, year, currentNumber);
+        return currentNumber;
+        
+    } catch (Exception e) {
+        log.error("❌ Failed to get sequence number: {}", e.getMessage(), e);
+        // Return a timestamp-based number as fallback
+        return System.currentTimeMillis() % 1000;
     }
+}
 }
