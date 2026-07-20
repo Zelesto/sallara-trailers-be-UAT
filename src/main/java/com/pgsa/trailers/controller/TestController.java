@@ -1,8 +1,13 @@
 package com.pgsa.trailers.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pgsa.trailers.entity.ops.Trip;
+import com.pgsa.trailers.entity.ops.TripResponseMapper;
 import com.pgsa.trailers.entity.security.AppUser;
+import com.pgsa.trailers.enums.TripStatus;
 import com.pgsa.trailers.repository.AppUserRepository;
+import com.pgsa.trailers.repository.TripRepository;
+import com.pgsa.trailers.repository.VehicleRepository;
 import com.pgsa.trailers.service.SequenceService;
 import com.pgsa.trailers.service.security.CustomUserDetailsService;
 import com.pgsa.trailers.service.security.JwtService;
@@ -10,11 +15,13 @@ import com.pgsa.trailers.service.util.TripNumberGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.lang.reflect.Method;
+import java.time.LocalDateTime;
 import java.time.Year;
 import java.util.Base64;
 import java.util.HashMap;
@@ -33,6 +40,10 @@ public class TestController {
     private final AppUserRepository appUserRepository;
     private final TripNumberGenerator tripNumberGenerator;
     private final SequenceService sequenceService;
+    private final JdbcTemplate jdbcTemplate;
+    private final TripRepository tripRepository;
+    private final VehicleRepository vehicleRepository;
+    private final TripResponseMapper tripResponseMapper;
 
     // ======================== HEALTH ========================
 
@@ -45,68 +56,75 @@ public class TestController {
         )));
     }
 
-    // ======================== USER ENDPOINTS ========================
+    // ======================== TEST GENERATE ========================
 
     @GetMapping("/test-generate")
-public ResponseEntity<Map<String, Object>> testGenerate() {
-    Map<String, Object> response = new HashMap<>();
-    try {
-        // Test 1: Direct JdbcTemplate
-        String year = String.valueOf(java.time.Year.now().getValue());
-        String prefix = "TRP-" + year + "-";
-        Long nextNumber = jdbcTemplate.queryForObject(
-            "INSERT INTO sequence (table_name, year, next_number, created_at, updated_at) " +
-            "VALUES ('trip', ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) " +
-            "ON CONFLICT (table_name, year) DO UPDATE SET next_number = sequence.next_number + 1 " +
-            "RETURNING next_number - 1",
-            new Object[]{year},
-            Long.class
-        );
-        String directNumber = prefix + String.format("%03d", nextNumber);
-        
-        // Test 2: TripNumberGenerator
-        String generatorNumber = tripNumberGenerator.generate();
-        
-        response.put("success", true);
-        response.put("directJdbc", directNumber);
-        response.put("generator", generatorNumber);
-        response.put("sequenceYear", year);
-        response.put("sequenceNext", nextNumber);
-    } catch (Exception e) {
-        response.put("success", false);
-        response.put("error", e.getMessage());
-        log.error("❌ Test generate error: {}", e.getMessage(), e);
+    public ResponseEntity<Map<String, Object>> testGenerate() {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            // Test 1: Direct JdbcTemplate
+            String year = String.valueOf(java.time.Year.now().getValue());
+            String prefix = "TRP-" + year + "-";
+            Long nextNumber = jdbcTemplate.queryForObject(
+                "INSERT INTO sequence (table_name, year, next_number, created_at, updated_at) " +
+                "VALUES ('trip', ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) " +
+                "ON CONFLICT (table_name, year) DO UPDATE SET next_number = sequence.next_number + 1 " +
+                "RETURNING next_number - 1",
+                new Object[]{year},
+                Long.class
+            );
+            String directNumber = prefix + String.format("%03d", nextNumber);
+            
+            // Test 2: TripNumberGenerator
+            String generatorNumber = tripNumberGenerator.generate();
+            
+            response.put("success", true);
+            response.put("directJdbc", directNumber);
+            response.put("generator", generatorNumber);
+            response.put("sequenceYear", year);
+            response.put("sequenceNext", nextNumber);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("error", e.getMessage());
+            log.error("❌ Test generate error: {}", e.getMessage(), e);
+        }
+        return ResponseEntity.ok(response);
     }
-    return ResponseEntity.ok(response);
-}
+
+    // ======================== TEST CREATE ========================
 
     @PostMapping("/test-create")
-public ResponseEntity<Map<String, Object>> testCreateTrip() {
-    Map<String, Object> response = new HashMap<>();
-    try {
-        // Create a simple trip with hardcoded number
-        Trip trip = new Trip();
-        trip.setTripNumber("TRP-TEST-001");
-        trip.setCustomerId(1L);
-        trip.setVehicle(vehicleRepository.findById(1L).orElse(null));
-        trip.setStatus(TripStatus.PLANNED);
-        trip.setOriginLocation("Test Origin");
-        trip.setDestinationLocation("Test Destination");
-        trip.setCreatedAt(LocalDateTime.now());
-        trip.setLastStatusUpdate(LocalDateTime.now());
-        trip.setIsActive(true);
-        
-        Trip saved = tripRepository.save(trip);
-        response.put("success", true);
-        response.put("trip", saved);
-    } catch (Exception e) {
-        response.put("success", false);
-        response.put("error", e.getMessage());
-        log.error("❌ Test create error: {}", e.getMessage(), e);
+    public ResponseEntity<Map<String, Object>> testCreateTrip() {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            // Create a simple trip with hardcoded number
+            Trip trip = new Trip();
+            trip.setTripNumber("TRP-TEST-001");
+            trip.setCustomerId(1L);
+            
+            // Get vehicle
+            vehicleRepository.findById(1L).ifPresent(trip::setVehicle);
+            
+            trip.setStatus(TripStatus.PLANNED);
+            trip.setOriginLocation("Test Origin");
+            trip.setDestinationLocation("Test Destination");
+            trip.setCreatedAt(LocalDateTime.now());
+            trip.setLastStatusUpdate(LocalDateTime.now());
+            trip.setIsActive(true);
+            
+            Trip saved = tripRepository.save(trip);
+            response.put("success", true);
+            response.put("trip", tripResponseMapper.toResponse(saved));
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("error", e.getMessage());
+            log.error("❌ Test create error: {}", e.getMessage(), e);
+        }
+        return ResponseEntity.ok(response);
     }
-    return ResponseEntity.ok(response);
-}
-    
+
+    // ======================== USER ENDPOINTS ========================
+
     /**
      * Comprehensive user verification endpoint
      */
