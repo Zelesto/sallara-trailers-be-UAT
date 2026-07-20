@@ -27,6 +27,10 @@ public class TripNumberGenerator {
         log.info("   - SequenceService: {}", sequenceService != null ? "injected" : "NULL!");
     }
 
+    /**
+     * Generate a trip number in format: TRP-2026-001
+     * NEVER returns null - always returns a String
+     */
     public String generate() {
         log.info("🔢 generate() called - START");
         
@@ -51,7 +55,7 @@ public class TripNumberGenerator {
             
             if (tripNumber == null || tripNumber.trim().isEmpty()) {
                 log.error("❌ tripNumber is null or empty!");
-                String fallback = "TRP-" + System.currentTimeMillis();
+                String fallback = "TRP-FALLBACK-" + System.currentTimeMillis();
                 log.info("🔄 Using fallback: {}", fallback);
                 return fallback;
             }
@@ -61,7 +65,7 @@ public class TripNumberGenerator {
             
         } catch (Exception e) {
             log.error("❌ Exception in generate(): {}", e.getMessage(), e);
-            String fallback = "TRP-" + System.currentTimeMillis();
+            String fallback = "TRP-FALLBACK-" + System.currentTimeMillis();
             log.info("🔄 Using fallback due to exception: {}", fallback);
             return fallback;
         }
