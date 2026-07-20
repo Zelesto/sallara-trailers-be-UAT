@@ -47,6 +47,39 @@ public class TestController {
 
     // ======================== USER ENDPOINTS ========================
 
+    @GetMapping("/test-generate")
+public ResponseEntity<Map<String, Object>> testGenerate() {
+    Map<String, Object> response = new HashMap<>();
+    try {
+        // Test 1: Direct JdbcTemplate
+        String year = String.valueOf(java.time.Year.now().getValue());
+        String prefix = "TRP-" + year + "-";
+        Long nextNumber = jdbcTemplate.queryForObject(
+            "INSERT INTO sequence (table_name, year, next_number, created_at, updated_at) " +
+            "VALUES ('trip', ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) " +
+            "ON CONFLICT (table_name, year) DO UPDATE SET next_number = sequence.next_number + 1 " +
+            "RETURNING next_number - 1",
+            new Object[]{year},
+            Long.class
+        );
+        String directNumber = prefix + String.format("%03d", nextNumber);
+        
+        // Test 2: TripNumberGenerator
+        String generatorNumber = tripNumberGenerator.generate();
+        
+        response.put("success", true);
+        response.put("directJdbc", directNumber);
+        response.put("generator", generatorNumber);
+        response.put("sequenceYear", year);
+        response.put("sequenceNext", nextNumber);
+    } catch (Exception e) {
+        response.put("success", false);
+        response.put("error", e.getMessage());
+        log.error("❌ Test generate error: {}", e.getMessage(), e);
+    }
+    return ResponseEntity.ok(response);
+}
+    
     /**
      * Comprehensive user verification endpoint
      */
