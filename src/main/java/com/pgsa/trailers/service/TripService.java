@@ -222,12 +222,12 @@ public class TripService {
         }
 
         // ======================== GENERATE TRIP NUMBER ========================
-        // SIMPLE - same as UAT, but with null safety
+        // GUARANTEED - this will NEVER return null
         String tripNumber = tripNumberGenerator.generate();
         
-        // If null, use emergency fallback
+        // Safety check - if tripNumber is null, use emergency fallback
         if (tripNumber == null || tripNumber.trim().isEmpty()) {
-            log.error("❌ tripNumberGenerator returned null/empty! Using emergency fallback.");
+            log.error("❌ tripNumberGenerator returned null or empty! Using emergency fallback.");
             tripNumber = "TRP-" + System.currentTimeMillis();
         }
         
