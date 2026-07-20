@@ -33,9 +33,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -80,6 +82,58 @@ public class TripService {
         return customerRepository.findById(request.getCustomerId())
                 .orElseThrow(() -> new TripValidationException(
                         "Customer not found with ID: " + request.getCustomerId()));
+    }
+
+    /**
+     * GUARANTEED trip number generator - NEVER returns null
+     * This method has 5 fallback strategies to ensure a trip number is always generated
+     */
+    private String generateTripNumberGuaranteed() {
+        // Strategy 1: Use the sequence generator
+        try {
+            String tripNumber = tripNumberGenerator.generate();
+            if (tripNumber != null && !tripNumber.trim().isEmpty()) {
+                log.debug("✅ Strategy 1 - Generated trip number from sequence: {}", tripNumber);
+                return tripNumber;
+            }
+            log.warn("⚠️ Strategy 1 - TripNumberGenerator returned null or empty");
+        } catch (Exception e) {
+            log.error("❌ Strategy 1 - Exception from TripNumberGenerator: {}", e.getMessage());
+        }
+
+        // Strategy 2: Use timestamp with format TRP-YYYYMMDD-HHMMSS
+        try {
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+            String tripNumber = "TRP-" + timestamp;
+            log.info("📝 Strategy 2 - Generated timestamp-based trip number: {}", tripNumber);
+            return tripNumber;
+        } catch (Exception e) {
+            log.error("❌ Strategy 2 - Exception generating timestamp trip number: {}", e.getMessage());
+        }
+
+        // Strategy 3: Use UUID
+        try {
+            String uuid = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+            String tripNumber = "TRP-UUID-" + uuid;
+            log.info("📝 Strategy 3 - Generated UUID-based trip number: {}", tripNumber);
+            return tripNumber;
+        } catch (Exception e) {
+            log.error("❌ Strategy 3 - Exception generating UUID trip number: {}", e.getMessage());
+        }
+
+        // Strategy 4: Use System.currentTimeMillis()
+        try {
+            String tripNumber = "TRP-TS-" + System.currentTimeMillis();
+            log.info("📝 Strategy 4 - Generated timestamp-based trip number: {}", tripNumber);
+            return tripNumber;
+        } catch (Exception e) {
+            log.error("❌ Strategy 4 - Exception generating timestamp trip number: {}", e.getMessage());
+        }
+
+        // Strategy 5: Ultimate fallback
+        String tripNumber = "TRP-EMERG-" + System.currentTimeMillis();
+        log.error("🚨 Strategy 5 - EMERGENCY trip number generated: {}", tripNumber);
+        return tripNumber;
     }
 
     /* ========================
@@ -223,14 +277,7 @@ public class TripService {
 
         // ======================== GENERATE TRIP NUMBER ========================
         // GUARANTEED - this will NEVER return null
-        String tripNumber = tripNumberGenerator.generate();
-        
-        // Safety check - if tripNumber is null, use emergency fallback
-        if (tripNumber == null || tripNumber.trim().isEmpty()) {
-            log.error("❌ tripNumberGenerator returned null or empty! Using emergency fallback.");
-            tripNumber = "TRP-" + System.currentTimeMillis();
-        }
-        
+        String tripNumber = generateTripNumberGuaranteed();
         log.info("📝 Setting trip number: {}", tripNumber);
         trip.setTripNumber(tripNumber);
         
@@ -243,11 +290,13 @@ public class TripService {
         log.info("🚀 Pre-save check - tripNumber: {}, customerId: {}, loadId: {}", 
             trip.getTripNumber(), trip.getCustomerId(), trip.getLoadId());
         
+        // Final safety check - this should never happen
         if (trip.getTripNumber() == null || trip.getTripNumber().trim().isEmpty()) {
-            // Absolute last resort - this should never happen
-            trip.setTripNumber("TRP-FINAL-" + System.currentTimeMillis());
-            log.error("🚨 CRITICAL: Set emergency trip number: {}", trip.getTripNumber());
+            String emergencyNumber = "TRP-FINAL-" + System.currentTimeMillis();
+            trip.setTripNumber(emergencyNumber);
+            log.error("🚨 CRITICAL: Set emergency trip number: {}", emergencyNumber);
         }
+        
         if (trip.getCustomerId() == null) {
             throw new TripValidationException("Customer ID cannot be null before saving");
         }
