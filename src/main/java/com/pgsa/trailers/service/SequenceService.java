@@ -114,14 +114,18 @@ public class SequenceService {
 
             log.info("🔢 Getting next sequence number for {} in year {}", tableName, year);
 
+            // Make final copies for use in lambda
+            final String finalTableName = tableName;
+            final String finalYear = year;
+
             // Try to find existing sequence
-            Sequence sequence = sequenceRepository.findByTableNameAndYear(tableName, year)
+            Sequence sequence = sequenceRepository.findByTableNameAndYear(finalTableName, finalYear)
                     .orElseGet(() -> {
                         // If not found, create a new one
-                        log.info("📝 Creating new sequence for {} in year {}", tableName, year);
+                        log.info("📝 Creating new sequence for {} in year {}", finalTableName, finalYear);
                         Sequence newSeq = Sequence.builder()
-                                .tableName(tableName)
-                                .year(year)
+                                .tableName(finalTableName)
+                                .year(finalYear)
                                 .nextNumber(1L)
                                 .createdAt(LocalDateTime.now())
                                 .updatedAt(LocalDateTime.now())
