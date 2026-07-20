@@ -18,6 +18,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @Getter
 @Setter
@@ -55,14 +56,12 @@ public class Trip {
     @JoinColumn(name = "customer_id", insertable = false, updatable = false)
     private Customer customer;
 
-     /* ========================
-       Load Relationship - FIXED
+    /* ========================
+       Load Relationship
        ======================== */
-    // Keep the load_id column
     @Column(name = "load_id")
     private String loadId;
 
-    // ⭐ FIX: Change the join column to reference the correct field
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "load_id", referencedColumnName = "load_number", insertable = false, updatable = false)
     private Load load;
@@ -120,7 +119,7 @@ public class Trip {
     private String purchaseOrderNumber;
 
     /* ========================
-       Identity
+       Identity - CRITICAL FIELD
        ======================== */
     @Column(name = "trip_number", nullable = false, unique = true, length = 50)
     private String tripNumber;
@@ -307,7 +306,7 @@ public class Trip {
     private String cancellationReason;
 
     /* ========================
-       Audit - FIX THE AUDIT TRAIL
+       Audit
        ======================== */
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -328,7 +327,6 @@ public class Trip {
     @Column(name = "last_status_update")
     private LocalDateTime lastStatusUpdate;
 
-    // ⭐ Use JsonType for JSONB column
     @Type(JsonType.class)
     @Column(name = "audit_trail", columnDefinition = "jsonb")
     private Map<String, Object> auditTrail = new HashMap<>();
@@ -345,7 +343,7 @@ public class Trip {
     private TripMetrics metrics;
 
     /* ========================
-       DEPOT TRACKING - NEW FIELDS
+       DEPOT TRACKING
        ======================== */
     @Column(name = "from_depot_km", precision = 10, scale = 2)
     private BigDecimal fromDepotKm;
@@ -354,13 +352,29 @@ public class Trip {
     private BigDecimal toDepotKm;
 
     @Column(name = "departed_from", length = 50)
-    private String departedFrom; // DEPOT, LAST_DROP, FREEHAND
+    private String departedFrom;
 
     @Column(name = "departure_location", columnDefinition = "TEXT")
-    private String departureLocation; // For freehand or system location
+    private String departureLocation;
 
     @Column(name = "is_from_depot")
     private Boolean isFromDepot = false;
+
+    /* ========================
+       Equals and HashCode
+       ======================== */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Trip)) return false;
+        Trip trip = (Trip) o;
+        return id != null && Objects.equals(id, trip.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 
     /* ========================
        Business Methods
@@ -399,9 +413,6 @@ public class Trip {
         return status == TripStatus.PLANNED || status == TripStatus.IN_PROGRESS || status == TripStatus.ON_HOLD;
     }
 
-    /**
-     * Calculate total depot kilometers (from + to)
-     */
     public BigDecimal getTotalDepotKm() {
         BigDecimal from = fromDepotKm != null ? fromDepotKm : BigDecimal.ZERO;
         BigDecimal to = toDepotKm != null ? toDepotKm : BigDecimal.ZERO;
@@ -470,6 +481,10 @@ public class Trip {
         this.destinationLocation = buildDestinationAddress();
     }
 
+    /* ========================
+       LIFECYCLE CALLBACKS
+       ======================== */
+
     @PrePersist
     protected void onCreate() {
         if (status == null) {
@@ -489,6 +504,15 @@ public class Trip {
         }
         updateOriginLocationFromComponents();
         updateDestinationLocationFromComponents();
+        
+        // ⭐ CRITICAL FIX: Validate tripNumber before persisting
+        if (tripNumber == null || tripNumber.trim().isEmpty()) {
+            throw new IllegalStateException(
+                "Trip number cannot be null or empty when persisting. " +
+                "Current value: '" + tripNumber + "'. " +
+                "This should have been set by the service before saving."
+            );
+        }
     }
 
     @PreUpdate
