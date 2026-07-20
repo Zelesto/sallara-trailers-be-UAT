@@ -32,6 +32,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -45,8 +48,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 @Slf4j
+@PersistenceContext
 public class TripService {
 
+
+    private EntityManager entityManager;
+    
     private final TripRepository tripRepository;
     private final TripMetricsService tripMetricsService;
     private final VehicleRepository vehicleRepository;
@@ -59,6 +66,7 @@ public class TripService {
     private final ApplicationEventPublisher eventPublisher;
     private final TripValidator tripValidator;
     private final JdbcTemplate jdbcTemplate;
+    
 
     /* ========================
        PRIVATE HELPERS
