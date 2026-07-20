@@ -275,58 +275,42 @@ public TripResponse createTrip(CreateTripRequest request, Long userId) {
         log.info("ℹ️ No load associated with this trip");
     }
 
-    // ======================== GENERATE TRIP NUMBER ========================
-    // DIRECT GUARANTEED GENERATION - THIS WILL NEVER RETURN NULL
-    String tripNumber = null;
-
-    // Try 1: Use the generator
-    try {
-        tripNumber = tripNumberGenerator.generate();
-        log.info("🔍 Generator returned: '{}'", tripNumber);
-    } catch (Exception e) {
-        log.error("❌ Generator exception: {}", e.getMessage());
-    }
-
-    // Try 2: If null, use timestamp
-    if (tripNumber == null || tripNumber.trim().isEmpty()) {
-        tripNumber = "TRP-" + System.currentTimeMillis();
-        log.warn("⚠️ Used timestamp fallback: {}", tripNumber);
-    }
-
-    // Try 3: If still null (should never happen), use UUID
-    if (tripNumber == null || tripNumber.trim().isEmpty()) {
-        tripNumber = "TRP-UUID-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        log.error("🚨 Used UUID emergency fallback: {}", tripNumber);
-    }
-
-    // Try 4: Ultimate fallback
-    if (tripNumber == null || tripNumber.trim().isEmpty()) {
-        tripNumber = "TRP-EMERG-" + System.currentTimeMillis();
-        log.error("🚨 CRITICAL: Used emergency fallback: {}", tripNumber);
-    }
-
-    log.info("📝 FINAL trip number set to: {}", tripNumber);
+    // ======================== GENERATE AND SET TRIP NUMBER ========================
+    // GUARANTEED - this will NEVER return null
+    String tripNumber = generateTripNumberGuaranteed();
+    
+    // CRITICAL: Set the trip number on the entity
     trip.setTripNumber(tripNumber);
+    log.info("📝 Trip number set to: {}", trip.getTripNumber());
+    
+    // Verify the trip number was actually set
+    if (trip.getTripNumber() == null || trip.getTripNumber().trim().isEmpty()) {
+        // This should never happen, but just in case
+        String emergencyNumber = "TRP-EMERG-" + System.currentTimeMillis();
+        trip.setTripNumber(emergencyNumber);
+        log.error("🚨 CRITICAL: Forced emergency trip number: {}", emergencyNumber);
+    }
     
     // Set status
     trip.setStatus(request.getStatus() != null ? request.getStatus() : TripStatus.DRAFT);
     trip.setCreatedBy(userId);
     trip.setLastStatusUpdate(LocalDateTime.now());
 
-    // CRITICAL: Verify all required fields are set before saving
-    log.info("🚀 Pre-save check - tripNumber: {}, customerId: {}, loadId: {}", 
-        trip.getTripNumber(), trip.getCustomerId(), trip.getLoadId());
+    // ======================== FINAL PRE-SAVE VALIDATION ========================
+    log.info("🚀 Pre-save validation:");
+    log.info("   - Trip Number: '{}'", trip.getTripNumber());
+    log.info("   - Customer ID: {}", trip.getCustomerId());
+    log.info("   - Load ID: {}", trip.getLoadId());
     
+    // Fail fast if trip number is null - don't let it reach the database
     if (trip.getTripNumber() == null || trip.getTripNumber().trim().isEmpty()) {
-        // Absolute last resort - this should never happen
-        trip.setTripNumber("TRP-FINAL-" + System.currentTimeMillis());
-        log.error("🚨 CRITICAL: Set emergency trip number: {}", trip.getTripNumber());
+        throw new TripValidationException("Trip number is null or empty before saving. This should never happen.");
     }
     if (trip.getCustomerId() == null) {
         throw new TripValidationException("Customer ID cannot be null before saving");
     }
 
-    // Save trip
+    // ======================== SAVE TRIP ========================
     Trip saved = tripRepository.save(trip);
 
     log.info("✅ Created trip with ID: {}, Number: {}, Customer: {}, Load: {}",
@@ -344,6 +328,58 @@ public TripResponse createTrip(CreateTripRequest request, Long userId) {
     }
 
     return tripResponseMapper.toResponse(saved);
+}
+
+/**
+ * GUARANTEED trip number generator - NEVER returns null
+ * This method has multiple fallback strategies to ensure a trip number is always generated
+ */
+private String generateTripNumberGuaranteed() {
+    // Strategy 1: Use the sequence generator
+    try {
+        String tripNumber = tripNumberGenerator.generate();
+        if (tripNumber != null && !tripNumber.trim().isEmpty()) {
+            log.debug("✅ Strategy 1 - Sequence generator: {}", tripNumber);
+            return tripNumber;
+        }
+        log.warn("⚠️ Strategy 1 - Sequence generator returned null or empty");
+    } catch (Exception e) {
+        log.error("❌ Strategy 1 - Exception from TripNumberGenerator: {}", e.getMessage());
+    }
+
+    // Strategy 2: Use timestamp with format TRP-YYYYMMDD-HHMMSS
+    try {
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+        String tripNumber = "TRP-" + timestamp;
+        log.info("📝 Strategy 2 - Timestamp-based: {}", tripNumber);
+        return tripNumber;
+    } catch (Exception e) {
+        log.error("❌ Strategy 2 - Exception generating timestamp trip number: {}", e.getMessage());
+    }
+
+    // Strategy 3: Use UUID
+    try {
+        String uuid = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String tripNumber = "TRP-UUID-" + uuid;
+        log.info("📝 Strategy 3 - UUID-based: {}", tripNumber);
+        return tripNumber;
+    } catch (Exception e) {
+        log.error("❌ Strategy 3 - Exception generating UUID trip number: {}", e.getMessage());
+    }
+
+    // Strategy 4: Use System.currentTimeMillis()
+    try {
+        String tripNumber = "TRP-TS-" + System.currentTimeMillis();
+        log.info("📝 Strategy 4 - Millisecond-based: {}", tripNumber);
+        return tripNumber;
+    } catch (Exception e) {
+        log.error("❌ Strategy 4 - Exception generating timestamp trip number: {}", e.getMessage());
+    }
+
+    // Strategy 5: Ultimate fallback
+    String tripNumber = "TRP-EMERG-" + System.currentTimeMillis();
+    log.error("🚨 Strategy 5 - EMERGENCY trip number: {}", tripNumber);
+    return tripNumber;
 }
     /* ========================
        START TRIP
