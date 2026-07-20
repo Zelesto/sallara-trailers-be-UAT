@@ -1,23 +1,23 @@
 package com.pgsa.trailers.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pgsa.trailers.entity.security.AppUser;
-import com.pgsa.trailers.service.util.TripNumberGenerator;
 import com.pgsa.trailers.repository.AppUserRepository;
+import com.pgsa.trailers.service.SequenceService;
 import com.pgsa.trailers.service.security.CustomUserDetailsService;
 import com.pgsa.trailers.service.security.JwtService;
+import com.pgsa.trailers.service.util.TripNumberGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 
+import java.lang.reflect.Method;
+import java.time.Year;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -32,6 +32,9 @@ public class TestController {
     private final CustomUserDetailsService userDetailsService;
     private final AppUserRepository appUserRepository;
     private final TripNumberGenerator tripNumberGenerator;
+    private final SequenceService sequenceService;
+
+    // ======================== HEALTH ========================
 
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> healthCheck() {
@@ -41,6 +44,8 @@ public class TestController {
                 "timestamp", System.currentTimeMillis()
         )));
     }
+
+    // ======================== USER ENDPOINTS ========================
 
     /**
      * Comprehensive user verification endpoint
@@ -69,41 +74,83 @@ public class TestController {
         }
     }
 
-    @GetMapping("/trip-number")
-    public ResponseEntity<Map<String, Object>> testTripNumber() {
-        Map<String, Object> response = new HashMap<>();
+    /**
+     * Simple user existence check
+     */
+    @GetMapping("/user/exists")
+    public ResponseEntity<Map<String, Object>> userExists(@RequestParam String email) {
         try {
-            String tripNumber = tripNumberGenerator.generate();
-            response.put("success", true);
-            response.put("tripNumber", tripNumber);
-            response.put("message", "Trip number generated successfully");
-            log.info("✅ Test generated trip number: {}", tripNumber);
-        } catch (Exception e) {
-            response.put("success", false);
-            response.put("error", e.getMessage());
-            log.error("❌ Error generating trip number: {}", e.getMessage(), e);
-        }
-        return ResponseEntity.ok(response);
-    }
-}
+            Optional<AppUser> user = appUserRepository.findByEmailIgnoreCase(email);
 
-@GetMapping("/sequence")
-public ResponseEntity<Map<String, Object>> testSequence() {
-    Map<String, Object> response = new HashMap<>();
-    try {
-        String year = String.valueOf(Year.now().getValue());
-        String result = sequenceService.generateFormattedSequence("trip", "TRP", year, 3);
-        response.put("success", true);
-        response.put("sequence", result);
-        response.put("year", year);
-        log.info("✅ Test generated sequence: {}", result);
-    } catch (Exception e) {
-        response.put("success", false);
-        response.put("error", e.getMessage());
-        log.error("❌ Error generating sequence: {}", e.getMessage(), e);
+            Map<String, Object> result = new HashMap<>();
+            result.put("exists", user.isPresent());
+
+            if (user.isPresent()) {
+                AppUser appUser = user.get();
+                result.put("userInfo", Map.of(
+                        "id", appUser.getId(),
+                        "email", appUser.getEmail(),
+                        "enabled", appUser.isEnabled()
+                ));
+            } else {
+                result.put("message", "User not found");
+            }
+
+            return ResponseEntity.ok(createResponse(true, result));
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(createErrorResponse(
+                    "CHECK_ERROR", e.getMessage()));
+        }
     }
-    return ResponseEntity.ok(response);
-}
+
+    // ======================== TOKEN ENDPOINTS ========================
+
+    /**
+     * Test JWT generation for a user
+     */
+    @GetMapping("/token/generate")
+    public ResponseEntity<Map<String, Object>> generateTestToken(@RequestParam String email) {
+        try {
+            Optional<AppUser> userOptional = appUserRepository.findByEmailIgnoreCase(email);
+
+            if (userOptional.isEmpty()) {
+                return ResponseEntity.badRequest().body(createErrorResponse(
+                        "USER_NOT_FOUND", "User with email " + email + " not found"));
+            }
+
+            AppUser user = userOptional.get();
+            UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+
+            String token = jwtService.generateToken(userDetails, user.getId(), user.getEmail());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("token", token);
+            response.put("userId", user.getId());
+            response.put("email", user.getEmail());
+            response.put("userDetails", Map.of(
+                    "username", userDetails.getUsername(),
+                    "authorities", userDetails.getAuthorities().stream()
+                            .map(GrantedAuthority::getAuthority)
+                            .collect(Collectors.toList()),
+                    "enabled", userDetails.isEnabled()
+            ));
+            response.put("tokenInfo", Map.of(
+                    "extractedEmail", jwtService.extractEmail(token),
+                    "extractedUserId", jwtService.extractUserId(token),
+                    "extractedAuthorities", jwtService.extractAuthorities(token),
+                    "isValid", jwtService.isValid(token)
+            ));
+            response.put("tokenPreview", token.substring(0, Math.min(50, token.length())) + "...");
+
+            return ResponseEntity.ok(createResponse(true, response));
+
+        } catch (Exception e) {
+            log.error("Error generating token for user: {}", email, e);
+            return ResponseEntity.badRequest().body(createErrorResponse(
+                    "TOKEN_GENERATION_ERROR", e.getMessage()));
+        }
+    }
 
     /**
      * JWT Token analysis endpoint
@@ -142,7 +189,6 @@ public ResponseEntity<Map<String, Object>> testSequence() {
                             .map(GrantedAuthority::getAuthority)
                             .collect(Collectors.toList()));
 
-                    // Try to get the AppUser entity
                     Optional<AppUser> appUser = appUserRepository.findByEmailIgnoreCase(email);
                     appUser.ifPresent(user -> {
                         analysis.put("userEntity", extractUserInfoSimple(user));
@@ -167,84 +213,6 @@ public ResponseEntity<Map<String, Object>> testSequence() {
     }
 
     /**
-     * Test JWT generation for a user - UPDATED for your JwtService
-     */
-    @GetMapping("/token/generate")
-    public ResponseEntity<Map<String, Object>> generateTestToken(@RequestParam String email) {
-        try {
-            Optional<AppUser> userOptional = appUserRepository.findByEmailIgnoreCase(email);
-
-            if (userOptional.isEmpty()) {
-                return ResponseEntity.badRequest().body(createErrorResponse(
-                        "USER_NOT_FOUND", "User with email " + email + " not found"));
-            }
-
-            AppUser user = userOptional.get();
-            UserDetails userDetails = userDetailsService.loadUserByUsername(email);
-
-            // Generate token using the correct parameters for YOUR JwtService
-            // generateToken(UserDetails userDetails, Long userId, String email)
-            String token = jwtService.generateToken(userDetails, user.getId(), user.getEmail());
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("token", token);
-            response.put("userId", user.getId());
-            response.put("email", user.getEmail());
-            response.put("userDetails", Map.of(
-                    "username", userDetails.getUsername(),
-                    "authorities", userDetails.getAuthorities().stream()
-                            .map(GrantedAuthority::getAuthority)
-                            .collect(Collectors.toList()),
-                    "enabled", userDetails.isEnabled()
-            ));
-            response.put("tokenInfo", Map.of(
-                    "extractedEmail", jwtService.extractEmail(token),
-                    "extractedUserId", jwtService.extractUserId(token),
-                    "extractedAuthorities", jwtService.extractAuthorities(token),
-                    "isValid", jwtService.isValid(token)
-            ));
-            response.put("tokenPreview", token.substring(0, Math.min(50, token.length())) + "...");
-
-            return ResponseEntity.ok(createResponse(true, response));
-
-        } catch (Exception e) {
-            log.error("Error generating token for user: {}", email, e);
-            return ResponseEntity.badRequest().body(createErrorResponse(
-                    "TOKEN_GENERATION_ERROR", e.getMessage()));
-        }
-    }
-
-    /**
-     * Simple user existence check
-     */
-    @GetMapping("/user/exists")
-    public ResponseEntity<Map<String, Object>> userExists(@RequestParam String email) {
-        try {
-            Optional<AppUser> user = appUserRepository.findByEmailIgnoreCase(email);
-
-            Map<String, Object> result = new HashMap<>();
-            result.put("exists", user.isPresent());
-
-            if (user.isPresent()) {
-                AppUser appUser = user.get();
-                result.put("userInfo", Map.of(
-                        "id", appUser.getId(),
-                        "email", appUser.getEmail(),
-                        "enabled", appUser.isEnabled()
-                ));
-            } else {
-                result.put("message", "User not found");
-            }
-
-            return ResponseEntity.ok(createResponse(true, result));
-
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(createErrorResponse(
-                    "CHECK_ERROR", e.getMessage()));
-        }
-    }
-
-    /**
      * Decode and validate a token
      */
     @PostMapping("/token/decode")
@@ -259,13 +227,11 @@ public ResponseEntity<Map<String, Object>> testSequence() {
 
             Map<String, Object> decoded = new HashMap<>();
 
-            // Extract all information from the token
             decoded.put("userId", jwtService.extractUserId(token));
             decoded.put("email", jwtService.extractEmail(token));
             decoded.put("authorities", jwtService.extractAuthorities(token));
             decoded.put("isValid", jwtService.isValid(token));
 
-            // Manual token structure analysis
             Map<String, Object> tokenStructure = analyzeTokenStructure(token);
             decoded.put("tokenStructure", tokenStructure);
 
@@ -276,6 +242,45 @@ public ResponseEntity<Map<String, Object>> testSequence() {
                     "DECODE_ERROR", e.getMessage()));
         }
     }
+
+    // ======================== SEQUENCE & TRIP NUMBER ENDPOINTS ========================
+
+    @GetMapping("/trip-number")
+    public ResponseEntity<Map<String, Object>> testTripNumber() {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            String tripNumber = tripNumberGenerator.generate();
+            response.put("success", true);
+            response.put("tripNumber", tripNumber);
+            response.put("message", "Trip number generated successfully");
+            log.info("✅ Test generated trip number: {}", tripNumber);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("error", e.getMessage());
+            log.error("❌ Error generating trip number: {}", e.getMessage(), e);
+        }
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/sequence")
+    public ResponseEntity<Map<String, Object>> testSequence() {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            String year = String.valueOf(Year.now().getValue());
+            String result = sequenceService.generateFormattedSequence("trip", "TRP", year, 3);
+            response.put("success", true);
+            response.put("sequence", result);
+            response.put("year", year);
+            log.info("✅ Test generated sequence: {}", result);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("error", e.getMessage());
+            log.error("❌ Error generating sequence: {}", e.getMessage(), e);
+        }
+        return ResponseEntity.ok(response);
+    }
+
+    // ======================== AUTH SIMULATION ========================
 
     /**
      * Test authentication flow - simulates login
@@ -300,7 +305,6 @@ public ResponseEntity<Map<String, Object>> testSequence() {
             AppUser user = userOptional.get();
             UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
-            // This simulates what should happen during login
             Map<String, Object> loginSimulation = new HashMap<>();
             loginSimulation.put("userFound", true);
             loginSimulation.put("userDetails", Map.of(
@@ -320,7 +324,6 @@ public ResponseEntity<Map<String, Object>> testSequence() {
                     "enabled", user.isEnabled()
             ));
 
-            // Show what would be included in the JWT
             loginSimulation.put("jwtPayload", Map.of(
                     "subject", user.getId().toString(),
                     "email", user.getEmail(),
@@ -339,7 +342,7 @@ public ResponseEntity<Map<String, Object>> testSequence() {
         }
     }
 
-    // ========== HELPER METHODS ==========
+    // ======================== PRIVATE HELPER METHODS ========================
 
     private Map<String, Object> extractUserInfo(AppUser user, UserDetails userDetails) {
         Map<String, Object> info = new HashMap<>();
@@ -350,7 +353,7 @@ public ResponseEntity<Map<String, Object>> testSequence() {
 
         // Check for role if exists
         try {
-            java.lang.reflect.Method getRoleMethod = user.getClass().getMethod("getRole");
+            Method getRoleMethod = user.getClass().getMethod("getRole");
             Object role = getRoleMethod.invoke(user);
             info.put("role", role);
         } catch (NoSuchMethodException e) {
@@ -359,7 +362,6 @@ public ResponseEntity<Map<String, Object>> testSequence() {
             info.put("role", "Error: " + e.getMessage());
         }
 
-        // Add UserDetails info
         info.put("accountNonExpired", userDetails.isAccountNonExpired());
         info.put("accountNonLocked", userDetails.isAccountNonLocked());
         info.put("credentialsNonExpired", userDetails.isCredentialsNonExpired());
@@ -372,11 +374,9 @@ public ResponseEntity<Map<String, Object>> testSequence() {
 
     private Map<String, Object> extractUserInfoSimple(AppUser user) {
         Map<String, Object> info = new HashMap<>();
-
         info.put("id", user.getId());
         info.put("email", user.getEmail());
         info.put("enabled", user.isEnabled());
-
         return info;
     }
 
@@ -398,9 +398,8 @@ public ResponseEntity<Map<String, Object>> testSequence() {
                     structure.put("header", header);
                     structure.put("payload", payload);
 
-                    // Try to parse JSON for better readability
                     try {
-                        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                        ObjectMapper mapper = new ObjectMapper();
                         structure.put("headerJson", mapper.readTree(header));
                         structure.put("payloadJson", mapper.readTree(payload));
                     } catch (Exception e) {
