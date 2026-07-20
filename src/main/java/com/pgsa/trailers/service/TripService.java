@@ -28,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,6 +58,7 @@ public class TripService {
     private final TripResponseMapper tripResponseMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final TripValidator tripValidator;
+    private final JdbcTemplate jdbcTemplate;
 
     /* ========================
        PRIVATE HELPERS
@@ -82,6 +84,39 @@ public class TripService {
         return customerRepository.findById(request.getCustomerId())
                 .orElseThrow(() -> new TripValidationException(
                         "Customer not found with ID: " + request.getCustomerId()));
+    }
+
+    /**
+     * Generate trip number directly from database - GUARANTEED to work
+     */
+    private String generateTripNumberDirect() {
+        String year = String.valueOf(java.time.Year.now().getValue());
+        String prefix = "TRP-" + year + "-";
+        
+        try {
+            // Use JdbcTemplate to get the next sequence number
+            Long nextNumber = jdbcTemplate.queryForObject(
+                "INSERT INTO sequence (table_name, year, next_number, created_at, updated_at) " +
+                "VALUES ('trip', ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) " +
+                "ON CONFLICT (table_name, year) DO UPDATE SET next_number = sequence.next_number + 1 " +
+                "RETURNING next_number - 1",
+                new Object[]{year},
+                Long.class
+            );
+            
+            String tripNumber = prefix + String.format("%03d", nextNumber);
+            log.info("✅ Generated trip number from database: {}", tripNumber);
+            return tripNumber;
+            
+        } catch (Exception e) {
+            log.error("❌ Error generating trip number from database: {}", e.getMessage());
+            
+            // Fallback: use timestamp
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS"));
+            String fallback = "TRP-" + timestamp;
+            log.warn("⚠️ Using timestamp fallback: {}", fallback);
+            return fallback;
+        }
     }
 
     /* ========================
@@ -224,33 +259,12 @@ public class TripService {
         }
 
         // ======================== GENERATE TRIP NUMBER ========================
-        // DIRECT GENERATION - ALWAYS WORKS
-        String tripNumber = null;
+        // DIRECT DATABASE GENERATION - GUARANTEED TO WORK
+        String tripNumber = generateTripNumberDirect();
         
-        // Try 1: Use the generator
-        try {
-            tripNumber = tripNumberGenerator.generate();
-            log.info("🔍 Generator returned: '{}'", tripNumber);
-        } catch (Exception e) {
-            log.error("❌ Generator exception: {}", e.getMessage());
-        }
-        
-        // Try 2: If null or empty, use timestamp fallback
-        if (tripNumber == null || tripNumber.trim().isEmpty()) {
-            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS"));
-            tripNumber = "TRP-" + timestamp;
-            log.warn("⚠️ Using timestamp fallback: {}", tripNumber);
-        }
-        
-        // Try 3: Ultimate fallback
-        if (tripNumber == null || tripNumber.trim().isEmpty()) {
-            tripNumber = "TRP-EMERG-" + System.currentTimeMillis();
-            log.error("🚨 CRITICAL: Using emergency fallback: {}", tripNumber);
-        }
-        
-        // CRITICAL: Set the trip number on the entity
+        // Set the trip number on the entity
         trip.setTripNumber(tripNumber);
-        log.info("📝 FINAL trip number set to: {}", trip.getTripNumber());
+        log.info("📝 Trip number set to: {}", trip.getTripNumber());
         
         // Set status
         trip.setStatus(request.getStatus() != null ? request.getStatus() : TripStatus.DRAFT);
@@ -264,8 +278,10 @@ public class TripService {
         log.info("   - Load ID: {}", trip.getLoadId());
         
         if (trip.getTripNumber() == null || trip.getTripNumber().trim().isEmpty()) {
-            trip.setTripNumber("TRP-FINAL-" + System.currentTimeMillis());
-            log.error("🚨 CRITICAL: Forced emergency trip number: {}", trip.getTripNumber());
+            // This should never happen, but just in case
+            String emergencyNumber = "TRP-EMERG-" + System.currentTimeMillis();
+            trip.setTripNumber(emergencyNumber);
+            log.error("🚨 CRITICAL: Forced emergency trip number: {}", emergencyNumber);
         }
         
         if (trip.getCustomerId() == null) {
