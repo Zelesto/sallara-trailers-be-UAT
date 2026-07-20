@@ -86,14 +86,14 @@ public class TripService {
 
     /**
      * GUARANTEED trip number generator - NEVER returns null
-     * This method has 5 fallback strategies to ensure a trip number is always generated
+     * This uses the TripNumberGenerator bean with multiple fallback strategies
      */
     private String generateTripNumberGuaranteed() {
-        // Strategy 1: Use the sequence generator
+        // Strategy 1: Use the sequence generator via TripNumberGenerator
         try {
             String tripNumber = tripNumberGenerator.generate();
             if (tripNumber != null && !tripNumber.trim().isEmpty()) {
-                log.debug("✅ Strategy 1 - Generated trip number from sequence: {}", tripNumber);
+                log.debug("✅ Strategy 1 - Generated trip number: {}", tripNumber);
                 return tripNumber;
             }
             log.warn("⚠️ Strategy 1 - TripNumberGenerator returned null or empty");
@@ -105,34 +105,25 @@ public class TripService {
         try {
             String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
             String tripNumber = "TRP-" + timestamp;
-            log.info("📝 Strategy 2 - Generated timestamp-based trip number: {}", tripNumber);
+            log.info("📝 Strategy 2 - Timestamp-based: {}", tripNumber);
             return tripNumber;
         } catch (Exception e) {
-            log.error("❌ Strategy 2 - Exception generating timestamp trip number: {}", e.getMessage());
+            log.error("❌ Strategy 2 - Exception generating timestamp: {}", e.getMessage());
         }
 
         // Strategy 3: Use UUID
         try {
             String uuid = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
             String tripNumber = "TRP-UUID-" + uuid;
-            log.info("📝 Strategy 3 - Generated UUID-based trip number: {}", tripNumber);
+            log.info("📝 Strategy 3 - UUID-based: {}", tripNumber);
             return tripNumber;
         } catch (Exception e) {
-            log.error("❌ Strategy 3 - Exception generating UUID trip number: {}", e.getMessage());
+            log.error("❌ Strategy 3 - Exception generating UUID: {}", e.getMessage());
         }
 
-        // Strategy 4: Use System.currentTimeMillis()
-        try {
-            String tripNumber = "TRP-TS-" + System.currentTimeMillis();
-            log.info("📝 Strategy 4 - Generated timestamp-based trip number: {}", tripNumber);
-            return tripNumber;
-        } catch (Exception e) {
-            log.error("❌ Strategy 4 - Exception generating timestamp trip number: {}", e.getMessage());
-        }
-
-        // Strategy 5: Ultimate fallback
+        // Strategy 4: Ultimate fallback
         String tripNumber = "TRP-EMERG-" + System.currentTimeMillis();
-        log.error("🚨 Strategy 5 - EMERGENCY trip number generated: {}", tripNumber);
+        log.error("🚨 Strategy 4 - EMERGENCY trip number: {}", tripNumber);
         return tripNumber;
     }
 
@@ -275,7 +266,7 @@ public class TripService {
             log.info("ℹ️ No load associated with this trip");
         }
 
-        // ======================== GENERATE AND SET TRIP NUMBER ========================
+        // ======================== GENERATE TRIP NUMBER ========================
         // GUARANTEED - this will NEVER return null
         String tripNumber = generateTripNumberGuaranteed();
         
@@ -283,10 +274,10 @@ public class TripService {
         trip.setTripNumber(tripNumber);
         log.info("📝 Trip number set to: {}", trip.getTripNumber());
         
-        // Verify the trip number was actually set
+        // Double-check the trip number was actually set
         if (trip.getTripNumber() == null || trip.getTripNumber().trim().isEmpty()) {
             // This should never happen, but just in case
-            String emergencyNumber = "TRP-EMERG-" + System.currentTimeMillis();
+            String emergencyNumber = "TRP-FINAL-" + System.currentTimeMillis();
             trip.setTripNumber(emergencyNumber);
             log.error("🚨 CRITICAL: Forced emergency trip number: {}", emergencyNumber);
         }
