@@ -5,11 +5,14 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pgsa.trailers.entity.ops.FuelSlip;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @Data
 public class FuelSlipDTO {
     private Long id;
@@ -39,69 +42,99 @@ public class FuelSlipDTO {
     private LocalDateTime verificationDate;
     private Boolean incidentFlag;
     private LocalDateTime lastStatusUpdate;
-    private Map<String, Object> auditTrail; // Changed to Map
+    private Map<String, Object> auditTrail;
     private Long accountStatementId;
 
     // Static ObjectMapper for JSON operations
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * Convert FuelSlip entity to DTO
+     * Convert FuelSlip entity to DTO with safe lazy loading
      */
     public static FuelSlipDTO fromEntity(FuelSlip slip) {
         if (slip == null) return null;
 
         FuelSlipDTO dto = new FuelSlipDTO();
 
-        // Basic fields
-        dto.setId(slip.getId());
-        dto.setSlipNumber(slip.getSlipNumber());
+        try {
+            // Basic fields
+            dto.setId(slip.getId());
+            dto.setSlipNumber(slip.getSlipNumber());
 
-        // Vehicle mapping
-        if (slip.getVehicle() != null) {
-            dto.setVehicleId(slip.getVehicle().getId());
-            dto.setVehicleRegNumber(slip.getVehicle().getRegistrationNumber());
-        }
+            // Vehicle mapping - safely handle lazy loading
+            if (slip.getVehicle() != null) {
+                dto.setVehicleId(slip.getVehicle().getId());
+                try {
+                    dto.setVehicleRegNumber(slip.getVehicle().getRegistrationNumber());
+                } catch (Exception e) {
+                    log.debug("Could not load vehicle registration for fuel slip: {}", slip.getId());
+                    dto.setVehicleRegNumber(null);
+                }
+            }
 
-        // Driver mapping
-        if (slip.getDriver() != null) {
-            dto.setDriverId(slip.getDriver().getId());
-            dto.setDriverName(slip.getDriver().getFullName());
-        }
+            // Driver mapping - safely handle lazy loading
+            if (slip.getDriver() != null) {
+                dto.setDriverId(slip.getDriver().getId());
+                try {
+                    // Try to get full name using getFullName() method
+                    dto.setDriverName(slip.getDriver().getFullName());
+                } catch (Exception e) {
+                    // Fallback: build name manually
+                    try {
+                        String firstName = slip.getDriver().getFirstName() != null ? slip.getDriver().getFirstName() : "";
+                        String lastName = slip.getDriver().getLastName() != null ? slip.getDriver().getLastName() : "";
+                        String fullName = (firstName + " " + lastName).trim();
+                        dto.setDriverName(fullName.isEmpty() ? null : fullName);
+                    } catch (Exception ex) {
+                        log.debug("Could not load driver name for fuel slip: {}", slip.getId());
+                        dto.setDriverName(null);
+                    }
+                }
+            }
 
-        // Fuel source mapping
-        if (slip.getFuelSource() != null) {
-            dto.setFuelSourceId(slip.getFuelSource().getId());
-            dto.setFuelSourceName(slip.getFuelSource().getName());
-        }
+            // Fuel source mapping - safely handle lazy loading
+            if (slip.getFuelSource() != null) {
+                dto.setFuelSourceId(slip.getFuelSource().getId());
+                try {
+                    dto.setFuelSourceName(slip.getFuelSource().getName());
+                } catch (Exception e) {
+                    log.debug("Could not load fuel source name for fuel slip: {}", slip.getId());
+                    dto.setFuelSourceName(null);
+                }
+            }
 
-        // Transaction details
-        dto.setTransactionDate(slip.getTransactionDate());
-        dto.setQuantity(slip.getQuantity());
-        dto.setUnitPrice(slip.getUnitPrice());
-        dto.setTotalAmount(slip.getTotalAmount());
-        dto.setOdometerReading(slip.getOdometerReading());
-        dto.setLocation(slip.getLocation());
-        dto.setStationName(slip.getStationName());
-        dto.setPumpNumber(slip.getPumpNumber());
-        dto.setNotes(slip.getNotes());
-        dto.setFinalized(slip.getFinalized());
-        dto.setLoadId(slip.getLoadId());
-        dto.setTripId(slip.getTripId());
-        dto.setFuelType(slip.getFuelType());
-        dto.setPaymentMethod(slip.getPaymentMethod());
-        dto.setReceiptNumber(slip.getReceiptNumber());
-        dto.setVerifiedBy(slip.getVerifiedBy());
-        dto.setVerificationDate(slip.getVerificationDate());
-        dto.setIncidentFlag(slip.getIncidentFlag());
-        dto.setLastStatusUpdate(slip.getLastStatusUpdate());
+            // Transaction details
+            dto.setTransactionDate(slip.getTransactionDate());
+            dto.setQuantity(slip.getQuantity());
+            dto.setUnitPrice(slip.getUnitPrice());
+            dto.setTotalAmount(slip.getTotalAmount());
+            dto.setOdometerReading(slip.getOdometerReading());
+            dto.setLocation(slip.getLocation());
+            dto.setStationName(slip.getStationName());
+            dto.setPumpNumber(slip.getPumpNumber());
+            dto.setNotes(slip.getNotes());
+            dto.setFinalized(slip.getFinalized());
+            dto.setLoadId(slip.getLoadId());
+            dto.setTripId(slip.getTripId());
+            dto.setFuelType(slip.getFuelType());
+            dto.setPaymentMethod(slip.getPaymentMethod());
+            dto.setReceiptNumber(slip.getReceiptNumber());
+            dto.setVerifiedBy(slip.getVerifiedBy());
+            dto.setVerificationDate(slip.getVerificationDate());
+            dto.setIncidentFlag(slip.getIncidentFlag());
+            dto.setLastStatusUpdate(slip.getLastStatusUpdate());
 
-        // Convert auditTrail to Map
-        dto.setAuditTrail(convertAuditTrailToMap(slip.getAuditTrail()));
+            // Convert auditTrail to Map
+            dto.setAuditTrail(convertAuditTrailToMap(slip.getAuditTrail()));
 
-        // Account statement mapping
-        if (slip.getAccountStatement() != null) {
-            dto.setAccountStatementId(slip.getAccountStatement().getId());
+            // Account statement mapping
+            if (slip.getAccountStatement() != null) {
+                dto.setAccountStatementId(slip.getAccountStatement().getId());
+            }
+
+        } catch (Exception e) {
+            log.error("Error converting FuelSlip to DTO for ID: {}", slip.getId(), e);
+            // Return what we have so far
         }
 
         return dto;
@@ -119,23 +152,19 @@ public class FuelSlipDTO {
 
         try {
             if (auditTrail instanceof Map) {
-                // Already a Map
                 @SuppressWarnings("unchecked")
                 Map<String, Object> auditMap = (Map<String, Object>) auditTrail;
                 return auditMap;
             } else if (auditTrail instanceof String) {
-                // Parse JSON string to Map
                 String strAuditTrail = (String) auditTrail;
                 if (!strAuditTrail.trim().isEmpty()) {
                     return objectMapper.readValue(strAuditTrail, new TypeReference<Map<String, Object>>() {});
                 }
             } else {
-                // Convert any other object to Map via JSON serialization
                 String json = objectMapper.writeValueAsString(auditTrail);
                 return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
             }
         } catch (Exception e) {
-            // Return empty map on error
             result.put("error", "Failed to parse audit trail");
             result.put("originalType", auditTrail.getClass().getSimpleName());
         }
