@@ -9,6 +9,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -22,6 +23,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Slf4j
 @Table(name = "load", indexes = {
         @Index(name = "idx_load_load_number", columnList = "load_number", unique = true),
         @Index(name = "idx_load_status", columnList = "status"),
@@ -59,7 +61,6 @@ public class Load extends BaseEntity {
     @Column(name = "unloading_date")
     private LocalDateTime unloadingDate;
 
-    // FIX: Use LoadStatus enum instead of String
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 50)
     private LoadStatus status;
@@ -142,6 +143,15 @@ public class Load extends BaseEntity {
     private String auditTrail;
 
     /* ========================
+       PREFERRED VEHICLE/DRIVER - FOR LOAD GROUPING
+       ======================== */
+    @Column(name = "preferred_vehicle_id")
+    private Long preferredVehicleId;
+
+    @Column(name = "preferred_driver_id")
+    private Long preferredDriverId;
+
+    /* ========================
        DEPOT TRACKING - NEW FIELDS
        ======================== */
     @Column(name = "total_from_depot_km", precision = 10, scale = 2)
@@ -159,29 +169,45 @@ public class Load extends BaseEntity {
     // ======================== HELPER METHODS ========================
     
     public void addTrip(Trip trip) {
+        if (trip == null) {
+            log.warn("⚠️ Attempted to add null trip to load: {}", this.loadNumber);
+            return;
+        }
+        
         trips.add(trip);
         trip.setLoad(this);
         trip.setLoadNumber(this.loadNumber);
         trip.setLoadType(this.commodityType);
         trip.setLoadDescription(this.description);
         trip.setLoadStatus(this.status != null ? this.status.name() : "PENDING");
+        
         if (this.tripsCount == null) {
             this.tripsCount = 0;
         }
         this.tripsCount++;
+        
+        log.debug("✅ Added trip {} to load {}", trip.getTripNumber(), this.loadNumber);
         recalculateDepotTotals();
     }
 
     public void removeTrip(Trip trip) {
+        if (trip == null) {
+            log.warn("⚠️ Attempted to remove null trip from load: {}", this.loadNumber);
+            return;
+        }
+        
         trips.remove(trip);
         trip.setLoad(null);
         trip.setLoadNumber(null);
         trip.setLoadType(null);
         trip.setLoadDescription(null);
         trip.setLoadStatus(null);
+        
         if (this.tripsCount != null && this.tripsCount > 0) {
             this.tripsCount--;
         }
+        
+        log.debug("✅ Removed trip {} from load {}", trip.getTripNumber(), this.loadNumber);
         recalculateDepotTotals();
     }
 
@@ -267,10 +293,17 @@ public class Load extends BaseEntity {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    /* ========================
+       LIFECYCLE CALLBACKS
+       ======================== */
+
     @PrePersist
     protected void onCreate() {
+        log.debug("🔄 Load entity pre-persist: {}", this.loadNumber);
+        
         if (status == null) {
             status = LoadStatus.PENDING;
+            log.debug("✅ Set default status: PENDING");
         }
         if (priority == null) {
             priority = "NORMAL";
@@ -293,8 +326,9 @@ public class Load extends BaseEntity {
         if (lastStatusUpdate == null) {
             lastStatusUpdate = LocalDateTime.now();
         }
-        if (referenceNumber == null) {
+        if (referenceNumber == null || referenceNumber.trim().isEmpty()) {
             referenceNumber = "";
+            log.warn("⚠️ Load created without reference number: {}", this.loadNumber);
         }
         if (totalFromDepotKm == null) {
             totalFromDepotKm = BigDecimal.ZERO;
@@ -305,10 +339,16 @@ public class Load extends BaseEntity {
         if (totalDepotKm == null) {
             totalDepotKm = BigDecimal.ZERO;
         }
+        
+        log.info("✅ Load pre-persist complete: {} | Status: {} | Ref: {}", 
+            this.loadNumber, this.status, this.referenceNumber);
     }
 
     @PreUpdate
     protected void onUpdate() {
+        log.debug("🔄 Load entity pre-update: {}", this.loadNumber);
+        
+        // Update all trips with current load details
         if (trips != null && !trips.isEmpty()) {
             for (Trip trip : trips) {
                 trip.setLoadNumber(this.loadNumber);
@@ -316,10 +356,15 @@ public class Load extends BaseEntity {
                 trip.setLoadDescription(this.description);
                 trip.setLoadStatus(this.status != null ? this.status.name() : "PENDING");
             }
+            log.debug("✅ Updated {} trips with load details", trips.size());
         }
+        
         lastStatusUpdate = LocalDateTime.now();
         tripsCount = trips != null ? trips.size() : 0;
         recalculateDepotTotals();
+        
+        log.info("✅ Load pre-update complete: {} | Trips: {} | Depot KM: {}", 
+            this.loadNumber, this.tripsCount, this.totalDepotKm);
     }
 
     public String getType() {
@@ -327,5 +372,26 @@ public class Load extends BaseEntity {
             return commodityType;
         }
         return "GENERAL";
+    }
+
+    /**
+     * Check if this load can accept more trips
+     */
+    public boolean canAcceptTrip() {
+        return status != LoadStatus.COMPLETED && status != LoadStatus.CANCELLED;
+    }
+
+    /**
+     * Get the status as a display string
+     */
+    public String getStatusDisplay() {
+        return status != null ? status.name() : "UNKNOWN";
+    }
+
+    /**
+     * Check if load is active (not completed or cancelled)
+     */
+    public boolean isActive() {
+        return status != LoadStatus.COMPLETED && status != LoadStatus.CANCELLED;
     }
 }
