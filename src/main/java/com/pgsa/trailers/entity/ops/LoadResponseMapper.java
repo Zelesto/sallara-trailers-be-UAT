@@ -2,7 +2,7 @@ package com.pgsa.trailers.entity.ops;
 
 import com.pgsa.trailers.dto.LoadResponseDTO;
 import com.pgsa.trailers.dto.TripSummaryDTO;
-import com.pgsa.trailers.entity.assets.Driver; 
+import com.pgsa.trailers.entity.assets.Driver;
 import com.pgsa.trailers.entity.ops.Load;
 import com.pgsa.trailers.entity.ops.Trip;
 import org.springframework.stereotype.Component;
@@ -44,7 +44,7 @@ public class LoadResponseMapper {
                 .createdAt(load.getCreatedAt())
                 .updatedAt(load.getUpdatedAt())
                 
-                // New fields
+                // Only include fields that exist in Load entity
                 .originLocation(load.getOriginLocation())
                 .destinationLocation(load.getDestinationLocation())
                 .handlingInstructions(load.getHandlingInstructions())
@@ -52,8 +52,9 @@ public class LoadResponseMapper {
                 .hazardClass(load.getHazardClass())
                 .temperatureRequirements(load.getTemperatureRequirements())
                 
-                .preferredVehicleId(load.getPreferredVehicleId())
-                .preferredDriverId(load.getPreferredDriverId())
+                // Remove these - they don't exist in Load entity
+                // .preferredVehicleId(load.getPreferredVehicleId())
+                // .preferredDriverId(load.getPreferredDriverId())
                 
                 .tripsCount(load.getTripsCount())
                 .totalDistanceKm(load.getTotalDistanceKm())
@@ -131,7 +132,7 @@ public class LoadResponseMapper {
                 .referenceNumber(trip.getReferenceNumber())
                 .status(trip.getStatus())
                 .vehicleRegistration(trip.getVehicle() != null ? trip.getVehicle().getRegistrationNumber() : null)
-                .driverName(getDriverFullName(trip))  // ← FIXED: Use helper method
+                .driverName(getDriverFullName(trip))
                 .plannedStartDate(trip.getPlannedStartDate())
                 .plannedEndDate(trip.getPlannedEndDate())
                 .originLocation(trip.getOriginLocation())
