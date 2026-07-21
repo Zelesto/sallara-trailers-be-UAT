@@ -1,4 +1,4 @@
-package com.pgsa.trailers.mapper;
+package com.pgsa.trailers.entity;
 
 import com.pgsa.trailers.dto.LoadResponseDTO;
 import com.pgsa.trailers.dto.TripSummaryDTO;
