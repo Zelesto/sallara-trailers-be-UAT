@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +40,38 @@ public class LoadService {
     private final JdbcTemplate jdbcTemplate;
 
     // =============================================
+    // GENERATE REFERENCE NUMBER
+    // =============================================
+
+    /**
+     * Generate a load reference number using the sequence table
+     * Format: REF-2026-001
+     */
+    private String generateReferenceNumber() {
+        try {
+            String year = String.valueOf(java.time.Year.now().getValue());
+            String prefix = "REF-" + year + "-";
+            
+            Long nextNumber = jdbcTemplate.queryForObject(
+                "INSERT INTO sequence (table_name, year, next_number, created_at, updated_at) " +
+                "VALUES (?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) " +
+                "ON CONFLICT (table_name, year) DO UPDATE SET next_number = sequence.next_number + 1 " +
+                "RETURNING next_number - 1",
+                new Object[]{"loadref", year},
+                Long.class
+            );
+            
+            String referenceNumber = prefix + String.format("%03d", nextNumber);
+            log.info("✅ Generated load reference number: {}", referenceNumber);
+            return referenceNumber;
+            
+        } catch (Exception e) {
+            log.error("❌ Error generating load reference number: {}", e.getMessage());
+            return "REF-" + System.currentTimeMillis();
+        }
+    }
+
+    // =============================================
     // CREATE
     // =============================================
 
@@ -46,158 +79,81 @@ public class LoadService {
      * Create a new load or suggest merging with existing load
      */
     public LoadResponseDTO createLoad(LoadRequestDTO request, Long userId) {
-    log.info("Creating load for customer: {}, date: {}", request.getCustomerId(), request.getLoadingDate());
+        log.info("Creating load for customer: {}, date: {}", request.getCustomerId(), request.getLoadingDate());
 
-    // Check for existing loads that could be merged
-    if (request.getCustomerId() != null && request.getLoadingDate() != null) {
-        Load existingLoad = findMergeCandidate(request.getCustomerId(), request.getLoadingDate());
-        if (existingLoad != null) {
-            log.info("Found existing load {} that could be merged", existingLoad.getLoadNumber());
-            LoadResponseDTO response = mapToResponseDTO(existingLoad);
-            response.setMergeSuggestion(true);
-            response.setMergeMessage("A load already exists for this customer on " + 
-                request.getLoadingDate().toLocalDate() + 
-                ". Would you like to add this trip to the existing load?");
-            return response;
+        // Check for existing loads that could be merged
+        if (request.getCustomerId() != null && request.getLoadingDate() != null) {
+            Load existingLoad = findMergeCandidate(request.getCustomerId(), request.getLoadingDate());
+            if (existingLoad != null) {
+                log.info("Found existing load {} that could be merged", existingLoad.getLoadNumber());
+                LoadResponseDTO response = mapToResponseDTO(existingLoad);
+                response.setMergeSuggestion(true);
+                response.setMergeMessage("A load already exists for this customer on " + 
+                    request.getLoadingDate().toLocalDate() + 
+                    ". Would you like to add this trip to the existing load?");
+                return response;
+            }
         }
-    }
 
-    // Validate customer exists
-    if (request.getCustomerId() != null && !customerRepository.existsById(request.getCustomerId())) {
-        throw new RuntimeException("Customer not found with ID: " + request.getCustomerId());
-    }
+        // Validate customer exists
+        if (request.getCustomerId() != null && !customerRepository.existsById(request.getCustomerId())) {
+            throw new RuntimeException("Customer not found with ID: " + request.getCustomerId());
+        }
 
-    // Generate load number using sequence
-    String loadNumber = sequenceService.generateFormattedSequence("load", "LOAD");
-    
-    // Generate reference number
-    String referenceNumber = generateReferenceNumber();
-
-    Load load = Load.builder()
-            .loadNumber(loadNumber)
-            .referenceNumber(referenceNumber)  // ← ADD THIS
-            .description(request.getDescription())
-            .customerId(request.getCustomerId())
-            .weightKg(request.getWeightKg())
-            .volumeCubicM(request.getVolumeCubicM())
-            .loadingDate(request.getLoadingDate())
-            .unloadingDate(request.getUnloadingDate())
-            .status(LoadStatus.PENDING)
-            .commodityType(request.getCommodityType())
-            .palletCount(request.getPalletCount())
-            .containerNumber(request.getContainerNumber())
-            .hazardousMaterial(request.getHazardousMaterial())
-            .specialHandling(request.getSpecialHandling())
-            .estimatedValue(request.getEstimatedValue())
-            .actualValue(request.getActualValue())
-            .priority(request.getPriority() != null ? request.getPriority() : "NORMAL")
-            .build();
-
-    load.setCreatedBy(String.valueOf(userId));
-
-    Load saved = loadRepository.save(load);
-    log.info("Created load with ID: {}, Number: {}, Reference: {}", 
-        saved.getId(), saved.getLoadNumber(), saved.getReferenceNumber());
-
-    if (request.getTripIds() != null && !request.getTripIds().isEmpty()) {
-        addTripsToLoad(saved.getLoadNumber(), request.getTripIds(), userId);
-    }
-
-    return mapToResponseDTO(saved);
-}
-
-
-    // =============================================
-    // UPDATE STATUS
-    // =============================================
-
-    @Transactional
-public LoadResponseDTO updateLoadStatus(Long id, String status, Long userId) {
-    log.info("Updating load {} status to: {}", id, status);
-    
-    Load load = loadRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Load not found with ID: " + id));
-    
-    LoadStatus newStatus;
-    try {
-        newStatus = LoadStatus.valueOf(status.toUpperCase());
-    } catch (IllegalArgumentException e) {
-        throw new RuntimeException("Invalid status: " + status);
-    }
-    
-    load.setStatus(newStatus);
-    load.setLastStatusUpdate(LocalDateTime.now());
-    load.setUpdatedBy(String.valueOf(userId));
-    
-    Load updated = loadRepository.save(load);
-    log.info("Updated load {} status to: {}", id, status);
-    
-    return mapToResponseDTO(updated);
-}
-
-
-    // =============================================
-    // FIND MERGEABLE TRIPS
-    // =============================================
-
-    @Transactional(readOnly = true)
-public List<TripSummaryDTO> findMergeableTrips(Long customerId, LocalDateTime plannedDate) {
-    log.info("Finding mergeable trips for customer {} on {}", customerId, plannedDate);
-    
-    // Delegate to the existing method
-    List<Trip> trips = findMergeableTrips(customerId, plannedDate);
-    
-    // Convert to DTOs
-    List<TripSummaryDTO> result = new ArrayList<>();
-    for (Trip trip : trips) {
-        result.add(createTripSummaryDTO(trip));
-    }
-    
-    return result;
-}
-    
-
-    // =============================================
-    // FIND MERGEABLE TRIPS
-    // =============================================
-
-    @Transactional(readOnly = true)
-public LoadResponseDTO getLoadByReferenceNumber(String referenceNumber) {
-    Load load = loadRepository.findByReferenceNumber(referenceNumber)
-            .orElseThrow(() -> new RuntimeException("Load not found with reference: " + referenceNumber));
-    return mapToResponseDTO(load);
-}
-    
-
-    // =============================================
-    // GENERATE REFERENCE
-    // =============================================
-
-    private String generateReferenceNumber() {
-    try {
-        String year = String.valueOf(java.time.Year.now().getValue());
-        String prefix = "REF-" + year + "-";
+        // Generate load number using sequence
+        String loadNumber = sequenceService.generateFormattedSequence("load", "LOAD");
         
-        Long nextNumber = jdbcTemplate.queryForObject(
-            "INSERT INTO sequence (table_name, year, next_number, created_at, updated_at) " +
-            "VALUES (?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) " +
-            "ON CONFLICT (table_name, year) DO UPDATE SET next_number = sequence.next_number + 1 " +
-            "RETURNING next_number - 1",
-            new Object[]{"loadref", year},
-            Long.class
-        );
-        
-        String referenceNumber = prefix + String.format("%03d", nextNumber);
-        log.info("✅ Generated load reference number: {}", referenceNumber);
-        return referenceNumber;
-        
-    } catch (Exception e) {
-        log.error("❌ Error generating load reference number: {}", e.getMessage());
-        return "REF-" + System.currentTimeMillis();
-    }
-}
+        // Generate reference number
+        String referenceNumber = generateReferenceNumber();
 
-    
+        Load load = Load.builder()
+                .loadNumber(loadNumber)
+                .referenceNumber(referenceNumber)
+                .description(request.getDescription())
+                .customerId(request.getCustomerId())
+                .weightKg(request.getWeightKg())
+                .volumeCubicM(request.getVolumeCubicM())
+                .loadingDate(request.getLoadingDate())
+                .unloadingDate(request.getUnloadingDate())
+                .status(LoadStatus.PENDING)
+                .commodityType(request.getCommodityType())
+                .palletCount(request.getPalletCount())
+                .containerNumber(request.getContainerNumber())
+                .hazardousMaterial(request.getHazardousMaterial())
+                .specialHandling(request.getSpecialHandling())
+                .estimatedValue(request.getEstimatedValue())
+                .actualValue(request.getActualValue())
+                .priority(request.getPriority() != null ? request.getPriority() : "NORMAL")
+                // New fields
+                .originLocation(request.getOriginLocation())
+                .destinationLocation(request.getDestinationLocation())
+                .handlingInstructions(request.getHandlingInstructions())
+                .packagingType(request.getPackagingType())
+                .hazardClass(request.getHazardClass())
+                .temperatureRequirements(request.getTemperatureRequirements())
+                .preferredVehicleId(request.getPreferredVehicleId())
+                .preferredDriverId(request.getPreferredDriverId())
+                .insurancePolicyNumber(request.getInsurancePolicyNumber())
+                .insuranceExpiry(request.getInsuranceExpiry())
+                .customsClearanceStatus(request.getCustomsClearanceStatus())
+                .warehouseId(request.getWarehouseId())
+                .supervisorId(request.getSupervisorId())
+                .build();
+
+        load.setCreatedBy(String.valueOf(userId));
+        load.setLastStatusUpdate(LocalDateTime.now());
+
+        Load saved = loadRepository.save(load);
+        log.info("Created load with ID: {}, Number: {}, Reference: {}", 
+            saved.getId(), saved.getLoadNumber(), saved.getReferenceNumber());
+
+        if (request.getTripIds() != null && !request.getTripIds().isEmpty()) {
+            addTripsToLoad(saved.getLoadNumber(), request.getTripIds(), userId);
+        }
+
+        return mapToResponseDTO(saved);
+    }
+
     // =============================================
     // READ
     // =============================================
@@ -213,6 +169,13 @@ public LoadResponseDTO getLoadByReferenceNumber(String referenceNumber) {
     public LoadResponseDTO getLoadByNumber(String loadNumber) {
         Load load = loadRepository.findByLoadNumber(loadNumber)
                 .orElseThrow(() -> new RuntimeException("Load not found with number: " + loadNumber));
+        return mapToResponseDTO(load);
+    }
+
+    @Transactional(readOnly = true)
+    public LoadResponseDTO getLoadByReferenceNumber(String referenceNumber) {
+        Load load = loadRepository.findByReferenceNumber(referenceNumber)
+                .orElseThrow(() -> new RuntimeException("Load not found with reference: " + referenceNumber));
         return mapToResponseDTO(load);
     }
 
@@ -244,20 +207,19 @@ public LoadResponseDTO getLoadByReferenceNumber(String referenceNumber) {
     }
 
     @Transactional(readOnly = true)
-public List<LoadResponseDTO> getLoadsByStatus(String status) {
-    LoadStatus loadStatus;
-    try {
-        loadStatus = LoadStatus.valueOf(status.toUpperCase());
-    } catch (IllegalArgumentException e) {
-        log.warn("Invalid status: {}, returning empty list", status);
-        return new ArrayList<>();
+    public List<LoadResponseDTO> getLoadsByStatus(String status) {
+        LoadStatus loadStatus;
+        try {
+            loadStatus = LoadStatus.valueOf(status.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid status: {}, returning empty list", status);
+            return new ArrayList<>();
+        }
+        return loadRepository.findByStatus(loadStatus)
+                .stream()
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
     }
-    return loadRepository.findByStatus(loadStatus)
-            .stream()
-            .map(this::mapToResponseDTO)
-            .collect(Collectors.toList());
-}
-
 
     // =============================================
     // UPDATE
@@ -277,13 +239,11 @@ public List<LoadResponseDTO> getLoadsByStatus(String status) {
         load.setLoadingDate(request.getLoadingDate());
         load.setUnloadingDate(request.getUnloadingDate());
         
-        // FIX: Convert String status to LoadStatus enum
         if (request.getStatus() != null) {
             try {
                 load.setStatus(LoadStatus.valueOf(request.getStatus().toUpperCase()));
             } catch (IllegalArgumentException e) {
                 log.warn("Invalid status: {}, keeping existing status", request.getStatus());
-                // Keep existing status
             }
         }
         
@@ -295,11 +255,52 @@ public List<LoadResponseDTO> getLoadsByStatus(String status) {
         load.setEstimatedValue(request.getEstimatedValue());
         load.setActualValue(request.getActualValue());
         load.setPriority(request.getPriority());
+        
+        // New fields
+        load.setOriginLocation(request.getOriginLocation());
+        load.setDestinationLocation(request.getDestinationLocation());
+        load.setHandlingInstructions(request.getHandlingInstructions());
+        load.setPackagingType(request.getPackagingType());
+        load.setHazardClass(request.getHazardClass());
+        load.setTemperatureRequirements(request.getTemperatureRequirements());
+        load.setPreferredVehicleId(request.getPreferredVehicleId());
+        load.setPreferredDriverId(request.getPreferredDriverId());
+        load.setInsurancePolicyNumber(request.getInsurancePolicyNumber());
+        load.setInsuranceExpiry(request.getInsuranceExpiry());
+        load.setCustomsClearanceStatus(request.getCustomsClearanceStatus());
+        load.setWarehouseId(request.getWarehouseId());
+        load.setSupervisorId(request.getSupervisorId());
+        
         load.setUpdatedAt(LocalDateTime.now());
         load.setUpdatedBy(String.valueOf(userId));
+        load.setLastStatusUpdate(LocalDateTime.now());
         
         Load updated = loadRepository.save(load);
         log.info("Updated load with ID: {}", updated.getId());
+        return mapToResponseDTO(updated);
+    }
+
+    @Transactional
+    public LoadResponseDTO updateLoadStatus(Long id, String status, Long userId) {
+        log.info("Updating load {} status to: {}", id, status);
+        
+        Load load = loadRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Load not found with ID: " + id));
+        
+        LoadStatus newStatus;
+        try {
+            newStatus = LoadStatus.valueOf(status.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Invalid status: " + status + ". Valid values: PENDING, IN_TRANSIT, LOADING, UNLOADING, COMPLETED, CANCELLED");
+        }
+        
+        load.setStatus(newStatus);
+        load.setLastStatusUpdate(LocalDateTime.now());
+        load.setUpdatedBy(String.valueOf(userId));
+        
+        Load updated = loadRepository.save(load);
+        log.info("Updated load {} status to: {}", id, status);
+        
         return mapToResponseDTO(updated);
     }
 
@@ -312,6 +313,11 @@ public List<LoadResponseDTO> getLoadsByStatus(String status) {
         
         Load load = loadRepository.findByLoadNumber(loadNumber)
                 .orElseThrow(() -> new RuntimeException("Load not found with number: " + loadNumber));
+
+        if (tripIds == null || tripIds.isEmpty()) {
+            log.warn("No trip IDs provided to add to load {}", loadNumber);
+            return mapToResponseDTO(load);
+        }
 
         List<Trip> trips = tripRepository.findAllById(tripIds);
         
@@ -346,9 +352,14 @@ public List<LoadResponseDTO> getLoadsByStatus(String status) {
     // =============================================
 
     public void deleteLoad(Long id) {
-        if (!loadRepository.existsById(id)) {
-            throw new RuntimeException("Load not found with ID: " + id);
+        Load load = loadRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Load not found with ID: " + id));
+        
+        // Check if load has trips
+        if (load.getTrips() != null && !load.getTrips().isEmpty()) {
+            throw new RuntimeException("Cannot delete load with trips. Remove all trips first.");
         }
+        
         loadRepository.deleteById(id);
         log.info("Deleted load with ID: {}", id);
     }
@@ -362,6 +373,10 @@ public List<LoadResponseDTO> getLoadsByStatus(String status) {
      */
     @Transactional(readOnly = true)
     public Load findMergeCandidate(Long customerId, LocalDateTime loadingDate) {
+        if (customerId == null || loadingDate == null) {
+            return null;
+        }
+        
         LocalDate date = loadingDate.toLocalDate();
         LocalDateTime startOfDay = date.atStartOfDay();
         LocalDateTime endOfDay = date.atTime(23, 59, 59);
@@ -377,10 +392,13 @@ public List<LoadResponseDTO> getLoadsByStatus(String status) {
 
     /**
      * Suggest merging trips that could be combined into one load
-     * loadId is String, check for null or empty
      */
     @Transactional(readOnly = true)
     public List<Trip> findMergeableTrips(Long customerId, LocalDateTime plannedDate) {
+        if (customerId == null || plannedDate == null) {
+            return new ArrayList<>();
+        }
+        
         LocalDate date = plannedDate.toLocalDate();
         LocalDateTime startOfDay = date.atStartOfDay();
         LocalDateTime endOfDay = date.atTime(23, 59, 59);
@@ -388,14 +406,25 @@ public List<LoadResponseDTO> getLoadsByStatus(String status) {
         List<Trip> allTrips = tripRepository.findByCustomerId(customerId, Pageable.unpaged())
                 .getContent();
         
-        // Filter for trips without load and within date range
-        // loadId is String, check for null or empty
         return allTrips.stream()
                 .filter(t -> t.getLoadId() == null || t.getLoadId().isEmpty())
                 .filter(t -> t.getPlannedStartDate() != null)
                 .filter(t -> !t.getPlannedStartDate().isBefore(startOfDay) && 
                            !t.getPlannedStartDate().isAfter(endOfDay))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Find mergeable trips and return as DTOs
+     */
+    @Transactional(readOnly = true)
+    public List<TripSummaryDTO> findMergeableTripsDTO(Long customerId, LocalDateTime plannedDate) {
+        List<Trip> trips = findMergeableTrips(customerId, plannedDate);
+        List<TripSummaryDTO> result = new ArrayList<>();
+        for (Trip trip : trips) {
+            result.add(createTripSummaryDTO(trip));
+        }
+        return result;
     }
 
     /**
@@ -424,18 +453,21 @@ public List<LoadResponseDTO> getLoadsByStatus(String status) {
         Customer customer = customerRepository.findById(customerId)
             .orElseThrow(() -> new RuntimeException("Customer not found"));
 
-        LoadRequestDTO loadRequest = new LoadRequestDTO();
-        loadRequest.setCustomerId(customerId);
-        loadRequest.setLoadingDate(plannedDate);
-        loadRequest.setDescription("Auto-merged load for " + customer.getName() + 
-            " - " + plannedDate.toLocalDate());
-        loadRequest.setTripIds(mergeableTrips.stream()
-            .map(Trip::getId)
-            .collect(Collectors.toList()));
+        LoadRequestDTO loadRequest = LoadRequestDTO.builder()
+            .customerId(customerId)
+            .loadingDate(plannedDate)
+            .description("Auto-merged load for " + customer.getName() + 
+                " - " + plannedDate.toLocalDate())
+            .tripIds(mergeableTrips.stream()
+                .map(Trip::getId)
+                .collect(Collectors.toList()))
+            .build();
 
         if (!mergeableTrips.isEmpty()) {
             Trip firstTrip = mergeableTrips.get(0);
             loadRequest.setCommodityType(firstTrip.getCommodityType());
+            loadRequest.setOriginLocation(firstTrip.getOriginLocation());
+            loadRequest.setDestinationLocation(firstTrip.getDestinationLocation());
         }
 
         LoadResponseDTO response = createLoad(loadRequest, userId);
@@ -483,6 +515,17 @@ public List<LoadResponseDTO> getLoadsByStatus(String status) {
                 .reduce((first, second) -> second)
                 .ifPresent(t -> load.setUnloadingDate(t.getPlannedEndDate()));
 
+        // Set origin/destination from trips
+        load.getTrips().stream()
+                .filter(t -> t.getOriginLocation() != null)
+                .findFirst()
+                .ifPresent(t -> load.setOriginLocation(t.getOriginLocation()));
+        
+        load.getTrips().stream()
+                .filter(t -> t.getDestinationLocation() != null)
+                .findFirst()
+                .ifPresent(t -> load.setDestinationLocation(t.getDestinationLocation()));
+
         // Update status based on trips
         boolean allCompleted = load.getTrips().stream()
                 .allMatch(t -> t.getStatus() == TripStatus.COMPLETED);
@@ -502,7 +545,6 @@ public List<LoadResponseDTO> getLoadsByStatus(String status) {
 
     /**
      * Helper method to create TripSummaryDTO from a Trip
-     * This avoids lambda expression issues
      */
     private TripSummaryDTO createTripSummaryDTO(Trip trip) {
         String vehicleReg = null;
@@ -523,6 +565,7 @@ public List<LoadResponseDTO> getLoadsByStatus(String status) {
         return TripSummaryDTO.builder()
                 .id(trip.getId())
                 .tripNumber(trip.getTripNumber())
+                .referenceNumber(trip.getReferenceNumber())
                 .status(trip.getStatus())
                 .originLocation(trip.getOriginLocation())
                 .destinationLocation(trip.getDestinationLocation())
@@ -538,99 +581,102 @@ public List<LoadResponseDTO> getLoadsByStatus(String status) {
                 .cargoWeight(trip.getCargoWeight())
                 .palletCount(trip.getPalletCount())
                 .containerNumber(trip.getContainerNumber())
+                .fromDepotKm(trip.getFromDepotKm())
+                .toDepotKm(trip.getToDepotKm())
+                .customerId(trip.getCustomerId())
                 .build();
     }
 
     /**
      * Map Load entity to LoadResponseDTO
-     * Uses helper method to avoid lambda issues
      */
-   private LoadResponseDTO mapToResponseDTO(Load load) {
-    String customerName = null;
-    if (load.getCustomerId() != null) {
-        Customer customer = customerRepository.findById(load.getCustomerId()).orElse(null);
-        if (customer != null) {
-            customerName = customer.getName();
+    private LoadResponseDTO mapToResponseDTO(Load load) {
+        String customerName = null;
+        if (load.getCustomerId() != null) {
+            Customer customer = customerRepository.findById(load.getCustomerId()).orElse(null);
+            if (customer != null) {
+                customerName = customer.getName();
+            }
         }
-    }
 
-    List<TripSummaryDTO> tripSummaries = new ArrayList<>();
-    if (load.getTrips() != null && !load.getTrips().isEmpty()) {
-        for (Trip trip : load.getTrips()) {
-            tripSummaries.add(createTripSummaryDTO(trip));
+        List<TripSummaryDTO> tripSummaries = new ArrayList<>();
+        if (load.getTrips() != null && !load.getTrips().isEmpty()) {
+            for (Trip trip : load.getTrips()) {
+                tripSummaries.add(createTripSummaryDTO(trip));
+            }
         }
-    }
 
-    return LoadResponseDTO.builder()
-            .id(load.getId())
-            .loadNumber(load.getLoadNumber())
-            .referenceNumber(load.getReferenceNumber())  // ← ADD THIS
-            .description(load.getDescription())
-            .customerId(load.getCustomerId())
-            .customerName(customerName)
-            .weightKg(load.getWeightKg())
-            .volumeCubicM(load.getVolumeCubicM())
-            .loadingDate(load.getLoadingDate())
-            .unloadingDate(load.getUnloadingDate())
-            .status(load.getStatus() != null ? load.getStatus().name() : null)
-            .commodityType(load.getCommodityType())
-            .palletCount(load.getPalletCount())
-            .containerNumber(load.getContainerNumber())
-            .hazardousMaterial(load.getHazardousMaterial())
-            .specialHandling(load.getSpecialHandling())
-            .estimatedValue(load.getEstimatedValue())
-            .actualValue(load.getActualValue())
-            .priority(load.getPriority())
-            .tripCount(load.getTrips() != null ? load.getTrips().size() : 0)
-            .trips(tripSummaries)
-            .createdAt(load.getCreatedAt())
-            .updatedAt(load.getUpdatedAt())
-            
-            // New fields
-            .originLocation(load.getOriginLocation())
-            .destinationLocation(load.getDestinationLocation())
-            .handlingInstructions(load.getHandlingInstructions())
-            .packagingType(load.getPackagingType())
-            .hazardClass(load.getHazardClass())
-            .temperatureRequirements(load.getTemperatureRequirements())
-            
-            .preferredVehicleId(load.getPreferredVehicleId())
-            .preferredDriverId(load.getPreferredDriverId())
-            
-            .tripsCount(load.getTripsCount())
-            .totalDistanceKm(load.getTotalDistanceKm())
-            .totalHoursActive(load.getTotalHoursActive())
-            .incidentsLogged(load.getIncidentsLogged())
-            .completedTrips(load.getCompletedTrips())
-            .pendingTrips(load.getTrips() != null ? 
-                (int) load.getTrips().stream()
-                    .filter(t -> t.getStatus() != null && t.getStatus().name().equals("PLANNED"))
-                    .count() : 0)
-            .inProgressTrips(load.getTrips() != null ? 
-                (int) load.getTrips().stream()
-                    .filter(t -> t.getStatus() != null && t.getStatus().name().equals("IN_PROGRESS"))
-                    .count() : 0)
-            
-            .insurancePolicyNumber(load.getInsurancePolicyNumber())
-            .insuranceExpiry(load.getInsuranceExpiry())
-            .customsClearanceStatus(load.getCustomsClearanceStatus())
-            
-            .warehouseId(load.getWarehouseId())
-            .supervisorId(load.getSupervisorId())
-            
-            .lastStatusUpdate(load.getLastStatusUpdate())
-            .auditTrail(load.getAuditTrail())
-            
-            .totalFromDepotKm(load.getTotalFromDepotKm())
-            .totalToDepotKm(load.getTotalToDepotKm())
-            .totalDepotKm(load.getTotalDepotKm())
-            
-            .totalWeight(load.getTotalWeight())
-            .totalValue(load.getTotalValue())
-            .statusDisplay(load.getStatusDisplay())
-            .isActive(load.isActive())
-            .canAcceptTrip(load.canAcceptTrip())
-            
-            .mergeSuggestion(false)
-            .build();
+        return LoadResponseDTO.builder()
+                .id(load.getId())
+                .loadNumber(load.getLoadNumber())
+                .referenceNumber(load.getReferenceNumber())
+                .description(load.getDescription())
+                .customerId(load.getCustomerId())
+                .customerName(customerName)
+                .weightKg(load.getWeightKg())
+                .volumeCubicM(load.getVolumeCubicM())
+                .loadingDate(load.getLoadingDate())
+                .unloadingDate(load.getUnloadingDate())
+                .status(load.getStatus() != null ? load.getStatus().name() : null)
+                .commodityType(load.getCommodityType())
+                .palletCount(load.getPalletCount())
+                .containerNumber(load.getContainerNumber())
+                .hazardousMaterial(load.getHazardousMaterial())
+                .specialHandling(load.getSpecialHandling())
+                .estimatedValue(load.getEstimatedValue())
+                .actualValue(load.getActualValue())
+                .priority(load.getPriority())
+                .tripCount(load.getTrips() != null ? load.getTrips().size() : 0)
+                .trips(tripSummaries)
+                .createdAt(load.getCreatedAt())
+                .updatedAt(load.getUpdatedAt())
+                
+                // New fields
+                .originLocation(load.getOriginLocation())
+                .destinationLocation(load.getDestinationLocation())
+                .handlingInstructions(load.getHandlingInstructions())
+                .packagingType(load.getPackagingType())
+                .hazardClass(load.getHazardClass())
+                .temperatureRequirements(load.getTemperatureRequirements())
+                
+                .preferredVehicleId(load.getPreferredVehicleId())
+                .preferredDriverId(load.getPreferredDriverId())
+                
+                .tripsCount(load.getTripsCount())
+                .totalDistanceKm(load.getTotalDistanceKm())
+                .totalHoursActive(load.getTotalHoursActive())
+                .incidentsLogged(load.getIncidentsLogged())
+                .completedTrips(load.getCompletedTrips())
+                .pendingTrips(load.getTrips() != null ? 
+                    (int) load.getTrips().stream()
+                        .filter(t -> t.getStatus() != null && t.getStatus().name().equals("PLANNED"))
+                        .count() : 0)
+                .inProgressTrips(load.getTrips() != null ? 
+                    (int) load.getTrips().stream()
+                        .filter(t -> t.getStatus() != null && t.getStatus().name().equals("IN_PROGRESS"))
+                        .count() : 0)
+                
+                .insurancePolicyNumber(load.getInsurancePolicyNumber())
+                .insuranceExpiry(load.getInsuranceExpiry())
+                .customsClearanceStatus(load.getCustomsClearanceStatus())
+                
+                .warehouseId(load.getWarehouseId())
+                .supervisorId(load.getSupervisorId())
+                
+                .lastStatusUpdate(load.getLastStatusUpdate())
+                .auditTrail(load.getAuditTrail())
+                
+                .totalFromDepotKm(load.getTotalFromDepotKm())
+                .totalToDepotKm(load.getTotalToDepotKm())
+                .totalDepotKm(load.getTotalDepotKm())
+                
+                .totalWeight(load.getTotalWeight())
+                .totalValue(load.getTotalValue())
+                .statusDisplay(load.getStatusDisplay())
+                .isActive(load.isActive())
+                .canAcceptTrip(load.canAcceptTrip())
+                
+                .mergeSuggestion(false)
+                .build();
+    }
 }
