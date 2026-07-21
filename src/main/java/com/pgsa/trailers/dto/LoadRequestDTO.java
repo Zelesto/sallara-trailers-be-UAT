@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -16,6 +17,7 @@ import java.util.List;
 @AllArgsConstructor
 public class LoadRequestDTO {
     private String loadNumber;
+    private String referenceNumber; 
     private String description;
     private Long customerId;
     private BigDecimal weightKg;
@@ -32,4 +34,19 @@ public class LoadRequestDTO {
     private BigDecimal actualValue;
     private String priority;
     private List<Long> tripIds;  // Trips to add to this load
+
+
+    private String originLocation;
+    private String destinationLocation;
+    private String handlingInstructions;
+    private String packagingType;
+    private String hazardClass;
+    private String temperatureRequirements;
+    private Long preferredVehicleId;
+    private Long preferredDriverId;
+    private String insurancePolicyNumber;
+    private LocalDate insuranceExpiry;
+    private String customsClearanceStatus;
+    private Long warehouseId;
+    private Long supervisorId;
 }
