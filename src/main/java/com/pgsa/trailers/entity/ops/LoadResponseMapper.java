@@ -1,4 +1,4 @@
-package com.pgsa.trailers.entity;
+package com.pgsa.trailers.entity.ops;
 
 import com.pgsa.trailers.dto.LoadResponseDTO;
 import com.pgsa.trailers.dto.TripSummaryDTO;
