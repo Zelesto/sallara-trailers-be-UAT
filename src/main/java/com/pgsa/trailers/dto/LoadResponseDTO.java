@@ -52,12 +52,7 @@ public class LoadResponseDTO {
     private String hazardClass;
     private String temperatureRequirements;
     
-    // Preferred Resources (for load grouping)
-    private Long preferredVehicleId;
-    private String preferredVehicleRegistration;
-    private Long preferredDriverId;
-    private String preferredDriverName;
-    
+
     // Statistics
     private Integer tripsCount;
     private Integer totalDistanceKm;
