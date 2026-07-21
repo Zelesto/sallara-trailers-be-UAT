@@ -12,10 +12,10 @@ import com.pgsa.trailers.repository.FuelSlipRepository;
 import com.pgsa.trailers.repository.DriverRepository;
 import com.pgsa.trailers.repository.VehicleRepository;
 import com.pgsa.trailers.repository.FuelSourceRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import com.pgsa.trailers.enums.VehicleStatus;
 
 import java.math.BigDecimal;
@@ -188,12 +188,6 @@ public class FuelSlipService {
                 manualVehicle.setMake("MANUAL_ENTRY");
                 manualVehicle.setModel("UNKNOWN");
 
-                //Map<String, Object> auditMap = new HashMap<>();
-                //auditMap.put("createdBy", "fuel_slip_service");
-                //auditMap.put("note", "Manual entry for fuel slip");
-                //auditMap.put("createdAt", LocalDateTime.now().toString());
-                //manualVehicle.setAuditTrail(auditMap);
-
                 manualVehicle.setStatus(VehicleStatus.ACTIVE);
                 manualVehicle.setCreatedAt(LocalDateTime.now());
                 manualVehicle.setUpdatedAt(LocalDateTime.now());
@@ -309,7 +303,11 @@ public class FuelSlipService {
         }
     }
 
-    // Rest of the methods...
+    // ============================================================
+    // FIXED: Added @Transactional(readOnly = true) to all read methods
+    // ============================================================
+
+    @Transactional(readOnly = true)
     public List<FuelSlipDTO> getFuelSlipsForPeriod(LocalDate start, LocalDate end) {
         LocalDateTime startDateTime = start.atStartOfDay();
         LocalDateTime endDateTime = end.atTime(23, 59, 59);
@@ -319,52 +317,59 @@ public class FuelSlipService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public FuelSlipDTO getFuelSlipById(Long id) {
         FuelSlip fuelSlip = fuelSlipRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Fuel slip not found with id: " + id));
         return FuelSlipDTO.fromEntity(fuelSlip);
     }
 
+    @Transactional(readOnly = true)
     public List<FuelSlipDTO> getAllFuelSlips() {
+        log.info("📊 Fetching all fuel slips");
         return fuelSlipRepository.findAll().stream()
                 .map(FuelSlipDTO::fromEntity)
                 .collect(Collectors.toList());
     }
 
-   public List<FuelSlipDTO> getFuelSlipsByTripId(Long tripId) {
-    log.info("🔍 FuelSlipService: Getting fuel slips for trip ID: {}", tripId);
-    List<FuelSlip> slips = fuelSlipRepository.findByTripId(tripId);
-    log.info("📊 Found {} fuel slips for trip {}", slips.size(), tripId);
-    if (slips.isEmpty()) {
-        log.warn("No fuel slips found for trip ID: {}", tripId);
-    } else {
-        for (FuelSlip slip : slips) {
-            log.debug("Slip ID: {}, Trip ID from entity: {}", 
-                slip.getId(), slip.getTripId());
-            if (!tripId.equals(slip.getTripId())) {
-                log.warn("Repository returned slip {} with wrong tripId: {}", 
+    @Transactional(readOnly = true)
+    public List<FuelSlipDTO> getFuelSlipsByTripId(Long tripId) {
+        log.info("🔍 FuelSlipService: Getting fuel slips for trip ID: {}", tripId);
+        List<FuelSlip> slips = fuelSlipRepository.findByTripId(tripId);
+        log.info("📊 Found {} fuel slips for trip {}", slips.size(), tripId);
+        if (slips.isEmpty()) {
+            log.warn("No fuel slips found for trip ID: {}", tripId);
+        } else {
+            for (FuelSlip slip : slips) {
+                log.debug("Slip ID: {}, Trip ID from entity: {}", 
                     slip.getId(), slip.getTripId());
+                if (!tripId.equals(slip.getTripId())) {
+                    log.warn("Repository returned slip {} with wrong tripId: {}", 
+                        slip.getId(), slip.getTripId());
+                }
             }
         }
+        
+        return slips.stream()
+                .map(FuelSlipDTO::fromEntity)
+                .collect(Collectors.toList());
     }
-    
-    return slips.stream()
-            .map(FuelSlipDTO::fromEntity)
-            .collect(Collectors.toList());
-}
 
+    @Transactional(readOnly = true)
     public List<FuelSlipDTO> getFuelSlipsByDriver(Long driverId) {
         return fuelSlipRepository.findByDriverId(driverId).stream()
                 .map(FuelSlipDTO::fromEntity)
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<FuelSlipDTO> getFuelSlipsByVehicle(Long vehicleId) {
         return fuelSlipRepository.findByVehicleId(vehicleId).stream()
                 .map(FuelSlipDTO::fromEntity)
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<FuelSlipDTO> getFuelSlipsByDriverAndVehicle(Long driverId, Long vehicleId) {
         return fuelSlipRepository.findByDriverIdAndVehicleId(driverId, vehicleId).stream()
                 .map(FuelSlipDTO::fromEntity)
@@ -428,6 +433,7 @@ public class FuelSlipService {
         return FuelSlipDTO.fromEntity(updated);
     }
 
+    @Transactional
     public void deleteFuelSlip(Long id) {
         FuelSlip existing = fuelSlipRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Fuel slip not found with id: " + id));
