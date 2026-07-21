@@ -36,6 +36,7 @@ public class LoadService {
     private final TripRepository tripRepository;
     private final CustomerRepository customerRepository;
     private final SequenceService sequenceService;
+    private final JdbcTemplate jdbcTemplate;
 
     // =============================================
     // CREATE
@@ -482,46 +483,92 @@ public List<LoadResponseDTO> getLoadsByStatus(String status) {
      * Map Load entity to LoadResponseDTO
      * Uses helper method to avoid lambda issues
      */
-    private LoadResponseDTO mapToResponseDTO(Load load) {
-        String customerName = null;
-        if (load.getCustomerId() != null) {
-            Customer customer = customerRepository.findById(load.getCustomerId()).orElse(null);
-            if (customer != null) {
-                customerName = customer.getName();
-            }
+   private LoadResponseDTO mapToResponseDTO(Load load) {
+    String customerName = null;
+    if (load.getCustomerId() != null) {
+        Customer customer = customerRepository.findById(load.getCustomerId()).orElse(null);
+        if (customer != null) {
+            customerName = customer.getName();
         }
-
-        List<TripSummaryDTO> tripSummaries = new ArrayList<>();
-        if (load.getTrips() != null && !load.getTrips().isEmpty()) {
-            // Use a regular for loop instead of stream to avoid lambda issues
-            for (Trip trip : load.getTrips()) {
-                tripSummaries.add(createTripSummaryDTO(trip));
-            }
-        }
-
-        return LoadResponseDTO.builder()
-                .id(load.getId())
-                .loadNumber(load.getLoadNumber())
-                .description(load.getDescription())
-                .customerId(load.getCustomerId())
-                .customerName(customerName)
-                .weightKg(load.getWeightKg())
-                .volumeCubicM(load.getVolumeCubicM())
-                .loadingDate(load.getLoadingDate())
-                .unloadingDate(load.getUnloadingDate())
-                .status(load.getStatus() != null ? load.getStatus().name() : null)  // FIX: Convert enum to String
-                .commodityType(load.getCommodityType())
-                .palletCount(load.getPalletCount())
-                .containerNumber(load.getContainerNumber())
-                .hazardousMaterial(load.getHazardousMaterial())
-                .specialHandling(load.getSpecialHandling())
-                .estimatedValue(load.getEstimatedValue())
-                .actualValue(load.getActualValue())
-                .priority(load.getPriority())
-                .tripCount(load.getTrips() != null ? load.getTrips().size() : 0)
-                .trips(tripSummaries)
-                .createdAt(load.getCreatedAt())
-                .updatedAt(load.getUpdatedAt())
-                .build();
     }
+
+    List<TripSummaryDTO> tripSummaries = new ArrayList<>();
+    if (load.getTrips() != null && !load.getTrips().isEmpty()) {
+        for (Trip trip : load.getTrips()) {
+            tripSummaries.add(createTripSummaryDTO(trip));
+        }
+    }
+
+    return LoadResponseDTO.builder()
+            .id(load.getId())
+            .loadNumber(load.getLoadNumber())
+            .referenceNumber(load.getReferenceNumber())  // ← ADD THIS
+            .description(load.getDescription())
+            .customerId(load.getCustomerId())
+            .customerName(customerName)
+            .weightKg(load.getWeightKg())
+            .volumeCubicM(load.getVolumeCubicM())
+            .loadingDate(load.getLoadingDate())
+            .unloadingDate(load.getUnloadingDate())
+            .status(load.getStatus() != null ? load.getStatus().name() : null)
+            .commodityType(load.getCommodityType())
+            .palletCount(load.getPalletCount())
+            .containerNumber(load.getContainerNumber())
+            .hazardousMaterial(load.getHazardousMaterial())
+            .specialHandling(load.getSpecialHandling())
+            .estimatedValue(load.getEstimatedValue())
+            .actualValue(load.getActualValue())
+            .priority(load.getPriority())
+            .tripCount(load.getTrips() != null ? load.getTrips().size() : 0)
+            .trips(tripSummaries)
+            .createdAt(load.getCreatedAt())
+            .updatedAt(load.getUpdatedAt())
+            
+            // New fields
+            .originLocation(load.getOriginLocation())
+            .destinationLocation(load.getDestinationLocation())
+            .handlingInstructions(load.getHandlingInstructions())
+            .packagingType(load.getPackagingType())
+            .hazardClass(load.getHazardClass())
+            .temperatureRequirements(load.getTemperatureRequirements())
+            
+            .preferredVehicleId(load.getPreferredVehicleId())
+            .preferredDriverId(load.getPreferredDriverId())
+            
+            .tripsCount(load.getTripsCount())
+            .totalDistanceKm(load.getTotalDistanceKm())
+            .totalHoursActive(load.getTotalHoursActive())
+            .incidentsLogged(load.getIncidentsLogged())
+            .completedTrips(load.getCompletedTrips())
+            .pendingTrips(load.getTrips() != null ? 
+                (int) load.getTrips().stream()
+                    .filter(t -> t.getStatus() != null && t.getStatus().name().equals("PLANNED"))
+                    .count() : 0)
+            .inProgressTrips(load.getTrips() != null ? 
+                (int) load.getTrips().stream()
+                    .filter(t -> t.getStatus() != null && t.getStatus().name().equals("IN_PROGRESS"))
+                    .count() : 0)
+            
+            .insurancePolicyNumber(load.getInsurancePolicyNumber())
+            .insuranceExpiry(load.getInsuranceExpiry())
+            .customsClearanceStatus(load.getCustomsClearanceStatus())
+            
+            .warehouseId(load.getWarehouseId())
+            .supervisorId(load.getSupervisorId())
+            
+            .lastStatusUpdate(load.getLastStatusUpdate())
+            .auditTrail(load.getAuditTrail())
+            
+            .totalFromDepotKm(load.getTotalFromDepotKm())
+            .totalToDepotKm(load.getTotalToDepotKm())
+            .totalDepotKm(load.getTotalDepotKm())
+            
+            .totalWeight(load.getTotalWeight())
+            .totalValue(load.getTotalValue())
+            .statusDisplay(load.getStatusDisplay())
+            .isActive(load.isActive())
+            .canAcceptTrip(load.canAcceptTrip())
+            
+            .mergeSuggestion(false)
+            .build();
 }
