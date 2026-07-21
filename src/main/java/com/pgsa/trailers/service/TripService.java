@@ -377,6 +377,22 @@ public TripResponse createTrip(CreateTripRequest request, Long userId) {
     log.info("💾 Saving trip to database...");
     Trip saved = tripRepository.save(trip);
 
+
+    // ============================================================
+    // FIX: If this trip is associated with an existing load,
+    // update the load with the trip's ID and save it
+    // ============================================================
+    if (load != null && load.getId() != null) {
+        // This is an existing load - update it with the new trip
+        load.setTripsCount(load.getTrips().size());
+        load.setUpdatedAt(LocalDateTime.now());
+        load.setLastStatusUpdate(LocalDateTime.now());
+        load.recalculateDepotTotals();
+        loadRepository.save(load);
+        log.info("📦 Updated existing load {} with new trip {}", load.getLoadNumber(), saved.getId());
+    }
+
+    
     // ============================================================
     // FIX: Flush the entity manager to ensure the transaction is
     // committed before event listeners try to access the entity
