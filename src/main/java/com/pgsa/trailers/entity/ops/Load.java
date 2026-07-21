@@ -142,14 +142,7 @@ public class Load extends BaseEntity {
     @Column(name = "audit_trail", columnDefinition = "TEXT")
     private String auditTrail;
 
-    /* ========================
-       PREFERRED VEHICLE/DRIVER - FOR LOAD GROUPING
-       ======================== */
-    @Column(name = "preferred_vehicle_id")
-    private Long preferredVehicleId;
 
-    @Column(name = "preferred_driver_id")
-    private Long preferredDriverId;
 
     /* ========================
        DEPOT TRACKING - NEW FIELDS
