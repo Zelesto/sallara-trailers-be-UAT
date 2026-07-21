@@ -42,8 +42,7 @@ public class LoadRequestDTO {
     private String packagingType;
     private String hazardClass;
     private String temperatureRequirements;
-    private Long preferredVehicleId;
-    private Long preferredDriverId;
+
     private String insurancePolicyNumber;
     private LocalDate insuranceExpiry;
     private String customsClearanceStatus;
