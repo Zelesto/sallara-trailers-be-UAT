@@ -108,6 +108,68 @@ public class LoadService {
 
 
     // =============================================
+    // UPDATE STATUS
+    // =============================================
+
+    @Transactional
+public LoadResponseDTO updateLoadStatus(Long id, String status, Long userId) {
+    log.info("Updating load {} status to: {}", id, status);
+    
+    Load load = loadRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Load not found with ID: " + id));
+    
+    LoadStatus newStatus;
+    try {
+        newStatus = LoadStatus.valueOf(status.toUpperCase());
+    } catch (IllegalArgumentException e) {
+        throw new RuntimeException("Invalid status: " + status);
+    }
+    
+    load.setStatus(newStatus);
+    load.setLastStatusUpdate(LocalDateTime.now());
+    load.setUpdatedBy(String.valueOf(userId));
+    
+    Load updated = loadRepository.save(load);
+    log.info("Updated load {} status to: {}", id, status);
+    
+    return mapToResponseDTO(updated);
+}
+
+
+    // =============================================
+    // FIND MERGEABLE TRIPS
+    // =============================================
+
+    @Transactional(readOnly = true)
+public List<TripSummaryDTO> findMergeableTrips(Long customerId, LocalDateTime plannedDate) {
+    log.info("Finding mergeable trips for customer {} on {}", customerId, plannedDate);
+    
+    // Delegate to the existing method
+    List<Trip> trips = findMergeableTrips(customerId, plannedDate);
+    
+    // Convert to DTOs
+    List<TripSummaryDTO> result = new ArrayList<>();
+    for (Trip trip : trips) {
+        result.add(createTripSummaryDTO(trip));
+    }
+    
+    return result;
+}
+    
+
+    // =============================================
+    // FIND MERGEABLE TRIPS
+    // =============================================
+
+    @Transactional(readOnly = true)
+public LoadResponseDTO getLoadByReferenceNumber(String referenceNumber) {
+    Load load = loadRepository.findByReferenceNumber(referenceNumber)
+            .orElseThrow(() -> new RuntimeException("Load not found with reference: " + referenceNumber));
+    return mapToResponseDTO(load);
+}
+    
+
+    // =============================================
     // GENERATE REFERENCE
     // =============================================
 
