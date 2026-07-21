@@ -45,63 +45,96 @@ public class LoadService {
      * Create a new load or suggest merging with existing load
      */
     public LoadResponseDTO createLoad(LoadRequestDTO request, Long userId) {
-        log.info("Creating load for customer: {}, date: {}", request.getCustomerId(), request.getLoadingDate());
+    log.info("Creating load for customer: {}, date: {}", request.getCustomerId(), request.getLoadingDate());
 
-        // Check for existing loads that could be merged
-        if (request.getCustomerId() != null && request.getLoadingDate() != null) {
-            Load existingLoad = findMergeCandidate(request.getCustomerId(), request.getLoadingDate());
-            if (existingLoad != null) {
-                log.info("Found existing load {} that could be merged", existingLoad.getLoadNumber());
-                LoadResponseDTO response = mapToResponseDTO(existingLoad);
-                response.setMergeSuggestion(true);
-                response.setMergeMessage("A load already exists for this customer on " + 
-                    request.getLoadingDate().toLocalDate() + 
-                    ". Would you like to add this trip to the existing load?");
-                return response;
-            }
+    // Check for existing loads that could be merged
+    if (request.getCustomerId() != null && request.getLoadingDate() != null) {
+        Load existingLoad = findMergeCandidate(request.getCustomerId(), request.getLoadingDate());
+        if (existingLoad != null) {
+            log.info("Found existing load {} that could be merged", existingLoad.getLoadNumber());
+            LoadResponseDTO response = mapToResponseDTO(existingLoad);
+            response.setMergeSuggestion(true);
+            response.setMergeMessage("A load already exists for this customer on " + 
+                request.getLoadingDate().toLocalDate() + 
+                ". Would you like to add this trip to the existing load?");
+            return response;
         }
-
-        // Validate customer exists
-        if (request.getCustomerId() != null && !customerRepository.existsById(request.getCustomerId())) {
-            throw new RuntimeException("Customer not found with ID: " + request.getCustomerId());
-        }
-
-        // Generate load number using sequence
-        String loadNumber = sequenceService.generateFormattedSequence("load", "LOAD");
-
-        Load load = Load.builder()
-                .loadNumber(loadNumber)
-                .description(request.getDescription())
-                .customerId(request.getCustomerId())
-                .weightKg(request.getWeightKg())
-                .volumeCubicM(request.getVolumeCubicM())
-                .loadingDate(request.getLoadingDate())
-                .unloadingDate(request.getUnloadingDate())
-                .status(LoadStatus.PENDING)  // FIX: Use enum directly
-                .commodityType(request.getCommodityType())
-                .palletCount(request.getPalletCount())
-                .containerNumber(request.getContainerNumber())
-                .hazardousMaterial(request.getHazardousMaterial())
-                .specialHandling(request.getSpecialHandling())
-                .estimatedValue(request.getEstimatedValue())
-                .actualValue(request.getActualValue())
-                .priority(request.getPriority() != null ? request.getPriority() : "NORMAL")
-                .build();
-
-        // Set createdBy separately
-        load.setCreatedBy(String.valueOf(userId));
-
-        Load saved = loadRepository.save(load);
-        log.info("Created load with ID: {}, Number: {}", saved.getId(), saved.getLoadNumber());
-
-        // If there are trips to add to this load
-        if (request.getTripIds() != null && !request.getTripIds().isEmpty()) {
-            addTripsToLoad(saved.getLoadNumber(), request.getTripIds(), userId);
-        }
-
-        return mapToResponseDTO(saved);
     }
 
+    // Validate customer exists
+    if (request.getCustomerId() != null && !customerRepository.existsById(request.getCustomerId())) {
+        throw new RuntimeException("Customer not found with ID: " + request.getCustomerId());
+    }
+
+    // Generate load number using sequence
+    String loadNumber = sequenceService.generateFormattedSequence("load", "LOAD");
+    
+    // Generate reference number
+    String referenceNumber = generateReferenceNumber();
+
+    Load load = Load.builder()
+            .loadNumber(loadNumber)
+            .referenceNumber(referenceNumber)  // ← ADD THIS
+            .description(request.getDescription())
+            .customerId(request.getCustomerId())
+            .weightKg(request.getWeightKg())
+            .volumeCubicM(request.getVolumeCubicM())
+            .loadingDate(request.getLoadingDate())
+            .unloadingDate(request.getUnloadingDate())
+            .status(LoadStatus.PENDING)
+            .commodityType(request.getCommodityType())
+            .palletCount(request.getPalletCount())
+            .containerNumber(request.getContainerNumber())
+            .hazardousMaterial(request.getHazardousMaterial())
+            .specialHandling(request.getSpecialHandling())
+            .estimatedValue(request.getEstimatedValue())
+            .actualValue(request.getActualValue())
+            .priority(request.getPriority() != null ? request.getPriority() : "NORMAL")
+            .build();
+
+    load.setCreatedBy(String.valueOf(userId));
+
+    Load saved = loadRepository.save(load);
+    log.info("Created load with ID: {}, Number: {}, Reference: {}", 
+        saved.getId(), saved.getLoadNumber(), saved.getReferenceNumber());
+
+    if (request.getTripIds() != null && !request.getTripIds().isEmpty()) {
+        addTripsToLoad(saved.getLoadNumber(), request.getTripIds(), userId);
+    }
+
+    return mapToResponseDTO(saved);
+}
+
+
+    // =============================================
+    // GENERATE REFERENCE
+    // =============================================
+
+    private String generateReferenceNumber() {
+    try {
+        String year = String.valueOf(java.time.Year.now().getValue());
+        String prefix = "REF-" + year + "-";
+        
+        Long nextNumber = jdbcTemplate.queryForObject(
+            "INSERT INTO sequence (table_name, year, next_number, created_at, updated_at) " +
+            "VALUES (?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) " +
+            "ON CONFLICT (table_name, year) DO UPDATE SET next_number = sequence.next_number + 1 " +
+            "RETURNING next_number - 1",
+            new Object[]{"loadref", year},
+            Long.class
+        );
+        
+        String referenceNumber = prefix + String.format("%03d", nextNumber);
+        log.info("✅ Generated load reference number: {}", referenceNumber);
+        return referenceNumber;
+        
+    } catch (Exception e) {
+        log.error("❌ Error generating load reference number: {}", e.getMessage());
+        return "REF-" + System.currentTimeMillis();
+    }
+}
+
+    
     // =============================================
     // READ
     // =============================================
