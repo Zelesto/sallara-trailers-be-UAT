@@ -2,6 +2,7 @@ package com.pgsa.trailers.entity.ops;
 
 import com.pgsa.trailers.dto.LoadResponseDTO;
 import com.pgsa.trailers.dto.TripSummaryDTO;
+import com.pgsa.trailers.entity.assets.Driver; 
 import com.pgsa.trailers.entity.ops.Load;
 import com.pgsa.trailers.entity.ops.Trip;
 import org.springframework.stereotype.Component;
