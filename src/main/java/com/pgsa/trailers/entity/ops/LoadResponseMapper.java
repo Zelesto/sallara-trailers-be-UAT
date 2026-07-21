@@ -52,9 +52,7 @@ public class LoadResponseMapper {
                 .hazardClass(load.getHazardClass())
                 .temperatureRequirements(load.getTemperatureRequirements())
                 
-                // Remove these - they don't exist in Load entity
-                // .preferredVehicleId(load.getPreferredVehicleId())
-                // .preferredDriverId(load.getPreferredDriverId())
+
                 
                 .tripsCount(load.getTripsCount())
                 .totalDistanceKm(load.getTotalDistanceKm())
