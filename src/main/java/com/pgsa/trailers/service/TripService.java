@@ -282,115 +282,122 @@ public class TripService {
             return savedLoad;
         }
     }
+/* ========================
+   CREATE
+   ======================== */
+@Transactional
+public TripResponse createTrip(CreateTripRequest request, Long userId) {
+    log.debug("Creating trip for vehicle: {}, user: {}", request.getVehicleId(), userId);
+    log.info("📝 Creating trip with reference number: {}", request.getReferenceNumber());
 
-    /* ========================
-       CREATE
-       ======================== */
-    @Transactional
-    public TripResponse createTrip(CreateTripRequest request, Long userId) {
-        log.debug("Creating trip for vehicle: {}, user: {}", request.getVehicleId(), userId);
-        log.info("📝 Creating trip with reference number: {}", request.getReferenceNumber());
+    tripValidator.validateCreateRequest(request);
 
-        tripValidator.validateCreateRequest(request);
+    Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
+            .orElseThrow(() -> new TripValidationException(
+                    "Vehicle not found with ID: " + request.getVehicleId()));
 
-        Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
+    Driver driver = null;
+    if (request.getDriverId() != null) {
+        driver = driverRepository.findById(request.getDriverId())
                 .orElseThrow(() -> new TripValidationException(
-                        "Vehicle not found with ID: " + request.getVehicleId()));
-
-        Driver driver = null;
-        if (request.getDriverId() != null) {
-            driver = driverRepository.findById(request.getDriverId())
-                    .orElseThrow(() -> new TripValidationException(
-                            "Driver not found with ID: " + request.getDriverId()));
-        }
-
-        Driver supervisor = null;
-        if (request.getSupervisorId() != null) {
-            supervisor = driverRepository.findById(request.getSupervisorId())
-                    .orElseThrow(() -> new TripValidationException(
-                            "Supervisor not found with ID: " + request.getSupervisorId()));
-        }
-
-        Customer customer = validateAndGetCustomer(request);
-        Long customerId = customer.getId();
-        log.info("✅ Customer validated: {} (ID: {})", customer.getName(), customerId);
-
-        Trip trip = createTripMapper.toEntity(request);
-        log.info("🔍 Trip created by mapper, hash: {}", System.identityHashCode(trip));
-
-        trip.setVehicle(vehicle);
-        trip.setDriver(driver);
-        trip.setSupervisor(supervisor);
-        trip.setCustomerId(customerId);
-
-        if (request.getFromDepotKm() != null) {
-            trip.setFromDepotKm(request.getFromDepotKm());
-        }
-        if (request.getToDepotKm() != null) {
-            trip.setToDepotKm(request.getToDepotKm());
-        }
-        if (request.getDepartedFrom() != null) {
-            trip.setDepartedFrom(request.getDepartedFrom());
-        }
-        if (request.getDepartureLocation() != null) {
-            trip.setDepartureLocation(request.getDepartureLocation());
-        }
-        trip.setIsFromDepot(request.getIsFromDepot() != null ? request.getIsFromDepot() : false);
-
-        Load load = handleLoad(request, customer, trip, userId);
-
-        trip.setStatus(request.getStatus() != null ? request.getStatus() : TripStatus.DRAFT);
-        trip.setCreatedBy(userId);
-        trip.setLastStatusUpdate(LocalDateTime.now());
-
-        log.info("========================================");
-        log.info("🔢 GENERATING TRIP NUMBER");
-        log.info("========================================");
-        
-        String tripNumber = generateTripNumberDirect();
-        trip.setTripNumber(tripNumber);
-        
-        if (trip.getTripNumber() == null || trip.getTripNumber().trim().isEmpty()) {
-            trip.setTripNumber("TRP-EMERG-" + System.currentTimeMillis());
-            log.error("🚨 Emergency trip number set: {}", trip.getTripNumber());
-        }
-        log.info("========================================");
-
-        log.info("🚀 Pre-save validation:");
-        log.info("   - Trip Number: '{}'", trip.getTripNumber());
-        log.info("   - Reference Number: '{}'", trip.getReferenceNumber());
-        log.info("   - Customer ID: {}", trip.getCustomerId());
-        log.info("   - Load ID: {}", trip.getLoadId());
-        
-        if (trip.getTripNumber() == null || trip.getTripNumber().trim().isEmpty()) {
-            throw new TripValidationException("Trip number is null or empty before saving!");
-        }
-        if (trip.getCustomerId() == null) {
-            throw new TripValidationException("Customer ID cannot be null before saving");
-        }
-        if (trip.getReferenceNumber() == null || trip.getReferenceNumber().trim().isEmpty()) {
-            throw new TripValidationException("Reference number cannot be null before saving");
-        }
-
-        log.info("💾 Saving trip to database...");
-        Trip saved = tripRepository.save(trip);
-
-        log.info("✅ Created trip with ID: {}, Number: {}, Reference: {}, Customer: {}, Load: {}",
-                saved.getId(),
-                saved.getTripNumber(),
-                saved.getReferenceNumber(),
-                customer.getName(),
-                load != null ? load.getLoadNumber() : "None"
-        );
-
-        tripMetricsService.initializeMetrics(saved.getId());
-
-        if (saved.getStatus() == TripStatus.PLANNED) {
-            eventPublisher.publishEvent(new TripPlannedEvent(saved.getId()));
-        }
-
-        return tripResponseMapper.toResponse(saved);
+                        "Driver not found with ID: " + request.getDriverId()));
     }
+
+    Driver supervisor = null;
+    if (request.getSupervisorId() != null) {
+        supervisor = driverRepository.findById(request.getSupervisorId())
+                .orElseThrow(() -> new TripValidationException(
+                        "Supervisor not found with ID: " + request.getSupervisorId()));
+    }
+
+    Customer customer = validateAndGetCustomer(request);
+    Long customerId = customer.getId();
+    log.info("✅ Customer validated: {} (ID: {})", customer.getName(), customerId);
+
+    Trip trip = createTripMapper.toEntity(request);
+    log.info("🔍 Trip created by mapper, hash: {}", System.identityHashCode(trip));
+
+    trip.setVehicle(vehicle);
+    trip.setDriver(driver);
+    trip.setSupervisor(supervisor);
+    trip.setCustomerId(customerId);
+
+    if (request.getFromDepotKm() != null) {
+        trip.setFromDepotKm(request.getFromDepotKm());
+    }
+    if (request.getToDepotKm() != null) {
+        trip.setToDepotKm(request.getToDepotKm());
+    }
+    if (request.getDepartedFrom() != null) {
+        trip.setDepartedFrom(request.getDepartedFrom());
+    }
+    if (request.getDepartureLocation() != null) {
+        trip.setDepartureLocation(request.getDepartureLocation());
+    }
+    trip.setIsFromDepot(request.getIsFromDepot() != null ? request.getIsFromDepot() : false);
+
+    Load load = handleLoad(request, customer, trip, userId);
+
+    trip.setStatus(request.getStatus() != null ? request.getStatus() : TripStatus.DRAFT);
+    trip.setCreatedBy(userId);
+    trip.setLastStatusUpdate(LocalDateTime.now());
+
+    log.info("========================================");
+    log.info("🔢 GENERATING TRIP NUMBER");
+    log.info("========================================");
+    
+    String tripNumber = generateTripNumberDirect();
+    trip.setTripNumber(tripNumber);
+    
+    if (trip.getTripNumber() == null || trip.getTripNumber().trim().isEmpty()) {
+        trip.setTripNumber("TRP-EMERG-" + System.currentTimeMillis());
+        log.error("🚨 Emergency trip number set: {}", trip.getTripNumber());
+    }
+    log.info("========================================");
+
+    log.info("🚀 Pre-save validation:");
+    log.info("   - Trip Number: '{}'", trip.getTripNumber());
+    log.info("   - Reference Number: '{}'", trip.getReferenceNumber());
+    log.info("   - Customer ID: {}", trip.getCustomerId());
+    log.info("   - Load ID: {}", trip.getLoadId());
+    
+    if (trip.getTripNumber() == null || trip.getTripNumber().trim().isEmpty()) {
+        throw new TripValidationException("Trip number is null or empty before saving!");
+    }
+    if (trip.getCustomerId() == null) {
+        throw new TripValidationException("Customer ID cannot be null before saving");
+    }
+    if (trip.getReferenceNumber() == null || trip.getReferenceNumber().trim().isEmpty()) {
+        throw new TripValidationException("Reference number cannot be null before saving");
+    }
+
+    log.info("💾 Saving trip to database...");
+    Trip saved = tripRepository.save(trip);
+
+    // ============================================================
+    // FIX: Flush the entity manager to ensure the transaction is
+    // committed before event listeners try to access the entity
+    // ============================================================
+    entityManager.flush();
+
+    log.info("✅ Created trip with ID: {}, Number: {}, Reference: {}, Customer: {}, Load: {}",
+            saved.getId(),
+            saved.getTripNumber(),
+            saved.getReferenceNumber(),
+            customer.getName(),
+            load != null ? load.getLoadNumber() : "None"
+    );
+
+    // Initialize metrics after flush
+    tripMetricsService.initializeMetrics(saved.getId());
+
+    // Publish event after flush
+    if (saved.getStatus() == TripStatus.PLANNED) {
+        eventPublisher.publishEvent(new TripPlannedEvent(saved.getId()));
+    }
+
+    return tripResponseMapper.toResponse(saved);
+}
 
     /* ========================
        START TRIP
