@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import com.pgsa.trailers.entity.suppliers.TripValidationException;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
