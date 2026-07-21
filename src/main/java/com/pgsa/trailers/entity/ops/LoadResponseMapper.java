@@ -105,6 +105,20 @@ public class LoadResponseMapper {
         return response;
     }
 
+    /**
+     * Helper method to get driver full name
+     */
+    private String getDriverFullName(Trip trip) {
+        if (trip.getDriver() == null) {
+            return null;
+        }
+        Driver driver = trip.getDriver();
+        String firstName = driver.getFirstName() != null ? driver.getFirstName() : "";
+        String lastName = driver.getLastName() != null ? driver.getLastName() : "";
+        String fullName = (firstName + " " + lastName).trim();
+        return fullName.isEmpty() ? null : fullName;
+    }
+
     private TripSummaryDTO toTripSummary(Trip trip) {
         if (trip == null) {
             return null;
@@ -116,7 +130,7 @@ public class LoadResponseMapper {
                 .referenceNumber(trip.getReferenceNumber())
                 .status(trip.getStatus())
                 .vehicleRegistration(trip.getVehicle() != null ? trip.getVehicle().getRegistrationNumber() : null)
-                .driverName(trip.getDriver() != null ? trip.getDriver().getName() : null)
+                .driverName(getDriverFullName(trip))  // ← FIXED: Use helper method
                 .plannedStartDate(trip.getPlannedStartDate())
                 .plannedEndDate(trip.getPlannedEndDate())
                 .originLocation(trip.getOriginLocation())
