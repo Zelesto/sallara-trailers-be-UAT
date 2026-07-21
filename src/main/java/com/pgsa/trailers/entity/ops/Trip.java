@@ -7,6 +7,7 @@ import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j; 
 import org.hibernate.annotations.Type;
 import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
@@ -23,6 +24,7 @@ import java.util.Objects;
 @Getter
 @Setter
 @Entity
+        @Slf4j
 @Table(
         name = "trip",
         indexes = {
