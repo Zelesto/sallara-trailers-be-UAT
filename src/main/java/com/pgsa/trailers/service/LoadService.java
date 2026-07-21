@@ -131,8 +131,7 @@ public class LoadService {
                 .packagingType(request.getPackagingType())
                 .hazardClass(request.getHazardClass())
                 .temperatureRequirements(request.getTemperatureRequirements())
-                .preferredVehicleId(request.getPreferredVehicleId())
-                .preferredDriverId(request.getPreferredDriverId())
+
                 .insurancePolicyNumber(request.getInsurancePolicyNumber())
                 .insuranceExpiry(request.getInsuranceExpiry())
                 .customsClearanceStatus(request.getCustomsClearanceStatus())
@@ -263,8 +262,7 @@ public class LoadService {
         load.setPackagingType(request.getPackagingType());
         load.setHazardClass(request.getHazardClass());
         load.setTemperatureRequirements(request.getTemperatureRequirements());
-        load.setPreferredVehicleId(request.getPreferredVehicleId());
-        load.setPreferredDriverId(request.getPreferredDriverId());
+
         load.setInsurancePolicyNumber(request.getInsurancePolicyNumber());
         load.setInsuranceExpiry(request.getInsuranceExpiry());
         load.setCustomsClearanceStatus(request.getCustomsClearanceStatus());
@@ -639,8 +637,6 @@ public class LoadService {
                 .hazardClass(load.getHazardClass())
                 .temperatureRequirements(load.getTemperatureRequirements())
                 
-                .preferredVehicleId(load.getPreferredVehicleId())
-                .preferredDriverId(load.getPreferredDriverId())
                 
                 .tripsCount(load.getTripsCount())
                 .totalDistanceKm(load.getTotalDistanceKm())
