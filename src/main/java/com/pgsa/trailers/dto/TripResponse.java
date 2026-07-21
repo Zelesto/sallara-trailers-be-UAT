@@ -18,7 +18,6 @@ public class TripResponse {
 
     private Long id;
     private String tripNumber;
-    private String referenceNumber; 
     private String tripType;
 
     // ======================== CUSTOMER ========================
