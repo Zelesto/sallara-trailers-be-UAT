@@ -226,6 +226,36 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problemDetail);
     }
 
+
+    @ExceptionHandler(TripValidationException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ResponseEntity<ErrorResponse> handleTripNotFound(TripValidationException ex) {
+        String message = ex.getMessage();
+        
+        // Check if this is a race condition (trip was just created)
+        if (message != null && message.contains("Trip not found with ID")) {
+            // Don't log as error for race conditions - use debug level
+            if (log.isDebugEnabled()) {
+                log.debug("⏳ Trip not found (possibly race condition): {}", message);
+            } else {
+                // Log at info level with less noise
+                log.info("⏳ Trip not found: {}", message);
+            }
+        } else {
+            log.warn("Trip validation error: {}", message);
+        }
+        
+        ErrorResponse errorResponse = new ErrorResponse();
+        errorResponse.setType("about:blank");
+        errorResponse.setTitle("Resource Not Found");
+        errorResponse.setStatus(HttpStatus.NOT_FOUND.value());
+        errorResponse.setDetail(message);
+        errorResponse.setInstance("/api/trips");
+        
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+}
+
     // ========== REQUEST EXCEPTIONS ==========
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
