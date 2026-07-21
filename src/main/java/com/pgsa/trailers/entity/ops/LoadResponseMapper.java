@@ -88,7 +88,21 @@ public class LoadResponseMapper {
                 .isActive(load.isActive())
                 .canAcceptTrip(load.canAcceptTrip())
                 
+                // Merge suggestion fields - default to false/null
+                .mergeSuggestion(false)
+                .mergeMessage(null)
+                
                 .build();
+    }
+
+    /**
+     * Map Load to LoadResponseDTO with merge suggestion
+     */
+    public LoadResponseDTO toResponseWithMergeSuggestion(Load load, boolean mergeSuggestion, String mergeMessage) {
+        LoadResponseDTO response = toResponse(load);
+        response.setMergeSuggestion(mergeSuggestion);
+        response.setMergeMessage(mergeMessage);
+        return response;
     }
 
     private TripSummaryDTO toTripSummary(Trip trip) {
