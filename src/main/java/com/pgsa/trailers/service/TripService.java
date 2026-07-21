@@ -253,12 +253,6 @@ public class TripService {
             newLoad.setTotalToDepotKm(request.getToDepotKm());
         }
         
-        if (request.getVehicleId() != null) {
-            newLoad.setPreferredVehicleId(request.getVehicleId());
-        }
-        if (request.getDriverId() != null) {
-            newLoad.setPreferredDriverId(request.getDriverId());
-        }
         
         newLoad.setTrips(new ArrayList<>());
         newLoad.getTrips().add(trip);
