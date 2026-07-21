@@ -7,7 +7,7 @@ import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import lombok.extern.slf4j.Slf4j; 
+import lombok.extern.slf4j.Slf4j;
 import org.hibernate.annotations.Type;
 import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
@@ -24,7 +24,7 @@ import java.util.Objects;
 @Getter
 @Setter
 @Entity
-        @Slf4j
+@Slf4j
 @Table(
         name = "trip",
         indexes = {
@@ -488,32 +488,35 @@ public class Trip {
        ======================== */
 
     @PrePersist
-protected void onCreate() {
-    if (status == null) {
-        status = TripStatus.PLANNED;
+    protected void onCreate() {
+        // Set default values
+        if (status == null) {
+            status = TripStatus.PLANNED;
+        }
+        if (incidentsLogged == null) {
+            incidentsLogged = 0;
+        }
+        if (lastStatusUpdate == null) {
+            lastStatusUpdate = LocalDateTime.now();
+        }
+        if (isActive == null) {
+            isActive = true;
+        }
+        if (isFromDepot == null) {
+            isFromDepot = false;
+        }
+        
+        // Emergency: If tripNumber is null, generate a fallback
+        // This should never happen as TripService generates it, but just in case
+        if (tripNumber == null || tripNumber.trim().isEmpty()) {
+            log.warn("🚨 TRIP NUMBER IS NULL IN @PrePersist! Generating emergency fallback.");
+            this.tripNumber = "TRP-EMERG-" + System.currentTimeMillis();
+        }
+        
+        // Update location components
+        updateOriginLocationFromComponents();
+        updateDestinationLocationFromComponents();
     }
-    if (incidentsLogged == null) {
-        incidentsLogged = 0;
-    }
-    if (lastStatusUpdate == null) {
-        lastStatusUpdate = LocalDateTime.now();
-    }
-    if (isActive == null) {
-        isActive = true;
-    }
-    if (isFromDepot == null) {
-        isFromDepot = false;
-    }
-    
-    // Emergency: If tripNumber is null, generate a fallback
-    if (tripNumber == null || tripNumber.trim().isEmpty()) {
-        log.warn("🚨 TRIP NUMBER IS NULL IN @PrePersist! Generating emergency fallback.");
-        this.tripNumber = "TRP-EMERG-" + System.currentTimeMillis();
-    }
-    
-    updateOriginLocationFromComponents();
-    updateDestinationLocationFromComponents();
-}
 
     @PreUpdate
     protected void onUpdate() {
