@@ -97,18 +97,7 @@ public interface LoadRepository extends JpaRepository<Load, Long> {
     List<Load> findByCustomerIdAndStatus(@Param("customerId") Long customerId, 
                                          @Param("status") LoadStatus status);
     
-    // ======================== PREFERRED VEHICLE/DRIVER ========================
-    
-    @Query("SELECT l FROM Load l WHERE l.preferredVehicleId = :vehicleId")
-    List<Load> findByPreferredVehicleId(@Param("vehicleId") Long vehicleId);
-    
-    @Query("SELECT l FROM Load l WHERE l.preferredDriverId = :driverId")
-    List<Load> findByPreferredDriverId(@Param("driverId") Long driverId);
-    
-    @Query("SELECT l FROM Load l WHERE l.preferredVehicleId = :vehicleId AND l.status IN :statuses")
-    List<Load> findByPreferredVehicleIdAndStatusIn(@Param("vehicleId") Long vehicleId,
-                                                    @Param("statuses") List<LoadStatus> statuses);
-    
+        
     // ======================== COUNT QUERIES ========================
     
     @Query("SELECT COUNT(l) FROM Load l WHERE l.status = :status")
