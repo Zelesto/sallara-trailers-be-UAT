@@ -16,7 +16,7 @@ public class TripNumberGenerator {
     private final SequenceService sequenceService;
     private static final String TABLE_NAME = "trip";
     private static final String PREFIX = "TRP";
-    private static final int PADDING = 3;
+    private static final int PADDING = 6;
 
     @PostConstruct
     public void init() {
