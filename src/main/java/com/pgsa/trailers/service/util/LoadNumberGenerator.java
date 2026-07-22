@@ -16,7 +16,7 @@ public class LoadNumberGenerator {
     private final SequenceService sequenceService;
     private static final String TABLE_NAME = "load";
     private static final String PREFIX = "LOAD";
-    private static final int PADDING = 3;
+    private static final int PADDING = 6;
 
     @PostConstruct
     public void init() {
