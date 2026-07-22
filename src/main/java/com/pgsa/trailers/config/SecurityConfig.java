@@ -84,7 +84,7 @@ public class SecurityConfig {
             "http://localhost:5173",
             "https://api.openrouteservice.org*",
             "https://sallara-trailers-fe-uat.onrender.com",
-            "https://sallara-trailers-fe-uat.onrender.com*",
+            "https://sallara-trailers-fe-uat.onrender.com*"
         ));
 
         config.setAllowedMethods(List.of(
