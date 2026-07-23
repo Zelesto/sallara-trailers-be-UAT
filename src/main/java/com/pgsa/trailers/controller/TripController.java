@@ -66,48 +66,74 @@ public class TripController {
     // ============================================================
     // FIX: Updated listTrips to handle status parameter
     // ============================================================
-    @GetMapping
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER', 'DRIVER')")
-    public ResponseEntity<Page<TripResponse>> listTrips(
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String search,
-            @RequestParam(required = false) Long customerId,
-            @RequestParam(required = false) String city,
-            Pageable pageable
-    ) {
-        log.debug("Listing trips with status: {}, search: {}, customerId: {}, city: {}, pageable: {}", 
-            status, search, customerId, city, pageable);
+   @GetMapping
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER', 'DRIVER')")
+public ResponseEntity<Page<TripResponse>> listTrips(
+        @RequestParam(required = false) String status,
+        @RequestParam(required = false) String search,
+        @RequestParam(required = false) Long customerId,
+        @RequestParam(required = false) String city,
+        @RequestParam(required = false) String customer,
+        @RequestParam(required = false) String sortBy,
+        @RequestParam(required = false) String sortOrder,
+        Pageable pageable
+) {
+    log.debug("Listing trips with status: {}, search: {}, customerId: {}, city: {}, customer: {}, pageable: {}", 
+        status, search, customerId, city, customer, pageable);
+    
+    try {
+        // Create a custom Pageable with sorting if needed
+        Pageable effectivePageable = pageable;
         
-        try {
-            // Handle search
-            if (search != null && !search.trim().isEmpty()) {
-                return ResponseEntity.ok(tripService.searchTrips(search.trim(), pageable));
+        // If sortBy is provided, apply custom sorting
+        if (sortBy != null && !sortBy.isEmpty()) {
+            Sort.Direction direction = Sort.Direction.DESC;
+            if (sortOrder != null && sortOrder.equalsIgnoreCase("ASC")) {
+                direction = Sort.Direction.ASC;
             }
-            
-            // Handle customer filter
-            if (customerId != null) {
-                return ResponseEntity.ok(tripService.getTripsByCustomerPaginated(customerId, pageable));
-            }
-            
-            // Handle status filter (including comma-separated multiple statuses)
-            if (status != null && !status.trim().isEmpty()) {
-                List<TripStatus> statuses = parseStatuses(status);
-                if (!statuses.isEmpty()) {
-                    Page<Trip> trips = tripRepository.findByStatusIn(statuses, pageable);
-                    return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
-                }
-            }
-            
-            // Return all trips
-            return ResponseEntity.ok(tripService.listTrips(pageable));
-            
-        } catch (Exception e) {
-            log.error("Error listing trips: {}", e.getMessage(), e);
-            // Return empty page instead of throwing
-            Page<Trip> emptyPage = Page.empty(pageable);
-            return ResponseEntity.ok(emptyPage.map(tripResponseMapper::toResponse));
+            effectivePageable = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(direction, sortBy)
+            );
         }
+        
+        // Handle search
+        if (search != null && !search.trim().isEmpty()) {
+            return ResponseEntity.ok(tripService.searchTrips(search.trim(), effectivePageable));
+        }
+        
+        // Handle customer filter (by ID)
+        if (customerId != null) {
+            return ResponseEntity.ok(tripService.getTripsByCustomerPaginated(customerId, effectivePageable));
+        }
+        
+        // Handle customer filter (by name) - using the customer param from frontend
+        if (customer != null && !customer.trim().isEmpty()) {
+            // You might need to add this method to TripService
+            // return ResponseEntity.ok(tripService.searchTripsByCustomerName(customer.trim(), effectivePageable));
+            // For now, use the search as a workaround
+            return ResponseEntity.ok(tripService.searchTrips(customer.trim(), effectivePageable));
+        }
+        
+        // Handle status filter (including comma-separated multiple statuses)
+        if (status != null && !status.trim().isEmpty()) {
+            List<TripStatus> statuses = parseStatuses(status);
+            if (!statuses.isEmpty()) {
+                Page<Trip> trips = tripRepository.findByStatusIn(statuses, effectivePageable);
+                return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
+            }
+        }
+        
+        // Return all trips
+        return ResponseEntity.ok(tripService.listTrips(effectivePageable));
+        
+    } catch (Exception e) {
+        log.error("Error listing trips: {}", e.getMessage(), e);
+        // Return empty page instead of throwing
+        return ResponseEntity.ok(Page.empty(pageable));
     }
+}
 
     // ============================================================
     // FIX: Updated getTripsWithoutLoad to handle status
