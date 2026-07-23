@@ -1,32 +1,29 @@
 package com.pgsa.trailers.controller;
 
 import com.pgsa.trailers.dto.*;
-import com.pgsa.trailers.entity.ops.Trip;  // ADD THIS IMPORT
-import com.pgsa.trailers.entity.ops.TripResponseMapper;  // ADD THIS IMPORT
+import com.pgsa.trailers.entity.ops.Trip;
+import com.pgsa.trailers.entity.ops.TripResponseMapper;
 import com.pgsa.trailers.entity.security.AppUser;
 import com.pgsa.trailers.enums.TripStatus;
 import com.pgsa.trailers.repository.AppUserRepository;
-import com.pgsa.trailers.repository.TripRepository;  // ADD THIS IMPORT
+import com.pgsa.trailers.repository.TripRepository;
 import com.pgsa.trailers.service.TripService;
 import com.pgsa.trailers.service.TripFinalisationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import com.pgsa.trailers.dto.UpdateTripRequest;
 
 import jakarta.validation.Valid;
+import java.util.ArrayList;
 import java.util.List;
-
-
-import org.springframework.data.domain.PageRequest;
-
-import org.springframework.data.domain.Sort;
 
 @RestController
 @RequestMapping("/api/trips")
@@ -37,8 +34,8 @@ public class TripController {
     private final TripService tripService;
     private final TripFinalisationService tripFinalisationService;
     private final AppUserRepository appUserRepository;
-    private final TripRepository tripRepository;  // ADD THIS
-    private final TripResponseMapper tripResponseMapper;  // ADD THIS
+    private final TripRepository tripRepository;
+    private final TripResponseMapper tripResponseMapper;
 
     /* ========================
        CREATE
@@ -66,17 +63,71 @@ public class TripController {
         return ResponseEntity.ok(tripService.getTrip(id));
     }
 
+    // ============================================================
+    // FIX: Updated listTrips to handle status parameter
+    // ============================================================
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER', 'DRIVER')")
-    public ResponseEntity<Page<TripResponse>> listTrips(Pageable pageable) {
-        log.debug("Listing trips with pageable: {}", pageable);
-        return ResponseEntity.ok(tripService.listTrips(pageable));
+    public ResponseEntity<Page<TripResponse>> listTrips(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Long customerId,
+            @RequestParam(required = false) String city,
+            Pageable pageable
+    ) {
+        log.debug("Listing trips with status: {}, search: {}, customerId: {}, city: {}, pageable: {}", 
+            status, search, customerId, city, pageable);
+        
+        try {
+            // Handle search
+            if (search != null && !search.trim().isEmpty()) {
+                return ResponseEntity.ok(tripService.searchTrips(search.trim(), pageable));
+            }
+            
+            // Handle customer filter
+            if (customerId != null) {
+                return ResponseEntity.ok(tripService.getTripsByCustomerPaginated(customerId, pageable));
+            }
+            
+            // Handle status filter (including comma-separated multiple statuses)
+            if (status != null && !status.trim().isEmpty()) {
+                List<TripStatus> statuses = parseStatuses(status);
+                if (!statuses.isEmpty()) {
+                    Page<Trip> trips = tripRepository.findByStatusIn(statuses, pageable);
+                    return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
+                }
+            }
+            
+            // Return all trips
+            return ResponseEntity.ok(tripService.listTrips(pageable));
+            
+        } catch (Exception e) {
+            log.error("Error listing trips: {}", e.getMessage(), e);
+            // Return empty page instead of throwing
+            Page<Trip> emptyPage = Page.empty(pageable);
+            return ResponseEntity.ok(emptyPage.map(tripResponseMapper::toResponse));
+        }
     }
 
+    // ============================================================
+    // FIX: Updated getTripsWithoutLoad to handle status
+    // ============================================================
     @GetMapping("/without-load")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
-    public ResponseEntity<Page<TripResponse>> getTripsWithoutLoad(Pageable pageable) {
-        log.info("Fetching trips without load assigned");
+    public ResponseEntity<Page<TripResponse>> getTripsWithoutLoad(
+            @RequestParam(required = false) String status,
+            Pageable pageable
+    ) {
+        log.info("Fetching trips without load assigned, status: {}", status);
+        
+        // Handle status filter
+        if (status != null && !status.trim().isEmpty()) {
+            List<TripStatus> statuses = parseStatuses(status);
+            if (!statuses.isEmpty()) {
+                Page<Trip> trips = tripRepository.findByLoadIdIsNullAndStatusIn(statuses, pageable);
+                return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
+            }
+        }
         
         Page<Trip> trips = tripRepository.findByLoadIdIsNull(pageable);
         Page<TripResponse> responses = trips.map(tripResponseMapper::toResponse);
@@ -211,41 +262,39 @@ public class TripController {
         tripService.deleteTrip(id);
         log.debug("Trip and associated metrics deleted for id: {}", id);
     }
+
     /* ========================
        SEARCH
        ======================== */
-
     @GetMapping("/trips/search")
-public ResponseEntity<Page<TripResponse>> searchTrips(
-        @RequestParam(required = false) String searchTerm,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size,
-        @RequestParam(required = false) TripStatus status,
-        @RequestParam(required = false) String city,
-        @RequestParam(required = false) String customer) {
-    
-    Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
-    
-    // If filters are provided, use filtered search
-    if (status != null || city != null || customer != null) {
-        return ResponseEntity.ok(
-            tripService.searchTripsWithFilters(searchTerm, status, city, customer, pageable)
-        );
+    public ResponseEntity<Page<TripResponse>> searchTrips(
+            @RequestParam(required = false) String searchTerm,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) TripStatus status,
+            @RequestParam(required = false) String city,
+            @RequestParam(required = false) String customer) {
+        
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
+        
+        if (status != null || city != null || customer != null) {
+            return ResponseEntity.ok(
+                tripService.searchTripsWithFilters(searchTerm, status, city, customer, pageable)
+            );
+        }
+        
+        return ResponseEntity.ok(tripService.searchTrips(searchTerm, pageable));
     }
-    
-    // Otherwise, use simple search
-    return ResponseEntity.ok(tripService.searchTrips(searchTerm, pageable));
-}
 
-@GetMapping("/trips/active")
-public ResponseEntity<List<TripResponse>> getActiveTrips() {
-    return ResponseEntity.ok(tripService.getActiveTrips());
-}
+    @GetMapping("/trips/active")
+    public ResponseEntity<List<TripResponse>> getActiveTrips() {
+        return ResponseEntity.ok(tripService.getActiveTrips());
+    }
 
-@GetMapping("/trips/running")
-public ResponseEntity<List<TripResponse>> getCurrentlyRunningTrips() {
-    return ResponseEntity.ok(tripService.getCurrentlyRunningTrips());
-}
+    @GetMapping("/trips/running")
+    public ResponseEntity<List<TripResponse>> getCurrentlyRunningTrips() {
+        return ResponseEntity.ok(tripService.getCurrentlyRunningTrips());
+    }
     
     /* ========================
        HELPER METHODS
@@ -254,5 +303,25 @@ public ResponseEntity<List<TripResponse>> getCurrentlyRunningTrips() {
         String email = authentication.getName();
         return appUserRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
+    }
+
+    /**
+     * Parse comma-separated status string into list of TripStatus enums
+     */
+    private List<TripStatus> parseStatuses(String status) {
+        List<TripStatus> statuses = new ArrayList<>();
+        if (status == null || status.trim().isEmpty()) {
+            return statuses;
+        }
+        
+        String[] statusArray = status.split(",");
+        for (String s : statusArray) {
+            try {
+                statuses.add(TripStatus.valueOf(s.trim().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid status value: {}, skipping", s);
+            }
+        }
+        return statuses;
     }
 }
