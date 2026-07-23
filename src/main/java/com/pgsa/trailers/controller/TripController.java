@@ -86,47 +86,67 @@ public ResponseEntity<Page<TripResponse>> listTrips(
     log.info("   pageable: {}", pageable);
     log.info("   pageNumber: {}", pageable.getPageNumber());
     log.info("   pageSize: {}", pageable.getPageSize());
-    log.info("   sort: {}", pageable.getSort());
     log.info("========================================");
     
     try {
-        Page<Trip> trips;
+        Page<Trip> trips = null;
         
-        // Handle search
+        // ============================================================
+        // FIX: Handle each filter case separately with proper pagination
+        // ============================================================
+        
+        // 1. Handle search (most specific)
         if (search != null && !search.trim().isEmpty()) {
             log.info("🔍 Searching trips with: {}", search);
             trips = tripRepository.searchTrips(search.trim(), pageable);
-            log.info("✅ Search returned: {} results", trips.getTotalElements());
-            return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
+            log.info("✅ Search returned: {} results", trips != null ? trips.getTotalElements() : 0);
         }
-        
-        // Handle customer filter
-        if (customerId != null) {
+        // 2. Handle customer ID filter
+        else if (customerId != null) {
             log.info("👤 Filtering by customerId: {}", customerId);
             trips = tripRepository.findByCustomerId(customerId, pageable);
-            log.info("✅ Customer filter returned: {} results", trips.getTotalElements());
-            return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
+            log.info("✅ Customer filter returned: {} results", trips != null ? trips.getTotalElements() : 0);
         }
-        
-        // Handle status filter
-        if (status != null && !status.trim().isEmpty()) {
+        // 3. Handle status filter
+        else if (status != null && !status.trim().isEmpty()) {
             log.info("🏷️ Filtering by status: {}", status);
             List<TripStatus> statuses = parseStatuses(status);
             if (!statuses.isEmpty()) {
                 trips = tripRepository.findByStatusIn(statuses, pageable);
-                log.info("✅ Status filter returned: {} results", trips.getTotalElements());
-                return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
+                log.info("✅ Status filter returned: {} results", trips != null ? trips.getTotalElements() : 0);
+            } else {
+                // Invalid statuses - return empty page
+                log.warn("⚠️ No valid statuses found in: {}", status);
+                trips = Page.empty(pageable);
             }
         }
+        // 4. No filters - return all trips
+        else {
+            log.info("📋 Returning all trips");
+            trips = tripRepository.findAll(pageable);
+            log.info("✅ All trips returned: {} results", trips != null ? trips.getTotalElements() : 0);
+        }
         
-        // Return all trips
-        log.info("📋 Returning all trips");
-        trips = tripRepository.findAll(pageable);
-        log.info("✅ All trips returned: {} results", trips.getTotalElements());
+        // Safety check - if trips is null, return empty page
+        if (trips == null) {
+            log.warn("⚠️ Trips is null, returning empty page");
+            trips = Page.empty(pageable);
+        }
+        
+        // Log the actual content
+        if (trips.hasContent()) {
+            log.info("📄 Content size: {}", trips.getContent().size());
+            log.info("📄 Total elements: {}", trips.getTotalElements());
+            log.info("📄 Total pages: {}", trips.getTotalPages());
+        } else {
+            log.warn("⚠️ No content found for page {}", pageable.getPageNumber());
+        }
+        
         return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
         
     } catch (Exception e) {
         log.error("❌ Error listing trips: {}", e.getMessage(), e);
+        // Return empty page on error
         return ResponseEntity.ok(Page.empty(pageable));
     }
 }
