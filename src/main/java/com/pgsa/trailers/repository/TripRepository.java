@@ -27,19 +27,26 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     List<Trip> findByStatusOrderByIdDesc(TripStatus status);
     
     Page<Trip> findByStatus(TripStatus status, Pageable pageable);
-
-    /**
-     * Find trips with multiple statuses
+/**
+     * Find trips with multiple statuses with pagination
      */
-    Page<Trip> findByStatusIn(List<TripStatus> statuses, Pageable pageable);
+    @Query("SELECT t FROM Trip t WHERE t.status IN :statuses")
+    Page<Trip> findByStatusIn(@Param("statuses") List<TripStatus> statuses, Pageable pageable);
     
     /**
      * Find trips with multiple statuses (no pagination)
      */
-    List<Trip> findByStatusIn(List<TripStatus> statuses);
+    @Query("SELECT t FROM Trip t WHERE t.status IN :statuses")
+    List<Trip> findTripsByStatusIn(@Param("statuses") List<TripStatus> statuses);
     
     /**
-     * Find trips without load with multiple statuses
+     * Find trips with multiple statuses, sorted by ID descending
+     */
+    @Query("SELECT t FROM Trip t WHERE t.status IN :statuses ORDER BY t.id DESC")
+    List<Trip> findTripsByStatusInOrderByIdDesc(@Param("statuses") List<TripStatus> statuses);
+    
+    /**
+     * Find trips without load with multiple statuses and pagination
      */
     @Query("SELECT t FROM Trip t WHERE (t.loadId IS NULL OR t.loadId = '') AND t.status IN :statuses")
     Page<Trip> findByLoadIdIsNullAndStatusIn(@Param("statuses") List<TripStatus> statuses, Pageable pageable);
