@@ -74,63 +74,59 @@ public ResponseEntity<Page<TripResponse>> listTrips(
         @RequestParam(required = false) Long customerId,
         @RequestParam(required = false) String city,
         @RequestParam(required = false) String customer,
-        @RequestParam(required = false) String sortBy,
-        @RequestParam(required = false) String sortOrder,
         Pageable pageable
 ) {
-    log.debug("Listing trips with status: {}, search: {}, customerId: {}, city: {}, customer: {}, pageable: {}", 
-        status, search, customerId, city, customer, pageable);
+    log.info("========================================");
+    log.info("📊 listTrips called with:");
+    log.info("   status: {}", status);
+    log.info("   search: {}", search);
+    log.info("   customerId: {}", customerId);
+    log.info("   city: {}", city);
+    log.info("   customer: {}", customer);
+    log.info("   pageable: {}", pageable);
+    log.info("   pageNumber: {}", pageable.getPageNumber());
+    log.info("   pageSize: {}", pageable.getPageSize());
+    log.info("   sort: {}", pageable.getSort());
+    log.info("========================================");
     
     try {
-        // Create a custom Pageable with sorting if needed
-        Pageable effectivePageable = pageable;
-        
-        // If sortBy is provided, apply custom sorting
-        if (sortBy != null && !sortBy.isEmpty()) {
-            Sort.Direction direction = Sort.Direction.DESC;
-            if (sortOrder != null && sortOrder.equalsIgnoreCase("ASC")) {
-                direction = Sort.Direction.ASC;
-            }
-            effectivePageable = PageRequest.of(
-                pageable.getPageNumber(),
-                pageable.getPageSize(),
-                Sort.by(direction, sortBy)
-            );
-        }
+        Page<Trip> trips;
         
         // Handle search
         if (search != null && !search.trim().isEmpty()) {
-            return ResponseEntity.ok(tripService.searchTrips(search.trim(), effectivePageable));
+            log.info("🔍 Searching trips with: {}", search);
+            trips = tripRepository.searchTrips(search.trim(), pageable);
+            log.info("✅ Search returned: {} results", trips.getTotalElements());
+            return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
         }
         
-        // Handle customer filter (by ID)
+        // Handle customer filter
         if (customerId != null) {
-            return ResponseEntity.ok(tripService.getTripsByCustomerPaginated(customerId, effectivePageable));
+            log.info("👤 Filtering by customerId: {}", customerId);
+            trips = tripRepository.findByCustomerId(customerId, pageable);
+            log.info("✅ Customer filter returned: {} results", trips.getTotalElements());
+            return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
         }
         
-        // Handle customer filter (by name) - using the customer param from frontend
-        if (customer != null && !customer.trim().isEmpty()) {
-            // You might need to add this method to TripService
-            // return ResponseEntity.ok(tripService.searchTripsByCustomerName(customer.trim(), effectivePageable));
-            // For now, use the search as a workaround
-            return ResponseEntity.ok(tripService.searchTrips(customer.trim(), effectivePageable));
-        }
-        
-        // Handle status filter (including comma-separated multiple statuses)
+        // Handle status filter
         if (status != null && !status.trim().isEmpty()) {
+            log.info("🏷️ Filtering by status: {}", status);
             List<TripStatus> statuses = parseStatuses(status);
             if (!statuses.isEmpty()) {
-                Page<Trip> trips = tripRepository.findByStatusIn(statuses, effectivePageable);
+                trips = tripRepository.findByStatusIn(statuses, pageable);
+                log.info("✅ Status filter returned: {} results", trips.getTotalElements());
                 return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
             }
         }
         
         // Return all trips
-        return ResponseEntity.ok(tripService.listTrips(effectivePageable));
+        log.info("📋 Returning all trips");
+        trips = tripRepository.findAll(pageable);
+        log.info("✅ All trips returned: {} results", trips.getTotalElements());
+        return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
         
     } catch (Exception e) {
-        log.error("Error listing trips: {}", e.getMessage(), e);
-        // Return empty page instead of throwing
+        log.error("❌ Error listing trips: {}", e.getMessage(), e);
         return ResponseEntity.ok(Page.empty(pageable));
     }
 }
