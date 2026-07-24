@@ -477,18 +477,18 @@ public TripResponse createTrip(CreateTripRequest request, Long userId) {
     /* ========================
        READ
        ======================== */
-    @Transactional(readOnly = true)
-    public TripResponse getTrip(Long id) {
-        Trip trip = findTripOrThrow(id);
-        return tripResponseMapper.toResponse(trip);
-    }
+   @Transactional(readOnly = true)
+public TripResponse getTrip(Long id) {
+    Trip trip = tripRepository.findByIdWithAllRelations(id)
+            .orElseThrow(() -> new TripValidationException("Trip not found with ID: " + id));
+    return tripResponseMapper.toResponse(trip);
+}
 
-    @Transactional(readOnly = true)
-    public Page<TripResponse> listTrips(Pageable pageable) {
-        return tripRepository.findAll(pageable)
-                .map(tripResponseMapper::toResponse);
-    }
-
+   @Transactional(readOnly = true)
+public Page<TripResponse> listTrips(Pageable pageable) {
+    return tripRepository.findAllWithCustomer(pageable)
+            .map(tripResponseMapper::toResponse);
+}
     @Transactional(readOnly = true)
     public List<TripResponse> getTripsByCustomer(Long customerId) {
         if (!customerRepository.existsById(customerId)) {
@@ -778,17 +778,17 @@ public TripResponse createTrip(CreateTripRequest request, Long userId) {
        ======================== */
 
     @Transactional(readOnly = true)
-    public Page<TripResponse> searchTrips(String searchTerm, Pageable pageable) {
-        log.debug("Searching trips with term: {}", searchTerm);
-        
-        if (searchTerm == null || searchTerm.trim().isEmpty()) {
-            return tripRepository.findAllOrderByIdDesc(pageable)
-                    .map(tripResponseMapper::toResponse);
-        }
-        
-        return tripRepository.searchTrips(searchTerm.trim(), pageable)
+public Page<TripResponse> searchTrips(String searchTerm, Pageable pageable) {
+    log.debug("Searching trips with term: {}", searchTerm);
+    
+    if (searchTerm == null || searchTerm.trim().isEmpty()) {
+        return tripRepository.findAllWithCustomer(pageable)
                 .map(tripResponseMapper::toResponse);
     }
+    
+    return tripRepository.searchTripsWithCustomer(searchTerm.trim(), pageable)
+            .map(tripResponseMapper::toResponse);
+}
 
     @Transactional(readOnly = true)
     public Page<TripResponse> searchTripsWithFilters(
