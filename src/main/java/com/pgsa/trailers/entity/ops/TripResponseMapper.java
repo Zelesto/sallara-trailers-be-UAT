@@ -212,7 +212,7 @@ public class TripResponseMapper {
         // ======================== OPERATIONS ========================
         response.setIncidentsLogged(trip.getIncidentsLogged());
         response.setCancellationReason(trip.getCancellationReason());
-        response.setIsActive(trip.getIsActive());
+        //response.setIsActive(trip.getIsActive());
         response.setLastStatusUpdate(trip.getLastStatusUpdate());
 
         // ======================== METRICS ========================
