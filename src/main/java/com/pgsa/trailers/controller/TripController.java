@@ -1,3 +1,5 @@
+// src/main/java/com/pgsa/trailers/controller/TripController.java
+
 package com.pgsa.trailers.controller;
 
 import com.pgsa.trailers.dto.*;
@@ -118,52 +120,6 @@ public class TripController {
         }
     }
 
-    /**
-     * Raw trip data endpoint for testing
-     */
-    @GetMapping("/debug/all")
-    public ResponseEntity<Map<String, Object>> debugAllTrips(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
-    ) {
-        log.info("🐛 Debug all trips - page: {}, size: {}", page, size);
-        try {
-            Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
-            Page<Trip> trips = tripRepository.findAll(pageable);
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("page", page);
-            response.put("size", size);
-            response.put("totalElements", trips.getTotalElements());
-            response.put("totalPages", trips.getTotalPages());
-            response.put("hasContent", trips.hasContent());
-            response.put("contentSize", trips.getContent().size());
-            
-            if (trips.hasContent()) {
-                List<Map<String, Object>> tripList = new ArrayList<>();
-                for (Trip trip : trips.getContent()) {
-                    Map<String, Object> tripInfo = new HashMap<>();
-                    tripInfo.put("id", trip.getId());
-                    tripInfo.put("tripNumber", trip.getTripNumber());
-                    tripInfo.put("status", trip.getStatus());
-                    tripInfo.put("customerId", trip.getCustomerId());
-                    tripInfo.put("originCity", trip.getOriginCity());
-                    tripInfo.put("destinationCity", trip.getDestinationCity());
-                    tripInfo.put("createdAt", trip.getCreatedAt());
-                    tripList.add(tripInfo);
-                }
-                response.put("trips", tripList);
-            }
-            
-            return ResponseEntity.ok(response);
-            
-        } catch (Exception e) {
-            log.error("❌ Debug all trips failed: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", e.getMessage()));
-        }
-    }
-
     /* ========================
        CREATE
        ======================== */
@@ -191,7 +147,7 @@ public class TripController {
     }
 
     /* ========================
-       LIST TRIPS - MAIN ENDPOINT
+       LIST TRIPS - MAIN ENDPOINT - FIXED
        ======================== */
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER', 'DRIVER')")
@@ -282,7 +238,7 @@ public class TripController {
             }
             
             // 6. No filters - Return all trips
-            log.info("📋 Returning all trips");
+            log.info("📋 Returning all trips (no filters)");
             trips = tripRepository.findAll(pageable);
             log.info("✅ Returned: {} of {} total trips", 
                 trips.getContent().size(), trips.getTotalElements());
@@ -518,7 +474,7 @@ public class TripController {
         }
         
         String[] statusArray = status.split(",");
-        for (String s : statusArray) {
+        for (String s in statusArray) {
             try {
                 statuses.add(TripStatus.valueOf(s.trim().toUpperCase()));
             } catch (IllegalArgumentException e) {
