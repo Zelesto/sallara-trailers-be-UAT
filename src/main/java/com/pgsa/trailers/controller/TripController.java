@@ -23,7 +23,9 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/trips")
@@ -36,6 +38,131 @@ public class TripController {
     private final AppUserRepository appUserRepository;
     private final TripRepository tripRepository;
     private final TripResponseMapper tripResponseMapper;
+
+    /* ========================
+       HEALTH CHECK ENDPOINTS
+       ======================== */
+
+    /**
+     * Health check endpoint to verify database connection
+     */
+    @GetMapping("/health")
+    public ResponseEntity<Map<String, Object>> healthCheck() {
+        log.info("🏥 Health check requested");
+        try {
+            long count = tripRepository.count();
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", "UP");
+            response.put("tripCount", count);
+            response.put("database", "Connected");
+            response.put("timestamp", java.time.LocalDateTime.now().toString());
+            log.info("✅ Health check: {} trips found", count);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("❌ Health check failed: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of(
+                    "status", "DOWN",
+                    "error", e.getMessage(),
+                    "timestamp", java.time.LocalDateTime.now().toString()
+                ));
+        }
+    }
+
+    /**
+     * Debug endpoint to check trip data
+     */
+    @GetMapping("/debug")
+    public ResponseEntity<Map<String, Object>> debugTrips() {
+        log.info("🐛 Debug endpoint called");
+        try {
+            long totalCount = tripRepository.count();
+            log.info("📊 Total trips in database: {}", totalCount);
+            
+            // Get sample trips
+            List<Trip> sampleTrips = tripRepository.findAll(PageRequest.of(0, 5)).getContent();
+            
+            // Get status breakdown
+            List<Object[]> statusCount = tripRepository.countByStatusGrouped();
+            Map<String, Long> statusBreakdown = new HashMap<>();
+            for (Object[] row : statusCount) {
+                String status = row[0] != null ? row[0].toString() : "NULL";
+                Long count = (Long) row[1];
+                statusBreakdown.put(status, count);
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("totalTrips", totalCount);
+            response.put("statusBreakdown", statusBreakdown);
+            response.put("sampleTrips", sampleTrips.stream()
+                .map(t -> {
+                    Map<String, Object> tripInfo = new HashMap<>();
+                    tripInfo.put("id", t.getId());
+                    tripInfo.put("tripNumber", t.getTripNumber());
+                    tripInfo.put("status", t.getStatus());
+                    tripInfo.put("customerId", t.getCustomerId());
+                    tripInfo.put("vehicleId", t.getVehicle() != null ? t.getVehicle().getId() : null);
+                    tripInfo.put("driverId", t.getDriver() != null ? t.getDriver().getId() : null);
+                    tripInfo.put("createdAt", t.getCreatedAt());
+                    return tripInfo;
+                })
+                .toList());
+            
+            log.info("✅ Debug data: {} trips, {} statuses", totalCount, statusBreakdown.size());
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("❌ Debug endpoint failed: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Raw trip data endpoint for testing
+     */
+    @GetMapping("/debug/all")
+    public ResponseEntity<Map<String, Object>> debugAllTrips(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        log.info("🐛 Debug all trips - page: {}, size: {}", page, size);
+        try {
+            Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
+            Page<Trip> trips = tripRepository.findAll(pageable);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("page", page);
+            response.put("size", size);
+            response.put("totalElements", trips.getTotalElements());
+            response.put("totalPages", trips.getTotalPages());
+            response.put("hasContent", trips.hasContent());
+            response.put("contentSize", trips.getContent().size());
+            
+            if (trips.hasContent()) {
+                List<Map<String, Object>> tripList = new ArrayList<>();
+                for (Trip trip : trips.getContent()) {
+                    Map<String, Object> tripInfo = new HashMap<>();
+                    tripInfo.put("id", trip.getId());
+                    tripInfo.put("tripNumber", trip.getTripNumber());
+                    tripInfo.put("status", trip.getStatus());
+                    tripInfo.put("customerId", trip.getCustomerId());
+                    tripInfo.put("originCity", trip.getOriginCity());
+                    tripInfo.put("destinationCity", trip.getDestinationCity());
+                    tripInfo.put("createdAt", trip.getCreatedAt());
+                    tripList.add(tripInfo);
+                }
+                response.put("trips", tripList);
+            }
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("❌ Debug all trips failed: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", e.getMessage()));
+        }
+    }
 
     /* ========================
        CREATE
@@ -63,133 +190,146 @@ public class TripController {
         return ResponseEntity.ok(tripService.getTrip(id));
     }
 
-    // ============================================================
-    // FIX: Updated listTrips to handle status parameter
-    // ============================================================
-   @GetMapping
-@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER', 'DRIVER')")
-public ResponseEntity<Page<TripResponse>> listTrips(
-        @RequestParam(required = false) String status,
-        @RequestParam(required = false) String search,
-        @RequestParam(required = false) Long customerId,
-        @RequestParam(required = false) String city,
-        @RequestParam(required = false) String customer,
-        Pageable pageable
-) {
-    log.info("========================================");
-    log.info("📊 listTrips called with:");
-    log.info("   status: {}", status);
-    log.info("   search: {}", search);
-    log.info("   customerId: {}", customerId);
-    log.info("   city: {}", city);
-    log.info("   customer: {}", customer);
-    log.info("   pageable: {}", pageable);
-    log.info("========================================");
-    
-    try {
-        // ============================================================
-        // FIX: If no filters are applied, return all trips
-        // ============================================================
-        if (status == null && search == null && customerId == null && city == null && customer == null) {
-            log.info("📋 No filters - returning all trips");
-            Page<Trip> trips = tripRepository.findAll(pageable);
-            log.info("✅ Found {} total trips", trips.getTotalElements());
+    /* ========================
+       LIST TRIPS - MAIN ENDPOINT
+       ======================== */
+    @GetMapping
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER', 'DRIVER')")
+    public ResponseEntity<Page<TripResponse>> listTrips(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Long customerId,
+            @RequestParam(required = false) String city,
+            @RequestParam(required = false) String customer,
+            Pageable pageable
+    ) {
+        log.info("========================================");
+        log.info("📊 listTrips called");
+        log.info("   Status: {}", status);
+        log.info("   Search: {}", search);
+        log.info("   CustomerId: {}", customerId);
+        log.info("   City: {}", city);
+        log.info("   Customer: {}", customer);
+        log.info("   Page: {}", pageable.getPageNumber());
+        log.info("   Size: {}", pageable.getPageSize());
+        log.info("   Sort: {}", pageable.getSort());
+        log.info("========================================");
+        
+        try {
+            // First, check if we have any trips
+            long totalTrips = tripRepository.count();
+            log.info("📊 Total trips in database: {}", totalTrips);
             
-            if (trips.getTotalElements() == 0) {
-                log.warn("⚠️ No trips found in database! Check if trips exist.");
-            }
-            
-            return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
-        }
-        
-        // ============================================================
-        // Handle each filter case
-        // ============================================================
-        
-        // 1. Handle search
-        if (search != null && !search.trim().isEmpty()) {
-            log.info("🔍 Searching trips with: {}", search);
-            Page<Trip> trips = tripRepository.searchTrips(search.trim(), pageable);
-            log.info("✅ Search returned: {} total elements", trips.getTotalElements());
-            return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
-        }
-        
-        // 2. Handle customer ID filter
-        if (customerId != null) {
-            log.info("👤 Filtering by customerId: {}", customerId);
-            Page<Trip> trips = tripRepository.findByCustomerId(customerId, pageable);
-            log.info("✅ Customer filter returned: {} total elements", trips.getTotalElements());
-            return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
-        }
-        
-        // 3. Handle status filter
-        if (status != null && !status.trim().isEmpty()) {
-            log.info("🏷️ Filtering by status: {}", status);
-            List<TripStatus> statuses = parseStatuses(status);
-            if (!statuses.isEmpty()) {
-                Page<Trip> trips = tripRepository.findByStatusIn(statuses, pageable);
-                log.info("✅ Status filter returned: {} total elements", trips.getTotalElements());
-                return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
-            } else {
-                log.warn("⚠️ No valid statuses found, returning empty page");
+            if (totalTrips == 0) {
+                log.warn("⚠️ No trips found in database!");
                 return ResponseEntity.ok(Page.empty(pageable));
             }
-        }
-        
-        // 4. Handle city filter
-        if (city != null && !city.trim().isEmpty()) {
-            log.info("🏙️ Filtering by city: {}", city);
-            // You might need to add this method to TripRepository
-            // For now, use a workaround with search
-            Page<Trip> trips = tripRepository.searchTrips(city.trim(), pageable);
-            log.info("✅ City filter returned: {} total elements", trips.getTotalElements());
+            
+            Page<Trip> trips;
+            
+            // ============================================================
+            // Handle each filter case
+            // ============================================================
+            
+            // 1. Search filter
+            if (search != null && !search.trim().isEmpty()) {
+                log.info("🔍 Searching trips with: {}", search);
+                trips = tripRepository.searchTrips(search.trim(), pageable);
+                log.info("✅ Search returned: {} of {} total trips", 
+                    trips.getContent().size(), trips.getTotalElements());
+                return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
+            }
+            
+            // 2. Customer ID filter
+            if (customerId != null) {
+                log.info("👤 Filtering by customerId: {}", customerId);
+                trips = tripRepository.findByCustomerId(customerId, pageable);
+                log.info("✅ Customer filter returned: {} of {} total trips", 
+                    trips.getContent().size(), trips.getTotalElements());
+                return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
+            }
+            
+            // 3. Status filter
+            if (status != null && !status.trim().isEmpty()) {
+                log.info("🏷️ Filtering by status: {}", status);
+                List<TripStatus> statuses = parseStatuses(status);
+                if (statuses.isEmpty()) {
+                    log.warn("⚠️ No valid statuses found in: {}", status);
+                    return ResponseEntity.ok(Page.empty(pageable));
+                }
+                trips = tripRepository.findByStatusIn(statuses, pageable);
+                log.info("✅ Status filter returned: {} of {} total trips", 
+                    trips.getContent().size(), trips.getTotalElements());
+                return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
+            }
+            
+            // 4. City filter
+            if (city != null && !city.trim().isEmpty()) {
+                log.info("🏙️ Filtering by city: {}", city);
+                trips = tripRepository.findByOriginCityOrDestinationCity(city, pageable);
+                log.info("✅ City filter returned: {} of {} total trips", 
+                    trips.getContent().size(), trips.getTotalElements());
+                return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
+            }
+            
+            // 5. Customer name filter
+            if (customer != null && !customer.trim().isEmpty()) {
+                log.info("👤 Filtering by customer name: {}", customer);
+                trips = tripRepository.findByCustomerNameContaining(customer, pageable);
+                log.info("✅ Customer name filter returned: {} of {} total trips", 
+                    trips.getContent().size(), trips.getTotalElements());
+                return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
+            }
+            
+            // 6. No filters - Return all trips
+            log.info("📋 Returning all trips");
+            trips = tripRepository.findAll(pageable);
+            log.info("✅ Returned: {} of {} total trips", 
+                trips.getContent().size(), trips.getTotalElements());
+            
+            log.info("📄 Page {} of {} (total: {} items)", 
+                pageable.getPageNumber() + 1, 
+                trips.getTotalPages(), 
+                trips.getTotalElements());
+            
             return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
+            
+        } catch (Exception e) {
+            log.error("❌ Error listing trips: {}", e.getMessage(), e);
+            // Return empty page on error
+            return ResponseEntity.ok(Page.empty(pageable));
         }
-        
-        // 5. Handle customer name filter
-        if (customer != null && !customer.trim().isEmpty()) {
-            log.info("👤 Filtering by customer name: {}", customer);
-            Page<Trip> trips = tripRepository.searchTrips(customer.trim(), pageable);
-            log.info("✅ Customer name filter returned: {} total elements", trips.getTotalElements());
-            return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
-        }
-        
-        // Fallback - all trips
-        log.info("📋 Fallback - returning all trips");
-        Page<Trip> trips = tripRepository.findAll(pageable);
-        log.info("✅ Found {} total trips", trips.getTotalElements());
-        return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
-        
-    } catch (Exception e) {
-        log.error("❌ Error listing trips: {}", e.getMessage(), e);
-        // Return empty page with error details in log
-        return ResponseEntity.ok(Page.empty(pageable));
     }
-}
 
-    // ============================================================
-    // FIX: Updated getTripsWithoutLoad to handle status
-    // ============================================================
+    /* ========================
+       GET TRIPS WITHOUT LOAD
+       ======================== */
     @GetMapping("/without-load")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
     public ResponseEntity<Page<TripResponse>> getTripsWithoutLoad(
             @RequestParam(required = false) String status,
             Pageable pageable
     ) {
-        log.info("Fetching trips without load assigned, status: {}", status);
+        log.info("📋 Fetching trips without load assigned, status: {}", status);
         
-        // Handle status filter
-        if (status != null && !status.trim().isEmpty()) {
-            List<TripStatus> statuses = parseStatuses(status);
-            if (!statuses.isEmpty()) {
-                Page<Trip> trips = tripRepository.findByLoadIdIsNullAndStatusIn(statuses, pageable);
-                return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
+        try {
+            if (status != null && !status.trim().isEmpty()) {
+                List<TripStatus> statuses = parseStatuses(status);
+                if (!statuses.isEmpty()) {
+                    Page<Trip> trips = tripRepository.findByLoadIdIsNullAndStatusIn(statuses, pageable);
+                    log.info("✅ Found {} trips without load with status filter", trips.getTotalElements());
+                    return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
+                }
             }
+            
+            Page<Trip> trips = tripRepository.findByLoadIdIsNull(pageable);
+            log.info("✅ Found {} trips without load", trips.getTotalElements());
+            return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
+            
+        } catch (Exception e) {
+            log.error("❌ Error fetching trips without load: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Page.empty(pageable));
         }
-        
-        Page<Trip> trips = tripRepository.findByLoadIdIsNull(pageable);
-        Page<TripResponse> responses = trips.map(tripResponseMapper::toResponse);
-        return ResponseEntity.ok(responses);
     }
     
     /* ========================
@@ -246,7 +386,7 @@ public ResponseEntity<Page<TripResponse>> listTrips(
     }
 
     /* ========================
-       UPDATE
+       UPDATE TRIP
        ======================== */
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER')")
@@ -310,7 +450,7 @@ public ResponseEntity<Page<TripResponse>> listTrips(
     }
 
     /* ========================
-       DELETE
+       DELETE TRIP
        ======================== */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
@@ -322,9 +462,9 @@ public ResponseEntity<Page<TripResponse>> listTrips(
     }
 
     /* ========================
-       SEARCH
+       SEARCH ENDPOINTS
        ======================== */
-    @GetMapping("/trips/search")
+    @GetMapping("/search")
     public ResponseEntity<Page<TripResponse>> searchTrips(
             @RequestParam(required = false) String searchTerm,
             @RequestParam(defaultValue = "0") int page,
@@ -332,6 +472,9 @@ public ResponseEntity<Page<TripResponse>> listTrips(
             @RequestParam(required = false) TripStatus status,
             @RequestParam(required = false) String city,
             @RequestParam(required = false) String customer) {
+        
+        log.info("🔍 Search trips - term: {}, status: {}, city: {}, customer: {}", 
+            searchTerm, status, city, customer);
         
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
         
@@ -344,13 +487,15 @@ public ResponseEntity<Page<TripResponse>> listTrips(
         return ResponseEntity.ok(tripService.searchTrips(searchTerm, pageable));
     }
 
-    @GetMapping("/trips/active")
+    @GetMapping("/active")
     public ResponseEntity<List<TripResponse>> getActiveTrips() {
+        log.info("📋 Fetching active trips");
         return ResponseEntity.ok(tripService.getActiveTrips());
     }
 
-    @GetMapping("/trips/running")
+    @GetMapping("/running")
     public ResponseEntity<List<TripResponse>> getCurrentlyRunningTrips() {
+        log.info("📋 Fetching currently running trips");
         return ResponseEntity.ok(tripService.getCurrentlyRunningTrips());
     }
     
