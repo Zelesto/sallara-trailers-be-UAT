@@ -7,7 +7,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Data
 @Builder
@@ -49,11 +48,6 @@ public class TripMetricsResponse {
 
     private Boolean finalized;
     private String finalizedAt;
-    
-    // ======================== AUDIT FIELDS ========================
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-    private LocalDateTime calculatedAt;
 
     /**
      * Convert TripMetrics entity to DTO
@@ -88,8 +82,6 @@ public class TripMetricsResponse {
                 .geocodingConfidenceScore(metrics.getGeocodingConfidenceScore())
                 .finalized(metrics.isFinalized())
                 .finalizedAt(metrics.getFinalizedAt() != null ? metrics.getFinalizedAt().toString() : null)
-                .createdAt(metrics.getCreatedAt())  // <-- ADD THIS
-                .updatedAt(metrics.getUpdatedAt())  // <-- ADD THIS
                 .build();
     }
 
