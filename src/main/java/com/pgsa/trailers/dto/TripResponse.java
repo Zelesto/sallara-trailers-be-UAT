@@ -135,6 +135,13 @@ public class TripResponse {
     private Long updatedBy;
     private LocalDateTime lastStatusUpdate;
 
+    // ======================== DEPOT TRACKING ========================
+    private BigDecimal fromDepotKm;      // ← ADD THIS
+    private BigDecimal toDepotKm;        // ← ADD THIS
+    private String departedFrom;         // ← ADD THIS
+    private String departureLocation;    // ← ADD THIS
+    private Boolean isFromDepot;         // ← ADD THIS
+
     // ======================== METRICS ========================
     private TripMetricsResponse metrics;
 }
