@@ -5,6 +5,9 @@ import com.pgsa.trailers.dto.TripResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
 @Component
 @Slf4j
 public class TripResponseMapper {
