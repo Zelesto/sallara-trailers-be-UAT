@@ -136,11 +136,17 @@ public class TripResponse {
     private LocalDateTime lastStatusUpdate;
 
     // ======================== DEPOT TRACKING ========================
-    private BigDecimal fromDepotKm;      // ← ADD THIS
-    private BigDecimal toDepotKm;        // ← ADD THIS
-    private String departedFrom;         // ← ADD THIS
-    private String departureLocation;    // ← ADD THIS
-    private Boolean isFromDepot;         // ← ADD THIS
+    @Builder.Default
+    private BigDecimal fromDepotKm = BigDecimal.ZERO;
+    
+    @Builder.Default
+    private BigDecimal toDepotKm = BigDecimal.ZERO;
+    
+    private String departedFrom;
+    private String departureLocation;
+    
+    @Builder.Default
+    private Boolean isFromDepot = false;
 
     // ======================== METRICS ========================
     private TripMetricsResponse metrics;
