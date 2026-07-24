@@ -6,7 +6,6 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 
-import java.time.LocalDateTime;
 import java.math.BigDecimal;
 
 @Data
@@ -49,9 +48,6 @@ public class TripMetricsResponse {
 
     private Boolean finalized;
     private String finalizedAt;
-
-    private LocalDateTime createdAt;  
-    private LocalDateTime updatedAt; 
 
     /**
      * Convert TripMetrics entity to DTO
