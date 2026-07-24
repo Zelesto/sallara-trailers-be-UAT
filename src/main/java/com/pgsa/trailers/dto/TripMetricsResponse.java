@@ -49,6 +49,9 @@ public class TripMetricsResponse {
     private Boolean finalized;
     private String finalizedAt;
 
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
     /**
      * Convert TripMetrics entity to DTO
      */
