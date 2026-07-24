@@ -41,9 +41,9 @@ public class TripController {
     private final TripRepository tripRepository;
     private final TripResponseMapper tripResponseMapper;
 
-    /* ========================
+    /* ============================================================
        HEALTH CHECK ENDPOINTS
-       ======================== */
+       ============================================================ */
 
     /**
      * Health check endpoint to verify database connection
@@ -81,10 +81,8 @@ public class TripController {
             long totalCount = tripRepository.count();
             log.info("📊 Total trips in database: {}", totalCount);
             
-            // Get sample trips
             List<Trip> sampleTrips = tripRepository.findAll(PageRequest.of(0, 5)).getContent();
             
-            // Get status breakdown
             List<Object[]> statusCount = tripRepository.countByStatusGrouped();
             Map<String, Long> statusBreakdown = new HashMap<>();
             for (Object[] row : statusCount) {
@@ -120,9 +118,9 @@ public class TripController {
         }
     }
 
-    /* ========================
+    /* ============================================================
        CREATE
-       ======================== */
+       ============================================================ */
     @PostMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER')")
     public ResponseEntity<TripResponse> createTrip(
@@ -136,9 +134,9 @@ public class TripController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    /* ========================
-       READ
-       ======================== */
+    /* ============================================================
+       READ - SINGLE TRIP
+       ============================================================ */
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER', 'DRIVER')")
     public ResponseEntity<TripResponse> getTrip(@PathVariable Long id) {
@@ -146,9 +144,9 @@ public class TripController {
         return ResponseEntity.ok(tripService.getTrip(id));
     }
 
-    /* ========================
-       LIST TRIPS - MAIN ENDPOINT - FIXED
-       ======================== */
+    /* ============================================================
+       LIST TRIPS - MAIN ENDPOINT
+       ============================================================ */
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER', 'DRIVER')")
     public ResponseEntity<Page<TripResponse>> listTrips(
@@ -172,7 +170,6 @@ public class TripController {
         log.info("========================================");
         
         try {
-            // First, check if we have any trips
             long totalTrips = tripRepository.count();
             log.info("📊 Total trips in database: {}", totalTrips);
             
@@ -182,10 +179,6 @@ public class TripController {
             }
             
             Page<Trip> trips;
-            
-            // ============================================================
-            // Handle each filter case
-            // ============================================================
             
             // 1. Search filter
             if (search != null && !search.trim().isEmpty()) {
@@ -252,14 +245,13 @@ public class TripController {
             
         } catch (Exception e) {
             log.error("❌ Error listing trips: {}", e.getMessage(), e);
-            // Return empty page on error
             return ResponseEntity.ok(Page.empty(pageable));
         }
     }
 
-    /* ========================
+    /* ============================================================
        GET TRIPS WITHOUT LOAD
-       ======================== */
+       ============================================================ */
     @GetMapping("/without-load")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
     public ResponseEntity<Page<TripResponse>> getTripsWithoutLoad(
@@ -288,138 +280,9 @@ public class TripController {
         }
     }
     
-    /* ========================
-       FINALIZE TRIP
-       ======================== */
-    @PostMapping("/{id}/finalize")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
-    public ResponseEntity<Void> finalizeTrip(@PathVariable Long id) {
-        log.info("📨 Received finalize request for trip: {}", id);
-        try {
-            tripFinalisationService.finalizeTrip(id);
-            log.info("✅ Trip {} finalized successfully", id);
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            log.error("❌ Error finalizing trip {}: {}", id, e.getMessage(), e);
-            throw e;
-        }
-    }
-
-    /* ========================
-       CAN FINALIZE CHECK
-       ======================== */
-    @GetMapping("/{id}/can-finalize")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
-    public ResponseEntity<Boolean> canFinalize(@PathVariable Long id) {
-        log.info("📨 Checking if trip {} can be finalized", id);
-        boolean canFinalize = tripFinalisationService.canFinalize(id);
-        return ResponseEntity.ok(canFinalize);
-    }
-
-    /* ========================
-       UPDATE STATUS
-       ======================== */
-    @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER')")
-    public ResponseEntity<TripResponse> updateTripStatus(
-            @PathVariable Long id,
-            @RequestParam String status,
-            Authentication authentication
-    ) {
-        log.debug("Updating status for trip {} to {}", id, status);
-        
-        AppUser user = getAuthenticatedUser(authentication);
-        
-        TripStatus newStatus;
-        try {
-            newStatus = TripStatus.valueOf(status.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid status value: " + status);
-        }
-        
-        TripResponse response = tripService.updateTripStatus(id, newStatus, user.getId());
-        return ResponseEntity.ok(response);
-    }
-
-    /* ========================
-       UPDATE TRIP
-       ======================== */
-    @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER')")
-    public ResponseEntity<TripResponse> updateTrip(
-            @PathVariable Long id,
-            @RequestBody @Valid UpdateTripRequest request,
-            Authentication authentication
-    ) {
-        String email = authentication.getName();
-        AppUser user = appUserRepository.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
-
-        TripResponse updated = tripService.updateTrip(id, request, user.getId());
-        return ResponseEntity.ok(updated);
-    }
-
-    /* ========================
-       START TRIP (ODO START)
-       ======================== */
-    @PostMapping("/{id}/start")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'DRIVER')")
-    public ResponseEntity<TripResponse> startTrip(
-            @PathVariable Long id,
-            @RequestBody @Valid StartTripRequest request,
-            Authentication authentication
-    ) {
-        AppUser user = getAuthenticatedUser(authentication);
-        log.debug("Driver {} starting trip {} with odo {}",
-                user.getId(), id, request.actualStartOdometer());
-
-        TripResponse response = tripService.startTrip(
-                id,
-                request.actualStartOdometer(),
-                user.getId()
-        );
-
-        return ResponseEntity.ok(response);
-    }
-
-    /* ========================
-       END TRIP (ODO END)
-       ======================== */
-    @PostMapping("/{id}/end")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'DRIVER')")
-    public ResponseEntity<TripResponse> endTrip(
-            @PathVariable Long id,
-            @RequestBody @Valid EndTripRequest request,
-            Authentication authentication
-    ) {
-        AppUser user = getAuthenticatedUser(authentication);
-        log.debug("Driver {} ending trip {} with odo {}",
-                user.getId(), id, request.actualEndOdometer());
-
-        TripResponse response = tripService.endTrip(
-                id,
-                request.actualEndOdometer(),
-                user.getId()
-        );
-
-        return ResponseEntity.ok(response);
-    }
-
-    /* ========================
-       DELETE TRIP
-       ======================== */
-    @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteTrip(@PathVariable Long id) {
-        log.debug("Deleting trip id: {}", id);
-        tripService.deleteTrip(id);
-        log.debug("Trip and associated metrics deleted for id: {}", id);
-    }
-
-    /* ========================
-       SEARCH ENDPOINTS
-       ======================== */
+    /* ============================================================
+       SEARCH ENDPOINTS - MOVED BEFORE @PathVariable to avoid conflicts
+       ============================================================ */
     @GetMapping("/search")
     public ResponseEntity<Page<TripResponse>> searchTrips(
             @RequestParam(required = false) String searchTerm,
@@ -454,10 +317,139 @@ public class TripController {
         log.info("📋 Fetching currently running trips");
         return ResponseEntity.ok(tripService.getCurrentlyRunningTrips());
     }
+
+    /* ============================================================
+       FINALIZE TRIP
+       ============================================================ */
+    @PostMapping("/{id}/finalize")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
+    public ResponseEntity<Void> finalizeTrip(@PathVariable Long id) {
+        log.info("📨 Received finalize request for trip: {}", id);
+        try {
+            tripFinalisationService.finalizeTrip(id);
+            log.info("✅ Trip {} finalized successfully", id);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("❌ Error finalizing trip {}: {}", id, e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    /* ============================================================
+       CAN FINALIZE CHECK
+       ============================================================ */
+    @GetMapping("/{id}/can-finalize")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
+    public ResponseEntity<Boolean> canFinalize(@PathVariable Long id) {
+        log.info("📨 Checking if trip {} can be finalized", id);
+        boolean canFinalize = tripFinalisationService.canFinalize(id);
+        return ResponseEntity.ok(canFinalize);
+    }
+
+    /* ============================================================
+       UPDATE STATUS
+       ============================================================ */
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER')")
+    public ResponseEntity<TripResponse> updateTripStatus(
+            @PathVariable Long id,
+            @RequestParam String status,
+            Authentication authentication
+    ) {
+        log.debug("Updating status for trip {} to {}", id, status);
+        
+        AppUser user = getAuthenticatedUser(authentication);
+        
+        TripStatus newStatus;
+        try {
+            newStatus = TripStatus.valueOf(status.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid status value: " + status);
+        }
+        
+        TripResponse response = tripService.updateTripStatus(id, newStatus, user.getId());
+        return ResponseEntity.ok(response);
+    }
+
+    /* ============================================================
+       UPDATE TRIP
+       ============================================================ */
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER')")
+    public ResponseEntity<TripResponse> updateTrip(
+            @PathVariable Long id,
+            @RequestBody @Valid UpdateTripRequest request,
+            Authentication authentication
+    ) {
+        String email = authentication.getName();
+        AppUser user = appUserRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
+
+        TripResponse updated = tripService.updateTrip(id, request, user.getId());
+        return ResponseEntity.ok(updated);
+    }
+
+    /* ============================================================
+       START TRIP (ODO START)
+       ============================================================ */
+    @PostMapping("/{id}/start")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'DRIVER')")
+    public ResponseEntity<TripResponse> startTrip(
+            @PathVariable Long id,
+            @RequestBody @Valid StartTripRequest request,
+            Authentication authentication
+    ) {
+        AppUser user = getAuthenticatedUser(authentication);
+        log.debug("Driver {} starting trip {} with odo {}",
+                user.getId(), id, request.actualStartOdometer());
+
+        TripResponse response = tripService.startTrip(
+                id,
+                request.actualStartOdometer(),
+                user.getId()
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    /* ============================================================
+       END TRIP (ODO END)
+       ============================================================ */
+    @PostMapping("/{id}/end")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'DRIVER')")
+    public ResponseEntity<TripResponse> endTrip(
+            @PathVariable Long id,
+            @RequestBody @Valid EndTripRequest request,
+            Authentication authentication
+    ) {
+        AppUser user = getAuthenticatedUser(authentication);
+        log.debug("Driver {} ending trip {} with odo {}",
+                user.getId(), id, request.actualEndOdometer());
+
+        TripResponse response = tripService.endTrip(
+                id,
+                request.actualEndOdometer(),
+                user.getId()
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    /* ============================================================
+       DELETE TRIP
+       ============================================================ */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteTrip(@PathVariable Long id) {
+        log.debug("Deleting trip id: {}", id);
+        tripService.deleteTrip(id);
+        log.debug("Trip and associated metrics deleted for id: {}", id);
+    }
     
-    /* ========================
+    /* ============================================================
        HELPER METHODS
-       ======================== */
+       ============================================================ */
     private AppUser getAuthenticatedUser(Authentication authentication) {
         String email = authentication.getName();
         return appUserRepository.findByEmailIgnoreCase(email)
@@ -474,7 +466,7 @@ public class TripController {
         }
         
         String[] statusArray = status.split(",");
-        for (String s in statusArray) {
+        for (String s : statusArray) {
             try {
                 statuses.add(TripStatus.valueOf(s.trim().toUpperCase()));
             } catch (IllegalArgumentException e) {
@@ -483,4 +475,4 @@ public class TripController {
         }
         return statuses;
     }
-};
+}
