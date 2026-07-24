@@ -258,7 +258,7 @@ public class TripResponseMapper {
         dto.setGeocodingConfidenceScore(metrics.getGeocodingConfidenceScore());
 
         // ======================== AUDIT ========================
-        dto.setCalculatedAt(metrics.getCalculatedAt());
+        //dto.setCalculatedAt(metrics.getCalculatedAt());
         dto.setCreatedAt(metrics.getCreatedAt());
         dto.setUpdatedAt(metrics.getUpdatedAt());
 
