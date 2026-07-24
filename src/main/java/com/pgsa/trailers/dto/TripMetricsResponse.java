@@ -51,7 +51,7 @@ public class TripMetricsResponse {
 
     private LocalDateTime createdAt;     
     private LocalDateTime updatedAt;     
-    private LocalDateTime calculatedAt;
+    //private LocalDateTime calculatedAt;
 
     /**
      * Convert TripMetrics entity to DTO
