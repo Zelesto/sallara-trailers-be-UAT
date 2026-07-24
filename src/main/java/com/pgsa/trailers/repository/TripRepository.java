@@ -16,6 +16,8 @@ import java.util.List;
 import java.util.Optional;
 import java.math.BigDecimal;
 
+
+
 @Repository
 public interface TripRepository extends JpaRepository<Trip, Long> {
 
@@ -36,6 +38,39 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     long countByStatusAndDateRange(@Param("status") TripStatus status,
                                    @Param("startDate") LocalDateTime startDate,
                                    @Param("endDate") LocalDateTime endDate);
+    
+    // ============================================================
+    // JOIN FETCH QUERIES - Prevents LazyInitializationException
+    // ============================================================
+    
+    @Query("SELECT t FROM Trip t JOIN FETCH t.customer")
+    Page<Trip> findAllWithCustomer(Pageable pageable);
+    
+    @Query("SELECT t FROM Trip t JOIN FETCH t.customer WHERE t.status IN :statuses")
+    Page<Trip> findByStatusInWithCustomer(@Param("statuses") List<TripStatus> statuses, Pageable pageable);
+    
+    @Query("SELECT t FROM Trip t JOIN FETCH t.customer WHERE t.id = :id")
+    Optional<Trip> findByIdWithCustomer(@Param("id") Long id);
+    
+    @Query("SELECT t FROM Trip t " +
+           "JOIN FETCH t.customer " +
+           "JOIN FETCH t.vehicle " +
+           "JOIN FETCH t.driver " +
+           "WHERE t.id = :id")
+    Optional<Trip> findByIdWithAllRelations(@Param("id") Long id);
+    
+    // ============================================================
+    // SEARCH WITH JOIN FETCH
+    // ============================================================
+    
+    @Query("SELECT t FROM Trip t JOIN FETCH t.customer WHERE " +
+           "(:searchTerm IS NULL OR :searchTerm = '' OR " +
+           "LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(t.originCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(t.destinationCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(t.customer.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(t.referenceNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
+    Page<Trip> searchTripsWithCustomer(@Param("searchTerm") String searchTerm, Pageable pageable);
     
     // ============================================================
     // FIND BY STATUS
@@ -169,7 +204,7 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     List<Trip> searchTripsOrderByIdDesc(@Param("searchTerm") String searchTerm);
     
     // ============================================================
-    // FILTER QUERIES - ADDED FOR CONTROLLER
+    // FILTER QUERIES
     // ============================================================
     
     @Query("SELECT t FROM Trip t WHERE " +
