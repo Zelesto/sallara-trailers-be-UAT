@@ -1,4 +1,3 @@
-// src/main/java/com/pgsa/trailers/controller/PodController.java
 package com.pgsa.trailers.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -61,6 +60,7 @@ public class PodController {
 
     /**
      * Create a new POD - Handles both JSON and FormData
+     * FIXED: Use @RequestParam for all fields including file (not @RequestPart)
      */
     @PostMapping(consumes = {MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_JSON_VALUE})
     public ResponseEntity<?> createPod(
@@ -70,78 +70,21 @@ public class PodController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String notes,
             @RequestParam(required = false) String documentType,
-            @RequestPart(required = false) MultipartFile file,
-            @RequestPart(required = false) String podData) {
+            @RequestParam(required = false) MultipartFile file) {
         
+        log.info("========================================");
         log.info("📝 Creating new POD");
         log.info("   tripId: {}", tripId);
         log.info("   customerName: {}", customerName);
         log.info("   deliveryDate: {}", deliveryDate);
         log.info("   status: {}", status);
+        log.info("   notes: {}", notes);
         log.info("   file: {}", file != null ? file.getOriginalFilename() : "No file");
-        log.info("   podData: {}", podData);
+        log.info("========================================");
         
         try {
-            PodRequestDTO podRequest = new PodRequestDTO();
-            
-            // If podData JSON is provided, parse it and use as base
-            if (podData != null && !podData.isEmpty()) {
-                try {
-                    PodRequestDTO jsonRequest = objectMapper.readValue(podData, PodRequestDTO.class);
-                    podRequest.setTripId(jsonRequest.getTripId());
-                    podRequest.setCustomerName(jsonRequest.getCustomerName());
-                    podRequest.setDeliveryDate(jsonRequest.getDeliveryDate());
-                    podRequest.setStatus(jsonRequest.getStatus());
-                    podRequest.setNotes(jsonRequest.getNotes());
-                    podRequest.setDocumentType(jsonRequest.getDocumentType());
-                    log.info("   Parsed from JSON: tripId={}, customerName={}", 
-                        podRequest.getTripId(), podRequest.getCustomerName());
-                } catch (Exception e) {
-                    log.warn("Failed to parse podData JSON: {}", e.getMessage());
-                }
-            }
-            
-            // Override with individual parameters if provided (FormData takes precedence)
-            if (tripId != null) {
-                podRequest.setTripId(tripId);
-            }
-            if (customerName != null && !customerName.isEmpty()) {
-                podRequest.setCustomerName(customerName);
-            }
-            if (deliveryDate != null && !deliveryDate.isEmpty()) {
-                try {
-                    podRequest.setDeliveryDate(LocalDate.parse(deliveryDate));
-                } catch (Exception e) {
-                    log.warn("Invalid delivery date format: {}, using current date", deliveryDate);
-                    podRequest.setDeliveryDate(LocalDate.now());
-                }
-            }
-            if (status != null && !status.isEmpty()) {
-                podRequest.setStatus(status);
-            }
-            if (notes != null) {
-                podRequest.setNotes(notes);
-            }
-            if (documentType != null && !documentType.isEmpty()) {
-                podRequest.setDocumentType(documentType);
-            }
-            
-            // Set defaults if still null
-            if (podRequest.getCustomerName() == null || podRequest.getCustomerName().isEmpty()) {
-                podRequest.setCustomerName("Adhoc Customer");
-            }
-            if (podRequest.getDeliveryDate() == null) {
-                podRequest.setDeliveryDate(LocalDate.now());
-            }
-            if (podRequest.getStatus() == null || podRequest.getStatus().isEmpty()) {
-                podRequest.setStatus("PENDING");
-            }
-            if (podRequest.getDocumentType() == null || podRequest.getDocumentType().isEmpty()) {
-                podRequest.setDocumentType("PDF");
-            }
-            
-            // CRITICAL: Validate tripId
-            if (podRequest.getTripId() == null) {
+            // ✅ Validate required fields
+            if (tripId == null) {
                 log.error("❌ tripId is missing from request");
                 return ResponseEntity.badRequest()
                     .body(Map.of(
@@ -151,18 +94,47 @@ public class PodController {
                     ));
             }
             
-            log.info("   Final podRequest: tripId={}, customerName={}, deliveryDate={}", 
-                podRequest.getTripId(), podRequest.getCustomerName(), podRequest.getDeliveryDate());
+            // ✅ Create DTO
+            PodRequestDTO podRequest = new PodRequestDTO();
+            podRequest.setTripId(tripId);
+            podRequest.setCustomerName(customerName != null && !customerName.isEmpty() ? customerName : "Adhoc Customer");
             
+            if (deliveryDate != null && !deliveryDate.isEmpty()) {
+                try {
+                    podRequest.setDeliveryDate(LocalDate.parse(deliveryDate));
+                } catch (Exception e) {
+                    log.warn("Invalid delivery date format: {}, using current date", deliveryDate);
+                    podRequest.setDeliveryDate(LocalDate.now());
+                }
+            } else {
+                podRequest.setDeliveryDate(LocalDate.now());
+            }
+            
+            podRequest.setStatus(status != null && !status.isEmpty() ? status : "PENDING");
+            podRequest.setNotes(notes);
+            podRequest.setDocumentType(documentType != null && !documentType.isEmpty() ? documentType : "PDF");
+            
+            log.info("   Final podRequest: tripId={}, customerName={}, deliveryDate={}, status={}", 
+                podRequest.getTripId(), podRequest.getCustomerName(), podRequest.getDeliveryDate(), podRequest.getStatus());
+            
+            // ✅ Create POD
             PodResponseDTO createdPod = podService.createPod(podRequest, file);
             return ResponseEntity.status(HttpStatus.CREATED).body(createdPod);
             
         } catch (Exception e) {
             log.error("❌ Error creating POD: {}", e.getMessage(), e);
+            
+            // Get the root cause
+            Throwable rootCause = e;
+            while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
+                rootCause = rootCause.getCause();
+            }
+            
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of(
                     "error", "Failed to create POD",
                     "message", e.getMessage(),
+                    "rootCause", rootCause.getMessage(),
                     "type", e.getClass().getSimpleName()
                 ));
         }
