@@ -483,4 +483,4 @@ public class TripController {
         }
         return statuses;
     }
-}
+};
