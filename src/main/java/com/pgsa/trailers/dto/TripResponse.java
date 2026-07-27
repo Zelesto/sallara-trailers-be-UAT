@@ -25,11 +25,11 @@ public class TripResponse {
     private String tripNumber;
     private String tripType;
 
-    private CustomerResponseDTO customer;  // ✅ Using CustomerResponseDTO
+    private CustomerResponseDTO customer;  // ✅ Using your existing CustomerResponseDTO
     private VehicleDTO vehicle;            // ✅ Your existing VehicleDTO
     private DriverDTO driver;              // ✅ Your existing DriverDTO
     private DriverDTO supervisor;          // ✅ Your existing DriverDTO
-    private LoadDTO load;                  // ✅ LoadDTO (you'll need to create this)
+    private LoadResponseDTO load;          // ✅ Using your existing LoadResponseDTO
 
     // ======================== CUSTOMER ========================
     private Long customerId;
