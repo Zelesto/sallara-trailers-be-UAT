@@ -20,6 +20,12 @@ public class TripResponse {
     private String tripNumber;
     private String tripType;
 
+    private Customer customer;      
+    private Vehicle vehicle;       
+    private Driver driver;          
+    private Driver supervisor;      
+    private Load load;
+
     // ======================== CUSTOMER ========================
     private Long customerId;
     private String customerName;
