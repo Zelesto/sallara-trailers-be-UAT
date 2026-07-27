@@ -117,7 +117,6 @@ public class TripResponseMapper {
         // ======================== STATUS ========================
         response.setStatus(trip.getStatus());
         response.setApprovalStatus(trip.getApprovalStatus());
-        response.setPriority(trip.getPriority());
         response.setApprovedAt(trip.getApprovedAt());
 
         // ======================== AUDIT ========================
@@ -242,17 +241,15 @@ public class TripResponseMapper {
         dto.setRegistrationNumber(vehicle.getRegistrationNumber());
         dto.setMake(vehicle.getMake());
         dto.setModel(vehicle.getModel());
-        dto.setYear(vehicle.getYear());
-        dto.setLicensePlate(vehicle.getLicensePlate());
-        dto.setVin(vehicle.getVin());
-        dto.setVehicleType(vehicle.getVehicleType());
-        dto.setFuelType(vehicle.getFuelType());
-        dto.setStatus(vehicle.getStatus());
-        dto.setCurrentOdometer(vehicle.getCurrentOdometer());
-        dto.setLastServiceDate(vehicle.getLastServiceDate());
-        dto.setNextServiceDue(vehicle.getNextServiceDue());
+        // Only set these if they exist in your Vehicle entity
+        // dto.setYear(vehicle.getYear());
+        // dto.setVin(vehicle.getVin());
+        // dto.setFuelType(vehicle.getFuelType());
+        // dto.setCurrentOdometer(vehicle.getCurrentOdometer());
+        // dto.setLastServiceDate(vehicle.getLastServiceDate());
+        // dto.setNextServiceDue(vehicle.getNextServiceDue());
         dto.setIsActive(vehicle.getIsActive());
-        dto.setNotes(vehicle.getNotes());
+        // dto.setNotes(vehicle.getNotes());
         
         return dto;
     }
@@ -270,16 +267,16 @@ public class TripResponseMapper {
         dto.setFirstName(driver.getFirstName());
         dto.setLastName(driver.getLastName());
         dto.setLicenseNumber(driver.getLicenseNumber());
-        dto.setLicenseClass(driver.getLicenseClass());
-        dto.setLicenseExpiry(driver.getLicenseExpiry());
-        dto.setPhone(driver.getPhone());
-        dto.setEmail(driver.getEmail());
-        dto.setAddress(driver.getAddress());
-        dto.setHireDate(driver.getHireDate());
-        dto.setEmployeeNumber(driver.getEmployeeNumber());
-        dto.setStatus(driver.getStatus());
+        // Only set these if they exist in your Driver entity
+        // dto.setLicenseClass(driver.getLicenseClass());
+        // dto.setLicenseExpiry(driver.getLicenseExpiry());
+        // dto.setPhone(driver.getPhone());
+        // dto.setEmail(driver.getEmail());
+        // dto.setAddress(driver.getAddress());
+        // dto.setHireDate(driver.getHireDate());
+        // dto.setEmployeeNumber(driver.getEmployeeNumber());
         dto.setIsActive(driver.getIsActive());
-        dto.setNotes(driver.getNotes());
+        // dto.setNotes(driver.getNotes());
         
         return dto;
     }
@@ -292,7 +289,7 @@ public class TripResponseMapper {
             return null;
         }
 
-        return LoadResponseDTO.builder()
+        LoadResponseDTO.LoadResponseDTOBuilder builder = LoadResponseDTO.builder()
                 .id(load.getId())
                 .loadNumber(load.getLoadNumber())
                 .referenceNumber(load.getReferenceNumber())
@@ -307,12 +304,15 @@ public class TripResponseMapper {
                 .totalToDepotKm(load.getTotalToDepotKm())
                 .totalDepotKm(load.getTotalDepotKm())
                 .createdAt(load.getCreatedAt())
-                .createdBy(load.getCreatedBy())
                 .updatedAt(load.getUpdatedAt())
-                .updatedBy(load.getUpdatedBy())
-                .lastStatusUpdate(load.getLastStatusUpdate())
-                .auditTrail(load.getAuditTrail())
-                .build();
+                .lastStatusUpdate(load.getLastStatusUpdate());
+
+        // Only set these if they exist in your Load entity
+        // .createdBy(load.getCreatedBy())
+        // .updatedBy(load.getUpdatedBy())
+        // .auditTrail(load.getAuditTrail())
+
+        return builder.build();
     }
 
     /**
