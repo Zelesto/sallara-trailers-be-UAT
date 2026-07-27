@@ -486,8 +486,20 @@ public TripResponse getTrip(Long id) {
 
    @Transactional(readOnly = true)
 public Page<TripResponse> listTrips(Pageable pageable) {
-    return tripRepository.findAllWithCustomer(pageable)
-            .map(tripResponseMapper::toResponse);
+    log.info("📊 Fetching trips with pageable: {}", pageable);
+    
+    Page<Trip> trips = tripRepository.findAllWithCustomer(pageable);
+    
+    log.info("📊 Found {} trips total", trips.getTotalElements());
+    log.info("📊 Content size: {}", trips.getContent().size());
+    
+    if (!trips.getContent().isEmpty()) {
+        log.info("📊 First trip: ID={}, Number={}", 
+            trips.getContent().get(0).getId(),
+            trips.getContent().get(0).getTripNumber());
+    }
+    
+    return trips.map(tripResponseMapper::toResponse);
 }
     @Transactional(readOnly = true)
     public List<TripResponse> getTripsByCustomer(Long customerId) {
