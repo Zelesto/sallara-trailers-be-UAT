@@ -40,15 +40,8 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     // JOIN FETCH QUERIES - Prevents LazyInitializationException
     // ============================================================
     
-    // ✅ FIXED: Fetch ALL relations
-    @Query("SELECT DISTINCT t FROM Trip t " +
-           "LEFT JOIN FETCH t.customer c " +
-           "LEFT JOIN FETCH t.vehicle v " +
-           "LEFT JOIN FETCH t.driver d " +
-           "LEFT JOIN FETCH t.supervisor s " +
-           "LEFT JOIN FETCH t.load l " +
-           "LEFT JOIN FETCH t.metrics m")
-    Page<Trip> findAllWithCustomer(Pageable pageable);
+    @Query("SELECT t FROM Trip t")
+Page<Trip> findAllWithCustomer(Pageable pageable);
     
     // ✅ FIXED: Fetch ALL relations with status filter
     @Query("SELECT DISTINCT t FROM Trip t " +
