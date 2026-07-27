@@ -27,6 +27,7 @@ public class TripResponseMapper {
         // ======================== CUSTOMER - SAFE LAZY LOADING ========================
         try {
             if (trip.getCustomer() != null) {
+                response.setCustomer(trip.getCustomer()); 
                 response.setCustomerId(trip.getCustomer().getId());
                 response.setCustomerName(trip.getCustomer().getName());
                 response.setCustomerCode(trip.getCustomer().getCustomerCode() != null 
@@ -45,6 +46,7 @@ public class TripResponseMapper {
         // ======================== LOAD ========================
         try {
             if (trip.getLoad() != null) {
+                response.setLoad(trip.getLoad()); 
                 response.setLoadId(trip.getLoad().getLoadNumber());
                 response.setLoadNumber(trip.getLoad().getLoadNumber());
                 response.setLoadType(trip.getLoad().getCommodityType());
@@ -109,6 +111,7 @@ public class TripResponseMapper {
         // ======================== VEHICLE - SAFE LAZY LOADING ========================
         try {
             if (trip.getVehicle() != null) {
+                response.setVehicle(trip.getVehicle()); 
                 response.setVehicleId(trip.getVehicle().getId());
                 response.setVehicleRegistration(
                     trip.getVehicle().getRegistrationNumber() != null 
@@ -126,6 +129,7 @@ public class TripResponseMapper {
         // ======================== DRIVER - SAFE LAZY LOADING ========================
         try {
             if (trip.getDriver() != null) {
+                response.setDriver(trip.getDriver()); 
                 response.setDriverId(trip.getDriver().getId());
                 String firstName = trip.getDriver().getFirstName() != null 
                     ? trip.getDriver().getFirstName() 
@@ -144,6 +148,7 @@ public class TripResponseMapper {
         // ======================== SUPERVISOR - SAFE LAZY LOADING ========================
         try {
             if (trip.getSupervisor() != null) {
+                response.setSupervisor(trip.getSupervisor());
                 response.setSupervisorId(trip.getSupervisor().getId());
                 String firstName = trip.getSupervisor().getFirstName() != null 
                     ? trip.getSupervisor().getFirstName() 
