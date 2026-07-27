@@ -1,4 +1,3 @@
-// src/main/java/com/pgsa/trailers/repository/TripRepository.java
 package com.pgsa.trailers.repository;
 
 import com.pgsa.trailers.entity.ops.Trip;
@@ -15,8 +14,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.math.BigDecimal;
-
-
 
 @Repository
 public interface TripRepository extends JpaRepository<Trip, Long> {
@@ -43,28 +40,59 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     // JOIN FETCH QUERIES - Prevents LazyInitializationException
     // ============================================================
     
-    @Query("SELECT t FROM Trip t JOIN FETCH t.customer")
+    // ✅ FIXED: Fetch ALL relations
+    @Query("SELECT DISTINCT t FROM Trip t " +
+           "LEFT JOIN FETCH t.customer c " +
+           "LEFT JOIN FETCH t.vehicle v " +
+           "LEFT JOIN FETCH t.driver d " +
+           "LEFT JOIN FETCH t.supervisor s " +
+           "LEFT JOIN FETCH t.load l " +
+           "LEFT JOIN FETCH t.metrics m")
     Page<Trip> findAllWithCustomer(Pageable pageable);
     
-    @Query("SELECT t FROM Trip t JOIN FETCH t.customer WHERE t.status IN :statuses")
+    // ✅ FIXED: Fetch ALL relations with status filter
+    @Query("SELECT DISTINCT t FROM Trip t " +
+           "LEFT JOIN FETCH t.customer c " +
+           "LEFT JOIN FETCH t.vehicle v " +
+           "LEFT JOIN FETCH t.driver d " +
+           "LEFT JOIN FETCH t.supervisor s " +
+           "LEFT JOIN FETCH t.load l " +
+           "LEFT JOIN FETCH t.metrics m " +
+           "WHERE t.status IN :statuses")
     Page<Trip> findByStatusInWithCustomer(@Param("statuses") List<TripStatus> statuses, Pageable pageable);
     
-    @Query("SELECT t FROM Trip t JOIN FETCH t.customer WHERE t.id = :id")
+    @Query("SELECT t FROM Trip t " +
+           "LEFT JOIN FETCH t.customer c " +
+           "LEFT JOIN FETCH t.vehicle v " +
+           "LEFT JOIN FETCH t.driver d " +
+           "LEFT JOIN FETCH t.supervisor s " +
+           "LEFT JOIN FETCH t.load l " +
+           "LEFT JOIN FETCH t.metrics m " +
+           "WHERE t.id = :id")
     Optional<Trip> findByIdWithCustomer(@Param("id") Long id);
     
     @Query("SELECT t FROM Trip t " +
-           "JOIN FETCH t.customer " +
-           "JOIN FETCH t.vehicle " +
-           "JOIN FETCH t.driver " +
+           "LEFT JOIN FETCH t.customer c " +
+           "LEFT JOIN FETCH t.vehicle v " +
+           "LEFT JOIN FETCH t.driver d " +
+           "LEFT JOIN FETCH t.supervisor s " +
+           "LEFT JOIN FETCH t.load l " +
+           "LEFT JOIN FETCH t.metrics m " +
            "WHERE t.id = :id")
     Optional<Trip> findByIdWithAllRelations(@Param("id") Long id);
     
     // ============================================================
-    // SEARCH WITH JOIN FETCH
+    // SEARCH WITH JOIN FETCH - FIXED
     // ============================================================
     
-    @Query("SELECT t FROM Trip t JOIN FETCH t.customer WHERE " +
-           "(:searchTerm IS NULL OR :searchTerm = '' OR " +
+    @Query("SELECT DISTINCT t FROM Trip t " +
+           "LEFT JOIN FETCH t.customer c " +
+           "LEFT JOIN FETCH t.vehicle v " +
+           "LEFT JOIN FETCH t.driver d " +
+           "LEFT JOIN FETCH t.supervisor s " +
+           "LEFT JOIN FETCH t.load l " +
+           "LEFT JOIN FETCH t.metrics m " +
+           "WHERE (:searchTerm IS NULL OR :searchTerm = '' OR " +
            "LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(t.originCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(t.destinationCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
@@ -204,35 +232,38 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     List<Trip> searchTripsOrderByIdDesc(@Param("searchTerm") String searchTerm);
     
     // ============================================================
-    // FILTER QUERIES
+    // FILTER QUERIES - FIXED with JOIN FETCH
     // ============================================================
     
-    @Query("SELECT t FROM Trip t WHERE " +
-           "LOWER(t.originCity) = LOWER(:city) OR " +
+    @Query("SELECT DISTINCT t FROM Trip t " +
+           "LEFT JOIN FETCH t.customer c " +
+           "LEFT JOIN FETCH t.vehicle v " +
+           "LEFT JOIN FETCH t.driver d " +
+           "LEFT JOIN FETCH t.supervisor s " +
+           "LEFT JOIN FETCH t.load l " +
+           "LEFT JOIN FETCH t.metrics m " +
+           "WHERE LOWER(t.originCity) = LOWER(:city) OR " +
            "LOWER(t.destinationCity) = LOWER(:city)")
     Page<Trip> findByOriginCityOrDestinationCity(@Param("city") String city, Pageable pageable);
     
-    @Query("SELECT t FROM Trip t WHERE LOWER(t.customer.name) LIKE LOWER(CONCAT('%', :customer, '%'))")
+    @Query("SELECT DISTINCT t FROM Trip t " +
+           "LEFT JOIN FETCH t.customer c " +
+           "LEFT JOIN FETCH t.vehicle v " +
+           "LEFT JOIN FETCH t.driver d " +
+           "LEFT JOIN FETCH t.supervisor s " +
+           "LEFT JOIN FETCH t.load l " +
+           "LEFT JOIN FETCH t.metrics m " +
+           "WHERE LOWER(t.customer.name) LIKE LOWER(CONCAT('%', :customer, '%'))")
     Page<Trip> findByCustomerNameContaining(@Param("customer") String customer, Pageable pageable);
     
-    @Query("SELECT t FROM Trip t WHERE " +
-           "(:searchTerm IS NULL OR " +
-           "LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(t.originCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(t.destinationCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(t.customer.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(t.referenceNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) " +
-           "AND (:status IS NULL OR t.status = :status) " +
-           "AND (:city IS NULL OR LOWER(t.originCity) = LOWER(:city) OR LOWER(t.destinationCity) = LOWER(:city)) " +
-           "AND (:customer IS NULL OR LOWER(t.customer.name) = LOWER(:customer))")
-    Page<Trip> findWithFilters(@Param("searchTerm") String searchTerm,
-                               @Param("status") TripStatus status,
-                               @Param("city") String city,
-                               @Param("customer") String customer,
-                               Pageable pageable);
-    
-    @Query("SELECT t FROM Trip t WHERE " +
-           "(:searchTerm IS NULL OR " +
+    @Query("SELECT DISTINCT t FROM Trip t " +
+           "LEFT JOIN FETCH t.customer c " +
+           "LEFT JOIN FETCH t.vehicle v " +
+           "LEFT JOIN FETCH t.driver d " +
+           "LEFT JOIN FETCH t.supervisor s " +
+           "LEFT JOIN FETCH t.load l " +
+           "LEFT JOIN FETCH t.metrics m " +
+           "WHERE (:searchTerm IS NULL OR " +
            "LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(t.originCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(t.destinationCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
