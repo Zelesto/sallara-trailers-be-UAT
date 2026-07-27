@@ -33,6 +33,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.hibernate.Hibernate;
+
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
@@ -490,14 +492,18 @@ public Page<TripResponse> listTrips(Pageable pageable) {
     
     Page<Trip> trips = tripRepository.findAllWithCustomer(pageable);
     
+    // 🔥 Initialize lazy proxies while still in transaction
+    trips.getContent().forEach(trip -> {
+        Hibernate.initialize(trip.getCustomer());
+        Hibernate.initialize(trip.getVehicle());
+        Hibernate.initialize(trip.getDriver());
+        Hibernate.initialize(trip.getSupervisor());
+        Hibernate.initialize(trip.getLoad());
+        Hibernate.initialize(trip.getMetrics());
+    });
+    
     log.info("📊 Found {} trips total", trips.getTotalElements());
     log.info("📊 Content size: {}", trips.getContent().size());
-    
-    if (!trips.getContent().isEmpty()) {
-        log.info("📊 First trip: ID={}, Number={}", 
-            trips.getContent().get(0).getId(),
-            trips.getContent().get(0).getTripNumber());
-    }
     
     return trips.map(tripResponseMapper::toResponse);
 }
