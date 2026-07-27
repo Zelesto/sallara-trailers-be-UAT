@@ -149,6 +149,7 @@ public class TripController {
        ============================================================ */
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER', 'DRIVER')")
+    @Transactional(readOnly = true)
     public ResponseEntity<Page<TripResponse>> listTrips(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String search,
