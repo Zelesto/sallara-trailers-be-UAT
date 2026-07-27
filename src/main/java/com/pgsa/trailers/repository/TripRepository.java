@@ -37,37 +37,28 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
                                    @Param("endDate") LocalDateTime endDate);
     
     // ============================================================
-    // PAGINATED QUERIES - NO JOIN FETCH (to avoid duplicate row errors)
+    // JOIN FETCH QUERIES - For single entity only (not paginated)
     // ============================================================
     
-    @Query("SELECT t FROM Trip t ORDER BY t.id DESC")
+    // ✅ For list - NO JOIN FETCH to avoid duplicate row errors with pagination
+    @Query("SELECT t FROM Trip t")
     Page<Trip> findAllWithCustomer(Pageable pageable);
     
+    // ✅ For status filter with pagination - NO JOIN FETCH
     @Query("SELECT t FROM Trip t WHERE t.status IN :statuses")
     Page<Trip> findByStatusIn(@Param("statuses") List<TripStatus> statuses, Pageable pageable);
     
-    @Query("SELECT t FROM Trip t WHERE " +
-           "(:searchTerm IS NULL OR :searchTerm = '' OR " +
-           "LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(t.originCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(t.destinationCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(t.customer.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(t.referenceNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
-    Page<Trip> searchTrips(@Param("searchTerm") String searchTerm, Pageable pageable);
-    
+    // ✅ For customer filter with pagination - NO JOIN FETCH
     @Query("SELECT t FROM Trip t WHERE t.customerId = :customerId")
     Page<Trip> findByCustomerId(@Param("customerId") Long customerId, Pageable pageable);
     
-    @Query("SELECT t FROM Trip t WHERE LOWER(t.originCity) = LOWER(:city) OR LOWER(t.destinationCity) = LOWER(:city)")
-    Page<Trip> findByOriginCityOrDestinationCity(@Param("city") String city, Pageable pageable);
+    // ✅ For single entity - WITH JOIN FETCH
+    @Query("SELECT t FROM Trip t " +
+           "LEFT JOIN FETCH t.customer c " +
+           "WHERE t.id = :id")
+    Optional<Trip> findByIdWithCustomer(@Param("id") Long id);
     
-    @Query("SELECT t FROM Trip t WHERE LOWER(t.customer.name) LIKE LOWER(CONCAT('%', :customer, '%'))")
-    Page<Trip> findByCustomerNameContaining(@Param("customer") String customer, Pageable pageable);
-    
-    // ============================================================
-    // SINGLE ENTITY QUERIES - WITH JOIN FETCH
-    // ============================================================
-    
+    // ✅ For single entity - WITH JOIN FETCH (all relations)
     @Query("SELECT t FROM Trip t " +
            "LEFT JOIN FETCH t.customer c " +
            "LEFT JOIN FETCH t.vehicle v " +
@@ -79,7 +70,20 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     Optional<Trip> findByIdWithAllRelations(@Param("id") Long id);
     
     // ============================================================
-    // FIND BY STATUS - Non-paginated
+    // SEARCH WITH JOIN FETCH - For search with pagination (NO JOIN FETCH)
+    // ============================================================
+    
+    @Query("SELECT t FROM Trip t WHERE " +
+           "(:searchTerm IS NULL OR :searchTerm = '' OR " +
+           "LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(t.originCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(t.destinationCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(t.customer.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(t.referenceNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
+    Page<Trip> searchTripsWithCustomer(@Param("searchTerm") String searchTerm, Pageable pageable);
+    
+    // ============================================================
+    // FIND BY STATUS
     // ============================================================
     
     List<Trip> findByStatus(TripStatus status);
@@ -87,7 +91,7 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     List<Trip> findByStatusOrderByIdDesc(TripStatus status);
     
     Page<Trip> findByStatus(TripStatus status, Pageable pageable);
-    
+
     @Query("SELECT t FROM Trip t WHERE t.status IN :statuses")
     List<Trip> findTripsByStatusIn(@Param("statuses") List<TripStatus> statuses);
     
@@ -174,9 +178,18 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     long countByLoadId(@Param("loadId") String loadId);
     
     // ============================================================
-    // SEARCH QUERIES - Non-paginated
+    // SEARCH QUERIES
     // ============================================================
 
+    @Query("SELECT t FROM Trip t WHERE " +
+           "(:searchTerm IS NULL OR :searchTerm = '' OR " +
+           "LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(t.originCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(t.destinationCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(t.customer.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(t.referenceNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
+    Page<Trip> searchTrips(@Param("searchTerm") String searchTerm, Pageable pageable);
+    
     @Query("SELECT t FROM Trip t WHERE " +
            "(:searchTerm IS NULL OR :searchTerm = '' OR " +
            "LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
@@ -196,8 +209,33 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     List<Trip> searchTripsOrderByIdDesc(@Param("searchTerm") String searchTerm);
     
     // ============================================================
-    // FILTER QUERIES - With pagination (no JOIN FETCH)
+    // FILTER QUERIES - With pagination (NO JOIN FETCH)
     // ============================================================
+    
+    @Query("SELECT t FROM Trip t WHERE " +
+           "LOWER(t.originCity) = LOWER(:city) OR " +
+           "LOWER(t.destinationCity) = LOWER(:city)")
+    Page<Trip> findByOriginCityOrDestinationCity(@Param("city") String city, Pageable pageable);
+    
+    @Query("SELECT t FROM Trip t WHERE LOWER(t.customer.name) LIKE LOWER(CONCAT('%', :customer, '%'))")
+    Page<Trip> findByCustomerNameContaining(@Param("customer") String customer, Pageable pageable);
+    
+    @Query("SELECT t FROM Trip t WHERE " +
+           "(:searchTerm IS NULL OR " +
+           "LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(t.originCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(t.destinationCity) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(t.customer.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(t.referenceNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) " +
+           "AND (:status IS NULL OR t.status = :status) " +
+           "AND (:city IS NULL OR LOWER(t.originCity) = LOWER(:city) OR LOWER(t.destinationCity) = LOWER(:city)) " +
+           "AND (:customer IS NULL OR LOWER(t.customer.name) = LOWER(:customer)) " +
+           "ORDER BY t.id DESC")
+    Page<Trip> findWithFilters(@Param("searchTerm") String searchTerm,
+                               @Param("status") TripStatus status,
+                               @Param("city") String city,
+                               @Param("customer") String customer,
+                               Pageable pageable);
     
     @Query("SELECT t FROM Trip t WHERE " +
            "(:searchTerm IS NULL OR " +
