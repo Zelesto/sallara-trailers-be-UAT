@@ -36,7 +36,7 @@ public class TripResponseMapper {
         }
 
         // ======================== LOAD ========================
-        response.setLoad(toLoadDTO(trip.getLoad()));
+        response.setLoad(toLoadResponseDTO(trip.getLoad()));
         if (trip.getLoad() != null) {
             response.setLoadId(trip.getLoad().getLoadNumber());
             response.setLoadNumber(trip.getLoad().getLoadNumber());
@@ -285,33 +285,34 @@ public class TripResponseMapper {
     }
 
     /**
-     * Convert Load entity to LoadDTO
+     * Convert Load entity to LoadResponseDTO
      */
-    private LoadDTO toLoadDTO(Load load) {
+    private LoadResponseDTO toLoadResponseDTO(Load load) {
         if (load == null) {
             return null;
         }
 
-        LoadDTO dto = new LoadDTO();
-        dto.setId(load.getId());
-        dto.setLoadNumber(load.getLoadNumber());
-        dto.setReferenceNumber(load.getReferenceNumber());
-        dto.setCustomerId(load.getCustomerId());
-        dto.setDescription(load.getDescription());
-        dto.setCommodityType(load.getCommodityType());
-        dto.setStatus(load.getStatus());
-        dto.setTripsCount(load.getTripsCount());
-        dto.setOriginLocation(load.getOriginLocation());
-        dto.setDestinationLocation(load.getDestinationLocation());
-        dto.setTotalFromDepotKm(load.getTotalFromDepotKm());
-        dto.setTotalToDepotKm(load.getTotalToDepotKm());
-        dto.setCreatedAt(load.getCreatedAt());
-        dto.setCreatedBy(load.getCreatedBy());
-        dto.setUpdatedAt(load.getUpdatedAt());
-        dto.setUpdatedBy(load.getUpdatedBy());
-        dto.setLastStatusUpdate(load.getLastStatusUpdate());
-        
-        return dto;
+        return LoadResponseDTO.builder()
+                .id(load.getId())
+                .loadNumber(load.getLoadNumber())
+                .referenceNumber(load.getReferenceNumber())
+                .customerId(load.getCustomerId())
+                .description(load.getDescription())
+                .commodityType(load.getCommodityType())
+                .status(load.getStatus() != null ? load.getStatus().name() : null)
+                .tripsCount(load.getTripsCount())
+                .originLocation(load.getOriginLocation())
+                .destinationLocation(load.getDestinationLocation())
+                .totalFromDepotKm(load.getTotalFromDepotKm())
+                .totalToDepotKm(load.getTotalToDepotKm())
+                .totalDepotKm(load.getTotalDepotKm())
+                .createdAt(load.getCreatedAt())
+                .createdBy(load.getCreatedBy())
+                .updatedAt(load.getUpdatedAt())
+                .updatedBy(load.getUpdatedBy())
+                .lastStatusUpdate(load.getLastStatusUpdate())
+                .auditTrail(load.getAuditTrail())
+                .build();
     }
 
     /**
