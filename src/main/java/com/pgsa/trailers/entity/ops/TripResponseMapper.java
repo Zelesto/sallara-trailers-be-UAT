@@ -26,7 +26,7 @@ public class TripResponseMapper {
         response.setTripType(trip.getTripType());
 
         // ======================== CUSTOMER ========================
-        response.setCustomer(toCustomerDTO(trip.getCustomer()));
+        response.setCustomer(toCustomerResponseDTO(trip.getCustomer()));
         if (trip.getCustomer() != null) {
             response.setCustomerId(trip.getCustomer().getId());
             response.setCustomerName(trip.getCustomer().getName());
@@ -194,40 +194,39 @@ public class TripResponseMapper {
     // ======================== DTO CONVERTERS ========================
 
     /**
-     * Convert Customer entity to CustomerDTO
+     * Convert Customer entity to CustomerResponseDTO
      */
-    private CustomerDTO toCustomerDTO(Customer customer) {
+    private CustomerResponseDTO toCustomerResponseDTO(Customer customer) {
         if (customer == null) {
             return null;
         }
 
-        CustomerDTO dto = new CustomerDTO();
-        dto.setId(customer.getId());
-        dto.setCustomerCode(customer.getCustomerCode());
-        dto.setName(customer.getName());
-        dto.setRegistrationNumber(customer.getRegistrationNumber());
-        dto.setVatNumber(customer.getVatNumber());
-        dto.setEmail(customer.getEmail());
-        dto.setPhone(customer.getPhone());
-        dto.setAddressLine1(customer.getAddressLine1());
-        dto.setAddressLine2(customer.getAddressLine2());
-        dto.setCity(customer.getCity());
-        dto.setProvince(customer.getProvince());
-        dto.setPostalCode(customer.getPostalCode());
-        dto.setCountry(customer.getCountry());
-        dto.setContactPerson(customer.getContactPerson());
-        dto.setContactPhone(customer.getContactPhone());
-        dto.setContactEmail(customer.getContactEmail());
-        dto.setPaymentTerms(customer.getPaymentTerms());
-        dto.setCreditLimit(customer.getCreditLimit());
-        dto.setIsActive(customer.getIsActive());
-        dto.setNotes(customer.getNotes());
-        dto.setCreatedAt(customer.getCreatedAt());
-        dto.setCreatedBy(customer.getCreatedBy());
-        dto.setUpdatedAt(customer.getUpdatedAt());
-        dto.setUpdatedBy(customer.getUpdatedBy());
-
-        return dto;
+        return CustomerResponseDTO.builder()
+                .id(customer.getId())
+                .customerCode(customer.getCustomerCode())
+                .name(customer.getName())
+                .registrationNumber(customer.getRegistrationNumber())
+                .vatNumber(customer.getVatNumber())
+                .email(customer.getEmail())
+                .phone(customer.getPhone())
+                .addressLine1(customer.getAddressLine1())
+                .addressLine2(customer.getAddressLine2())
+                .city(customer.getCity())
+                .province(customer.getProvince())
+                .postalCode(customer.getPostalCode())
+                .country(customer.getCountry())
+                .contactPerson(customer.getContactPerson())
+                .contactPhone(customer.getContactPhone())
+                .contactEmail(customer.getContactEmail())
+                .paymentTerms(customer.getPaymentTerms())
+                .creditLimit(customer.getCreditLimit())
+                .isActive(customer.getIsActive())
+                .notes(customer.getNotes())
+                .createdAt(customer.getCreatedAt())
+                .createdBy(customer.getCreatedBy())
+                .updatedAt(customer.getUpdatedAt())
+                .updatedBy(customer.getUpdatedBy())
+                .build();
     }
 
     /**
@@ -254,7 +253,7 @@ public class TripResponseMapper {
         dto.setNextServiceDue(vehicle.getNextServiceDue());
         dto.setIsActive(vehicle.getIsActive());
         dto.setNotes(vehicle.getNotes());
-
+        
         return dto;
     }
 
@@ -281,7 +280,7 @@ public class TripResponseMapper {
         dto.setStatus(driver.getStatus());
         dto.setIsActive(driver.getIsActive());
         dto.setNotes(driver.getNotes());
-
+        
         return dto;
     }
 
@@ -311,7 +310,7 @@ public class TripResponseMapper {
         dto.setUpdatedAt(load.getUpdatedAt());
         dto.setUpdatedBy(load.getUpdatedBy());
         dto.setLastStatusUpdate(load.getLastStatusUpdate());
-
+        
         return dto;
     }
 
