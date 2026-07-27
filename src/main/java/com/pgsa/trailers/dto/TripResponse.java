@@ -7,6 +7,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import com.pgsa.trailers.entity.ops.Customer;     
+import com.pgsa.trailers.entity.assets.Vehicle;    
+import com.pgsa.trailers.entity.assets.Driver; 
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
