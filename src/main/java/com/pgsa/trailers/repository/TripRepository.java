@@ -107,6 +107,16 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     
     @Query("SELECT t FROM Trip t ORDER BY t.id DESC")
     Page<Trip> findAllOrderByIdDesc(Pageable pageable);
+
+
+    // ============================================================
+    // FIND ALL
+    // ============================================================
+
+    @Query("SELECT t FROM Trip t ORDER BY t.id DESC")
+    Page<Trip> findAllTrips(Pageable pageable);
+
+    
     
     // ============================================================
     // FIND BY RELATIONSHIPS
