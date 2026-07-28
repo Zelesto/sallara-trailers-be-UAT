@@ -1,4 +1,3 @@
-// src/main/java/com/pgsa/trailers/entity/ops/Load.java
 package com.pgsa.trailers.entity.ops;
 
 import com.pgsa.trailers.config.BaseEntity;
@@ -142,8 +141,6 @@ public class Load extends BaseEntity {
     @Column(name = "audit_trail", columnDefinition = "TEXT")
     private String auditTrail;
 
-
-
     /* ========================
        DEPOT TRACKING - NEW FIELDS
        ======================== */
@@ -238,16 +235,10 @@ public class Load extends BaseEntity {
         return BigDecimal.ZERO;
     }
 
-    /**
-     * Get the total number of trips in this load
-     */
     public int getTotalTrips() {
         return trips != null ? trips.size() : 0;
     }
 
-    /**
-     * Get the number of completed trips in this load
-     */
     public int getCompletedTrips() {
         if (trips == null || trips.isEmpty()) {
             return 0;
@@ -259,9 +250,6 @@ public class Load extends BaseEntity {
                 .count();
     }
 
-    /**
-     * Recalculate depot totals from all trips in the load
-     */
     public void recalculateDepotTotals() {
         if (trips == null || trips.isEmpty()) {
             totalFromDepotKm = BigDecimal.ZERO;
@@ -292,11 +280,8 @@ public class Load extends BaseEntity {
 
     @PrePersist
     protected void onCreate() {
-        log.debug("🔄 Load entity pre-persist: {}", this.loadNumber);
-        
         if (status == null) {
             status = LoadStatus.PENDING;
-            log.debug("✅ Set default status: PENDING");
         }
         if (priority == null) {
             priority = "NORMAL";
@@ -321,7 +306,6 @@ public class Load extends BaseEntity {
         }
         if (referenceNumber == null || referenceNumber.trim().isEmpty()) {
             referenceNumber = "";
-            log.warn("⚠️ Load created without reference number: {}", this.loadNumber);
         }
         if (totalFromDepotKm == null) {
             totalFromDepotKm = BigDecimal.ZERO;
@@ -332,16 +316,10 @@ public class Load extends BaseEntity {
         if (totalDepotKm == null) {
             totalDepotKm = BigDecimal.ZERO;
         }
-        
-        log.info("✅ Load pre-persist complete: {} | Status: {} | Ref: {}", 
-            this.loadNumber, this.status, this.referenceNumber);
     }
 
     @PreUpdate
     protected void onUpdate() {
-        log.debug("🔄 Load entity pre-update: {}", this.loadNumber);
-        
-        // Update all trips with current load details
         if (trips != null && !trips.isEmpty()) {
             for (Trip trip : trips) {
                 trip.setLoadNumber(this.loadNumber);
@@ -349,15 +327,11 @@ public class Load extends BaseEntity {
                 trip.setLoadDescription(this.description);
                 trip.setLoadStatus(this.status != null ? this.status.name() : "PENDING");
             }
-            log.debug("✅ Updated {} trips with load details", trips.size());
         }
         
         lastStatusUpdate = LocalDateTime.now();
         tripsCount = trips != null ? trips.size() : 0;
         recalculateDepotTotals();
-        
-        log.info("✅ Load pre-update complete: {} | Trips: {} | Depot KM: {}", 
-            this.loadNumber, this.tripsCount, this.totalDepotKm);
     }
 
     public String getType() {
@@ -367,23 +341,14 @@ public class Load extends BaseEntity {
         return "GENERAL";
     }
 
-    /**
-     * Check if this load can accept more trips
-     */
     public boolean canAcceptTrip() {
         return status != LoadStatus.COMPLETED && status != LoadStatus.CANCELLED;
     }
 
-    /**
-     * Get the status as a display string
-     */
     public String getStatusDisplay() {
         return status != null ? status.name() : "UNKNOWN";
     }
 
-    /**
-     * Check if load is active (not completed or cancelled)
-     */
     public boolean isActive() {
         return status != LoadStatus.COMPLETED && status != LoadStatus.CANCELLED;
     }
