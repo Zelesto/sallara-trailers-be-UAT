@@ -161,14 +161,37 @@ public class VehicleIssueService {
         return mapToResponseDTO(issue);
     }
 
-    @Transactional(readOnly = true)
-    public List<VehicleIssueResponseDTO> getAllVehicleIssues() {
-        log.info("📋 Fetching all vehicle issues");
-        return vehicleIssueRepository.findAllByOrderByIssueDateDesc()
-                .stream()
+    @@Transactional(readOnly = true)
+public List<VehicleIssueResponseDTO> getAllVehicleIssues() {
+    log.info("📋 Fetching all vehicle issues");
+    try {
+        List<VehicleIssue> issues = vehicleIssueRepository.findAllByOrderByIssueDateDesc();
+        log.info("📋 Found {} vehicle issues in database", issues.size());
+        
+        if (issues.isEmpty()) {
+            log.warn("⚠️ No vehicle issues found in database");
+            return new ArrayList<>();
+        }
+        
+        // Log each issue for debugging
+        for (VehicleIssue issue : issues) {
+            log.debug("📋 Issue: ID={}, Number={}, Vehicle={}, Driver={}, Status={}", 
+                issue.getId(), 
+                issue.getIssueNumber(), 
+                issue.getVehicleId(), 
+                issue.getDriverId(),
+                issue.getStatus()
+            );
+        }
+        
+        return issues.stream()
                 .map(this::mapToResponseDTO)
                 .collect(Collectors.toList());
+    } catch (Exception e) {
+        log.error("❌ Error fetching vehicle issues: {}", e.getMessage(), e);
+        return new ArrayList<>();
     }
+}
 
     @Transactional(readOnly = true)
     public List<VehicleIssueResponseDTO> getIssuesByVehicle(Long vehicleId) {
