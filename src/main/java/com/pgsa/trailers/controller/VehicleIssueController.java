@@ -34,6 +34,7 @@ public class VehicleIssueController {
     /**
      * Get all vehicle issues
      */
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER', 'DRIVER')")
     @GetMapping
     public ResponseEntity<List<VehicleIssueResponseDTO>> getAllVehicleIssues() {
         log.info("📋 Fetching all vehicle issues");
