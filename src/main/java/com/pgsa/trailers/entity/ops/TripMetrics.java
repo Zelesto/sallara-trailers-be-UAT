@@ -306,12 +306,7 @@ public class TripMetrics {
         updateAverageSpeed();
     }
 
-    /**
-     * Check if metrics are finalized
-     */
-    public boolean isFinalized() {
-        return finalized;
-    }
+   
 
 
         // ====== EXPLICIT GETTERS (since Lombok is not working) ======
