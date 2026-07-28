@@ -41,6 +41,16 @@ public class InventoryLocation {
     @Column(name = "is_active")
     private Boolean isActive;
 
+    // Add these fields to InventoryLocation entity
+    @Column(name = "vehicle_id")
+    private Long vehicleId;
+    
+    @Column(name = "vehicle_registration")
+    private String vehicleRegistration;
+    
+    @Column(name = "location_type")
+    private String locationType; // WAREHOUSE, VEHICLE, WORKSHOP, OFFICE
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
