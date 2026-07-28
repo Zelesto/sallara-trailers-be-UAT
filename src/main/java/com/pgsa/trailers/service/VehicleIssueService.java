@@ -1,10 +1,7 @@
 // src/main/java/com/pgsa/trailers/service/inventory/VehicleIssueService.java
 package com.pgsa.trailers.service.inventory;
 
-import com.pgsa.trailers.dto.VehicleIssueRequestDTO;
-import com.pgsa.trailers.dto.VehicleIssueResponseDTO;
-import com.pgsa.trailers.dto.VehicleIssueItemResponseDTO;
-import com.pgsa.trailers.dto.ReturnItemRequestDTO;
+import com.pgsa.trailers.dto.*;
 import com.pgsa.trailers.entity.inventory.*;
 import com.pgsa.trailers.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -14,8 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -145,7 +142,8 @@ public class VehicleIssueService {
                     .quantity(returnReq.getQuantity().intValue())
                     .movementType("IN")
                     .reason("Vehicle Return")
-                    .notes("Returned from vehicle: " + issue.getVehicleId())
+                    .notes("Returned from vehicle: " + issue.getVehicleId() +
+                           ", Condition: " + returnReq.getCondition())
                     .referenceNumber(issue.getIssueNumber())
                     .performedBy(String.valueOf(userId))
                     .referenceType("VEHICLE_RETURN")
