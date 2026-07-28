@@ -8,6 +8,7 @@ import com.pgsa.trailers.entity.security.AppUser;
 import com.pgsa.trailers.repository.AppUserRepository;
 import com.pgsa.trailers.repository.VehicleIssueRepository;
 import com.pgsa.trailers.service.inventory.VehicleIssueService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
