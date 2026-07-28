@@ -27,12 +27,17 @@ public class VehicleIssueController {
 
     // ✅ GET all vehicle issues
     @GetMapping
-    public ResponseEntity<List<VehicleIssueResponseDTO>> getAllVehicleIssues() {
-        log.info("📋 Fetching all vehicle issues");
+public ResponseEntity<List<VehicleIssueResponseDTO>> getAllVehicleIssues() {
+    log.info("📋 Fetching all vehicle issues");
+    try {
         List<VehicleIssueResponseDTO> issues = vehicleIssueService.getAllVehicleIssues();
+        log.info("📋 Returning {} vehicle issues", issues.size());
         return ResponseEntity.ok(issues);
+    } catch (Exception e) {
+        log.error("❌ Error fetching vehicle issues: {}", e.getMessage(), e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
-
+}
     // ✅ POST - Issue items to vehicle
     @PostMapping
     public ResponseEntity<VehicleIssueResponseDTO> issueItemsToVehicle(
