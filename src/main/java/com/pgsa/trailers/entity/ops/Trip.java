@@ -44,6 +44,8 @@ import java.util.Objects;
 @EntityListeners(AuditingEntityListener.class)
 public class Trip {
 
+        private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(Trip.class);
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -425,27 +427,29 @@ public class Trip {
        Load Management Methods - ADDED
        ======================== */
 
-    /**
-     * Set the load number for this trip
-     */
-    public void setLoadNumber(String loadNumber) {
-        this.loadNumber = loadNumber;
-    }
-
-    /**
-     * Set the load type for this trip
-     */
-    public void setLoadType(String loadType) {
-        this.loadType = loadType;
-    }
-
-    /**
-     * Set the load description for this trip
-     */
-    public void setLoadDescription(String loadDescription) {
-        this.loadDescription = loadDescription;
-    }
-
+          public void setLoad(Load load) {
+            this.load = load;
+        }
+        
+        public void setLoadId(String loadId) {
+            this.loadId = loadId;
+        }
+        
+        public void setLoadNumber(String loadNumber) {
+            this.loadNumber = loadNumber;
+        }
+        
+        public void setLoadType(String loadType) {
+            this.loadType = loadType;
+        }
+        
+        public void setLoadDescription(String loadDescription) {
+            this.loadDescription = loadDescription;
+        }
+        
+        public void setLoadStatus(String loadStatus) {
+            this.loadStatus = loadStatus;
+        }
     /* ========================
        Convenience Methods
        ======================== */
@@ -536,11 +540,7 @@ public class Trip {
             return toDepotKm;
         }
         
-        public BigDecimal getTotalDepotKm() {
-            BigDecimal from = fromDepotKm != null ? fromDepotKm : BigDecimal.ZERO;
-            BigDecimal to = toDepotKm != null ? toDepotKm : BigDecimal.ZERO;
-            return from.add(to);
-        }
+
 
     /* ========================
        LIFECYCLE CALLBACKS
