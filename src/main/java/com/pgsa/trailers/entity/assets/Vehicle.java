@@ -37,6 +37,9 @@ import java.util.Map;
 )
 public class Vehicle extends BaseEntity {
 
+    // ====== EXPLICIT LOGGER (since @Slf4j may not work) ======
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(Vehicle.class);
+
     @Column(name = "registration_number", unique = true, nullable = false, length = 20)
     private String registrationNumber;
 
@@ -158,7 +161,6 @@ public class Vehicle extends BaseEntity {
         this.status = VehicleStatus.ACTIVE;
         this.incidentsLogged = 0;
         this.auditTrail = new HashMap<>();
-        // Use the setters from BaseEntity
         this.setIsActive(true);
         this.setVersion(0);
     }
@@ -304,5 +306,63 @@ public class Vehicle extends BaseEntity {
     protected void onUpdate() {
         calculateNextService();
         log.debug("🔄 Vehicle pre-update: {}", this.registrationNumber);
+    }
+
+    // ====== Additional Getters/Setters (if Lombok fails) ======
+    
+    public String getRegistrationNumber() {
+        return registrationNumber;
+    }
+
+    public void setRegistrationNumber(String registrationNumber) {
+        this.registrationNumber = registrationNumber;
+    }
+
+    public VehicleType getVehicleType() {
+        return vehicleType;
+    }
+
+    public void setVehicleType(VehicleType vehicleType) {
+        this.vehicleType = vehicleType;
+    }
+
+    public VehicleStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(VehicleStatus status) {
+        this.status = status;
+    }
+
+    public BigDecimal getCurrentOdometer() {
+        return currentOdometer;
+    }
+
+    public void setCurrentOdometer(BigDecimal currentOdometer) {
+        this.currentOdometer = currentOdometer;
+    }
+
+    public Driver getAssignedDriver() {
+        return assignedDriver;
+    }
+
+    public void setAssignedDriver(Driver assignedDriver) {
+        this.assignedDriver = assignedDriver;
+    }
+
+    public String getMake() {
+        return make;
+    }
+
+    public void setMake(String make) {
+        this.make = make;
+    }
+
+    public String getModel() {
+        return model;
+    }
+
+    public void setModel(String model) {
+        this.model = model;
     }
 }
