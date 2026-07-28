@@ -39,7 +39,7 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, Lo
     // Count by movement type
     long countByMovementType(String movementType);
 
-    //List<StockMovement> findByReferenceType(String referenceType);
+    List<StockMovement> findByReferenceType(String referenceType);
 
 
     @Query("SELECT COALESCE(SUM(sm.quantity), 0) FROM StockMovement sm WHERE sm.movementType = :type AND sm.approvalStatus = 'APPROVED'")
