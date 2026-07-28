@@ -490,28 +490,58 @@ public TripResponse getTrip(Long id) {
 public Page<TripResponse> listTrips(Pageable pageable) {
     log.info("📊 Fetching trips with pageable: {}", pageable);
     
-    // ✅ FIXED: Use findAllOrderByIdDesc which is a proven working method
+    // ✅ Use findAllOrderByIdDesc
     Page<Trip> trips = tripRepository.findAllOrderByIdDesc(pageable);
-    
-    // Initialize lazy proxies while still in transaction
-    trips.getContent().forEach(trip -> {
-        Hibernate.initialize(trip.getCustomer());
-        Hibernate.initialize(trip.getVehicle());
-        Hibernate.initialize(trip.getDriver());
-        Hibernate.initialize(trip.getSupervisor());
-        Hibernate.initialize(trip.getLoad());
-        Hibernate.initialize(trip.getMetrics());
-    });
     
     log.info("📊 Found {} trips total", trips.getTotalElements());
     log.info("📊 Content size: {}", trips.getContent().size());
     
+    // ✅ CRITICAL: Initialize ALL lazy proxies before mapping
+    trips.getContent().forEach(trip -> {
+        // Force initialization of Customer
+        if (trip.getCustomer() != null) {
+            trip.getCustomer().getName();
+            trip.getCustomer().getCustomerCode();
+        }
+        // Force initialization of Vehicle
+        if (trip.getVehicle() != null) {
+            trip.getVehicle().getRegistrationNumber();
+            trip.getVehicle().getMake();
+            trip.getVehicle().getModel();
+        }
+        // Force initialization of Driver
+        if (trip.getDriver() != null) {
+            trip.getDriver().getFirstName();
+            trip.getDriver().getLastName();
+            trip.getDriver().getLicenseNumber();
+        }
+        // Force initialization of Supervisor
+        if (trip.getSupervisor() != null) {
+            trip.getSupervisor().getFirstName();
+            trip.getSupervisor().getLastName();
+        }
+        // Force initialization of Load
+        if (trip.getLoad() != null) {
+            trip.getLoad().getLoadNumber();
+            trip.getLoad().getDescription();
+        }
+        // Force initialization of Metrics
+        if (trip.getMetrics() != null) {
+            trip.getMetrics().getTotalDistanceKm();
+        }
+    });
+    
+    // Log first trip for debugging
     if (!trips.getContent().isEmpty()) {
         Trip first = trips.getContent().get(0);
-        log.info("📊 First trip: ID={}, Number={}, Status={}", 
-            first.getId(), first.getTripNumber(), first.getStatus());
-    } else {
-        log.warn("⚠️ No trips found in database!");
+        log.info("📊 First trip: ID={}, Number={}, Status={}, Customer={}, Vehicle={}, Driver={}", 
+            first.getId(), 
+            first.getTripNumber(), 
+            first.getStatus(),
+            first.getCustomer() != null ? first.getCustomer().getName() : "null",
+            first.getVehicle() != null ? first.getVehicle().getRegistrationNumber() : "null",
+            first.getDriver() != null ? first.getDriver().getFirstName() : "null"
+        );
     }
     
     return trips.map(tripResponseMapper::toResponse);
