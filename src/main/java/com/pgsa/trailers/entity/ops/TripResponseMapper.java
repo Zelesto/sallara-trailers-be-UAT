@@ -1,7 +1,8 @@
 package com.pgsa.trailers.entity.ops;
 
-import com.pgsa.trailers.dto.TripMetricsResponse;
-import com.pgsa.trailers.dto.TripResponse;
+import com.pgsa.trailers.dto.*;
+import com.pgsa.trailers.entity.assets.Driver;
+import com.pgsa.trailers.entity.assets.Vehicle;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -24,57 +25,74 @@ public class TripResponseMapper {
         response.setTripNumber(trip.getTripNumber());
         response.setTripType(trip.getTripType());
 
-        // ======================== CUSTOMER - SAFE LAZY LOADING ========================
-        try {
-            if (trip.getCustomer() != null) {
-                response.setCustomerId(trip.getCustomer().getId());
-                response.setCustomerName(trip.getCustomer().getName());
-                response.setCustomerCode(trip.getCustomer().getCustomerCode() != null 
-                    ? trip.getCustomer().getCustomerCode() 
-                    : null);
-            } else if (trip.getCustomerId() != null) {
-                response.setCustomerId(trip.getCustomerId());
-            }
-        } catch (Exception e) {
-            log.debug("Could not load customer for trip: {}", trip.getId());
-            if (trip.getCustomerId() != null) {
-                response.setCustomerId(trip.getCustomerId());
-            }
+        // ======================== CUSTOMER ========================
+        response.setCustomer(toCustomerResponseDTO(trip.getCustomer()));
+        if (trip.getCustomer() != null) {
+            response.setCustomerId(trip.getCustomer().getId());
+            response.setCustomerName(trip.getCustomer().getName());
+            response.setCustomerCode(trip.getCustomer().getCustomerCode());
+        } else if (trip.getCustomerId() != null) {
+            response.setCustomerId(trip.getCustomerId());
         }
 
         // ======================== LOAD ========================
-        try {
-            if (trip.getLoad() != null) {
-                response.setLoadId(trip.getLoad().getLoadNumber());
-                response.setLoadNumber(trip.getLoad().getLoadNumber());
-                response.setLoadType(trip.getLoad().getCommodityType());
-                response.setLoadDescription(trip.getLoad().getDescription());
-                response.setLoadStatus(trip.getLoad().getStatus() != null 
-                    ? trip.getLoad().getStatus().name() 
-                    : null);
-            } else if (trip.getLoadId() != null) {
-                response.setLoadId(trip.getLoadId());
-                response.setLoadNumber(trip.getLoadNumber());
-                response.setLoadType(trip.getLoadType());
-                response.setLoadDescription(trip.getLoadDescription());
-                response.setLoadStatus(trip.getLoadStatus());
-            }
-        } catch (Exception e) {
-            log.debug("Could not load load details for trip: {}", trip.getId());
-            if (trip.getLoadId() != null) {
-                response.setLoadId(trip.getLoadId());
-                response.setLoadNumber(trip.getLoadNumber());
-                response.setLoadType(trip.getLoadType());
-                response.setLoadDescription(trip.getLoadDescription());
-                response.setLoadStatus(trip.getLoadStatus());
-            }
+        response.setLoad(toLoadResponseDTO(trip.getLoad()));
+        if (trip.getLoad() != null) {
+            response.setLoadId(trip.getLoad().getLoadNumber());
+            response.setLoadNumber(trip.getLoad().getLoadNumber());
+            response.setLoadType(trip.getLoad().getCommodityType());
+            response.setLoadDescription(trip.getLoad().getDescription());
+            response.setLoadStatus(trip.getLoad().getStatus() != null 
+                ? trip.getLoad().getStatus().name() 
+                : null);
+        } else if (trip.getLoadId() != null) {
+            response.setLoadId(trip.getLoadId());
+            response.setLoadNumber(trip.getLoadNumber());
+            response.setLoadType(trip.getLoadType());
+            response.setLoadDescription(trip.getLoadDescription());
+            response.setLoadStatus(trip.getLoadStatus());
+        }
+
+        // ======================== VEHICLE ========================
+        response.setVehicle(toVehicleDTO(trip.getVehicle()));
+        if (trip.getVehicle() != null) {
+            response.setVehicleId(trip.getVehicle().getId());
+            response.setVehicleRegistration(trip.getVehicle().getRegistrationNumber());
+            response.setVehicleMake(trip.getVehicle().getMake());
+            response.setVehicleModel(trip.getVehicle().getModel());
+        }
+
+        // ======================== DRIVER ========================
+        response.setDriver(toDriverDTO(trip.getDriver()));
+        if (trip.getDriver() != null) {
+            response.setDriverId(trip.getDriver().getId());
+            String firstName = trip.getDriver().getFirstName() != null 
+                ? trip.getDriver().getFirstName() 
+                : "";
+            String lastName = trip.getDriver().getLastName() != null 
+                ? trip.getDriver().getLastName() 
+                : "";
+            String fullName = (firstName + " " + lastName).trim();
+            response.setDriverName(fullName.isEmpty() ? null : fullName);
+            response.setDriverLicenseNumber(trip.getDriver().getLicenseNumber());
+        }
+
+        // ======================== SUPERVISOR ========================
+        response.setSupervisor(toDriverDTO(trip.getSupervisor()));
+        if (trip.getSupervisor() != null) {
+            response.setSupervisorId(trip.getSupervisor().getId());
+            String firstName = trip.getSupervisor().getFirstName() != null 
+                ? trip.getSupervisor().getFirstName() 
+                : "";
+            String lastName = trip.getSupervisor().getLastName() != null 
+                ? trip.getSupervisor().getLastName() 
+                : "";
+            String fullName = (firstName + " " + lastName).trim();
+            response.setSupervisorName(fullName.isEmpty() ? null : fullName);
         }
 
         // ======================== LOCATIONS ========================
         response.setOriginLocation(trip.getOriginLocation());
-        response.setDestinationLocation(trip.getDestinationLocation());
-
-        // Origin details
         response.setOriginStreetAddress(trip.getOriginStreetAddress());
         response.setOriginCity(trip.getOriginCity());
         response.setOriginZipCode(trip.getOriginZipCode());
@@ -82,7 +100,7 @@ public class TripResponseMapper {
         response.setOriginLatitude(trip.getOriginLatitude());
         response.setOriginLongitude(trip.getOriginLongitude());
 
-        // Destination details
+        response.setDestinationLocation(trip.getDestinationLocation());
         response.setDestinationStreetAddress(trip.getDestinationStreetAddress());
         response.setDestinationCity(trip.getDestinationCity());
         response.setDestinationZipCode(trip.getDestinationZipCode());
@@ -99,65 +117,14 @@ public class TripResponseMapper {
         // ======================== STATUS ========================
         response.setStatus(trip.getStatus());
         response.setApprovalStatus(trip.getApprovalStatus());
+        response.setApprovedAt(trip.getApprovedAt());
 
         // ======================== AUDIT ========================
         response.setCreatedAt(trip.getCreatedAt());
         response.setUpdatedAt(trip.getUpdatedAt());
         response.setCreatedBy(trip.getCreatedBy());
         response.setUpdatedBy(trip.getUpdatedBy());
-
-        // ======================== VEHICLE - SAFE LAZY LOADING ========================
-        try {
-            if (trip.getVehicle() != null) {
-                response.setVehicleId(trip.getVehicle().getId());
-                response.setVehicleRegistration(
-                    trip.getVehicle().getRegistrationNumber() != null 
-                        ? trip.getVehicle().getRegistrationNumber() 
-                        : null
-                );
-                response.setVehicleMake(trip.getVehicle().getMake());
-                response.setVehicleModel(trip.getVehicle().getModel());
-            }
-        } catch (Exception e) {
-            log.debug("Could not load vehicle for trip: {}", trip.getId());
-            // Vehicle might not be loaded, leave as null
-        }
-
-        // ======================== DRIVER - SAFE LAZY LOADING ========================
-        try {
-            if (trip.getDriver() != null) {
-                response.setDriverId(trip.getDriver().getId());
-                String firstName = trip.getDriver().getFirstName() != null 
-                    ? trip.getDriver().getFirstName() 
-                    : "";
-                String lastName = trip.getDriver().getLastName() != null 
-                    ? trip.getDriver().getLastName() 
-                    : "";
-                String fullName = (firstName + " " + lastName).trim();
-                response.setDriverName(fullName.isEmpty() ? null : fullName);
-            }
-        } catch (Exception e) {
-            log.debug("Could not load driver for trip: {}", trip.getId());
-            // Driver might not be loaded, leave as null
-        }
-
-        // ======================== SUPERVISOR - SAFE LAZY LOADING ========================
-        try {
-            if (trip.getSupervisor() != null) {
-                response.setSupervisorId(trip.getSupervisor().getId());
-                String firstName = trip.getSupervisor().getFirstName() != null 
-                    ? trip.getSupervisor().getFirstName() 
-                    : "";
-                String lastName = trip.getSupervisor().getLastName() != null 
-                    ? trip.getSupervisor().getLastName() 
-                    : "";
-                String fullName = (firstName + " " + lastName).trim();
-                response.setSupervisorName(fullName.isEmpty() ? null : fullName);
-            }
-        } catch (Exception e) {
-            log.debug("Could not load supervisor for trip: {}", trip.getId());
-            // Supervisor might not be loaded, leave as null
-        }
+        response.setLastStatusUpdate(trip.getLastStatusUpdate());
 
         // ======================== CARGO ========================
         response.setCommodityType(trip.getCommodityType());
@@ -178,14 +145,15 @@ public class TripResponseMapper {
         response.setActualDistanceKm(trip.getActualDistanceKm());
         response.setActualDurationHours(trip.getActualDurationHours());
 
+        // ======================== METRICS ========================
+        response.setDistanceKm(trip.getActualDistanceKm());
+        response.setFuelConsumedLiters(trip.getFuelConsumedLiters());
+
         // ======================== COSTS ========================
         response.setTollCost(trip.getTollCost());
         response.setOtherExpenses(trip.getOtherExpenses());
         response.setCostAmount(trip.getCostAmount());
         response.setRevenueAmount(trip.getRevenueAmount());
-
-        // ======================== FUEL ========================
-        response.setFuelConsumedLiters(trip.getFuelConsumedLiters());
 
         // ======================== ROUTE ========================
         response.setGpsStartLocation(trip.getGpsStartLocation());
@@ -212,53 +180,186 @@ public class TripResponseMapper {
         // ======================== OPERATIONS ========================
         response.setIncidentsLogged(trip.getIncidentsLogged());
         response.setCancellationReason(trip.getCancellationReason());
-        //response.setIsActive(trip.getIsActive());
-        response.setLastStatusUpdate(trip.getLastStatusUpdate());
+        response.setCancelledAt(trip.getCancelledAt());
 
         // ======================== METRICS ========================
-        try {
-            if (trip.getMetrics() != null) {
-                response.setMetrics(toMetricsResponse(trip.getMetrics()));
-            }
-        } catch (Exception e) {
-            log.debug("Could not load metrics for trip: {}", trip.getId());
-            // Metrics might not be loaded, leave as null
+        if (trip.getMetrics() != null) {
+            response.setMetrics(toTripMetricsResponse(trip.getMetrics()));
         }
 
         return response;
     }
 
-    private TripMetricsResponse toMetricsResponse(TripMetrics metrics) {
+    // ======================== DTO CONVERTERS ========================
+
+    /**
+     * Convert Customer entity to CustomerResponseDTO
+     */
+    private CustomerResponseDTO toCustomerResponseDTO(Customer customer) {
+        if (customer == null) {
+            return null;
+        }
+
+        return CustomerResponseDTO.builder()
+                .id(customer.getId())
+                .customerCode(customer.getCustomerCode())
+                .name(customer.getName())
+                .registrationNumber(customer.getRegistrationNumber())
+                .vatNumber(customer.getVatNumber())
+                .email(customer.getEmail())
+                .phone(customer.getPhone())
+                .addressLine1(customer.getAddressLine1())
+                .addressLine2(customer.getAddressLine2())
+                .city(customer.getCity())
+                .province(customer.getProvince())
+                .postalCode(customer.getPostalCode())
+                .country(customer.getCountry())
+                .contactPerson(customer.getContactPerson())
+                .contactPhone(customer.getContactPhone())
+                .contactEmail(customer.getContactEmail())
+                .paymentTerms(customer.getPaymentTerms())
+                .creditLimit(customer.getCreditLimit())
+                .isActive(customer.getIsActive())
+                .notes(customer.getNotes())
+                .createdAt(customer.getCreatedAt())
+                .createdBy(customer.getCreatedBy())
+                .updatedAt(customer.getUpdatedAt())
+                .updatedBy(customer.getUpdatedBy())
+                .build();
+    }
+
+    /**
+ * Convert Vehicle entity to VehicleDTO - Safe version with null/exception handling
+ */
+private VehicleDTO toVehicleDTO(Vehicle vehicle) {
+    if (vehicle == null) {
+        return null;
+    }
+
+    VehicleDTO dto = new VehicleDTO();
+    dto.setId(vehicle.getId());
+    
+    try {
+        dto.setRegistrationNumber(vehicle.getRegistrationNumber());
+    } catch (Exception e) {
+        log.warn("Could not load registration number for vehicle {}: {}", vehicle.getId(), e.getMessage());
+    }
+    
+    try {
+        dto.setMake(vehicle.getMake());
+    } catch (Exception e) {
+        log.warn("Could not load make for vehicle {}: {}", vehicle.getId(), e.getMessage());
+    }
+    
+    try {
+        dto.setModel(vehicle.getModel());
+    } catch (Exception e) {
+        log.warn("Could not load model for vehicle {}: {}", vehicle.getId(), e.getMessage());
+    }
+    
+    try {
+        dto.setIsActive(vehicle.getIsActive());
+    } catch (Exception e) {
+        log.warn("Could not load isActive for vehicle {}: {}", vehicle.getId(), e.getMessage());
+    }
+    
+    return dto;
+}
+
+    /**
+     * Convert Driver entity to DriverDTO
+     */
+    private DriverDTO toDriverDTO(Driver driver) {
+        if (driver == null) {
+            return null;
+        }
+
+        DriverDTO dto = new DriverDTO();
+        dto.setId(driver.getId());
+        dto.setFirstName(driver.getFirstName());
+        dto.setLastName(driver.getLastName());
+        dto.setLicenseNumber(driver.getLicenseNumber());
+        // Only set these if they exist in your Driver entity
+        // dto.setLicenseClass(driver.getLicenseClass());
+        // dto.setLicenseExpiry(driver.getLicenseExpiry());
+        // dto.setPhone(driver.getPhone());
+        // dto.setEmail(driver.getEmail());
+        // dto.setAddress(driver.getAddress());
+        // dto.setHireDate(driver.getHireDate());
+        // dto.setEmployeeNumber(driver.getEmployeeNumber());
+        dto.setIsActive(driver.getIsActive());
+        // dto.setNotes(driver.getNotes());
+        
+        return dto;
+    }
+
+    /**
+     * Convert Load entity to LoadResponseDTO
+     */
+    private LoadResponseDTO toLoadResponseDTO(Load load) {
+        if (load == null) {
+            return null;
+        }
+
+        LoadResponseDTO.LoadResponseDTOBuilder builder = LoadResponseDTO.builder()
+                .id(load.getId())
+                .loadNumber(load.getLoadNumber())
+                .referenceNumber(load.getReferenceNumber())
+                .customerId(load.getCustomerId())
+                .description(load.getDescription())
+                .commodityType(load.getCommodityType())
+                .status(load.getStatus() != null ? load.getStatus().name() : null)
+                .tripsCount(load.getTripsCount())
+                .originLocation(load.getOriginLocation())
+                .destinationLocation(load.getDestinationLocation())
+                .totalFromDepotKm(load.getTotalFromDepotKm())
+                .totalToDepotKm(load.getTotalToDepotKm())
+                .totalDepotKm(load.getTotalDepotKm())
+                .createdAt(load.getCreatedAt())
+                .updatedAt(load.getUpdatedAt())
+                .lastStatusUpdate(load.getLastStatusUpdate());
+
+        // Only set these if they exist in your Load entity
+        // .createdBy(load.getCreatedBy())
+        // .updatedBy(load.getUpdatedBy())
+        // .auditTrail(load.getAuditTrail())
+
+        return builder.build();
+    }
+
+    /**
+     * Convert TripMetrics entity to TripMetricsResponse
+     */
+    private TripMetricsResponse toTripMetricsResponse(TripMetrics metrics) {
         if (metrics == null) {
             return null;
         }
 
         TripMetricsResponse dto = new TripMetricsResponse();
 
-        // ======================== BASIC METRICS ========================
+        // Basic metrics
         dto.setTotalDistanceKm(metrics.getTotalDistanceKm());
         dto.setTotalDurationHours(metrics.getTotalDurationHours());
         dto.setIdleTimeHours(metrics.getIdleTimeHours());
         dto.setAverageSpeedKmh(metrics.getAverageSpeedKmh());
         dto.setFuelUsedLiters(metrics.getFuelUsedLiters());
 
-        // ======================== INCIDENT & TASKS ========================
+        // Incident & tasks
         dto.setIncidentCount(metrics.getIncidentCount());
         dto.setTasksCompleted(metrics.getTasksCompleted());
 
-        // ======================== FINANCIAL ========================
+        // Financial
         dto.setRevenueAmount(metrics.getRevenueAmount());
         dto.setCostAmount(metrics.getCostAmount());
 
-        // ======================== VARIANCE ========================
+        // Variance
         dto.setOriginCityTravelTimeHours(metrics.getOriginCityTravelTimeHours());
         dto.setDestinationCityTravelTimeHours(metrics.getDestinationCityTravelTimeHours());
         dto.setPlannedVsActualDistanceVarianceKm(metrics.getPlannedVsActualDistanceVarianceKm());
         dto.setPlannedVsActualDurationVarianceHours(metrics.getPlannedVsActualDurationVarianceHours());
         dto.setGeocodingConfidenceScore(metrics.getGeocodingConfidenceScore());
 
-        // ======================== AUDIT ========================
-        //dto.setCalculatedAt(metrics.getCalculatedAt());
+        // Audit
         dto.setCreatedAt(metrics.getCreatedAt());
         dto.setUpdatedAt(metrics.getUpdatedAt());
 
