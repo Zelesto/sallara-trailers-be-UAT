@@ -12,4 +12,5 @@ public interface VehicleIssueRepository extends JpaRepository<VehicleIssue, Long
     List<VehicleIssue> findByVehicleIdOrderByIssueDateDesc(Long vehicleId);
     List<VehicleIssue> findByDriverIdOrderByIssueDateDesc(Long driverId);
     List<VehicleIssue> findByTripIdOrderByIssueDateDesc(Long tripId);
+    List<VehicleIssue> findAllByOrderByIssueDateDesc();
 }
