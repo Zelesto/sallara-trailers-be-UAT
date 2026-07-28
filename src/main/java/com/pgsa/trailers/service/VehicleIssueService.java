@@ -1,17 +1,12 @@
 // src/main/java/com/pgsa/trailers/service/inventory/VehicleIssueService.java
 package com.pgsa.trailers.service.inventory;
 
-import com.pgsa.trailers.dto.*;
-import com.pgsa.trailers.entity.inventory.InventoryItem;
-import com.pgsa.trailers.entity.inventory.InventoryLocation;
-import com.pgsa.trailers.entity.inventory.StockMovement;
-import com.pgsa.trailers.entity.inventory.VehicleIssue;
-import com.pgsa.trailers.entity.inventory.VehicleIssueItem;
-import com.pgsa.trailers.repository.InventoryItemRepository;
-import com.pgsa.trailers.repository.InventoryLocationRepository;
-import com.pgsa.trailers.repository.VehicleIssueItemRepository;
-import com.pgsa.trailers.repository.VehicleIssueRepository;
-import com.pgsa.trailers.repository.StockMovementRepository;
+import com.pgsa.trailers.dto.VehicleIssueRequestDTO;
+import com.pgsa.trailers.dto.VehicleIssueResponseDTO;
+import com.pgsa.trailers.dto.VehicleIssueItemResponseDTO;
+import com.pgsa.trailers.dto.ReturnItemRequestDTO;
+import com.pgsa.trailers.entity.inventory.*;
+import com.pgsa.trailers.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -40,7 +36,7 @@ public class VehicleIssueService {
      * Issue items to a vehicle
      */
     public VehicleIssueResponseDTO issueItemsToVehicle(VehicleIssueRequestDTO request, Long userId) {
-        log.info("Issuing items to vehicle: {}", request.getVehicleId());
+        log.info("🚗 Issuing items to vehicle: {}", request.getVehicleId());
 
         // Validate items
         for (VehicleIssueItemRequestDTO itemReq : request.getItems()) {
@@ -90,11 +86,6 @@ public class VehicleIssueService {
             item.setQuantity(newQuantity);
             inventoryItemRepository.save(item);
 
-            // Find or create vehicle location
-            InventoryLocation vehicleLocation = findOrCreateVehicleLocation(
-                    request.getVehicleId(), 
-                    getVehicleRegistration(request.getVehicleId()));
-
             // Create stock movement
             StockMovement movement = StockMovement.builder()
                     .itemId(itemReq.getItemId())
@@ -107,12 +98,15 @@ public class VehicleIssueService {
                     .referenceNumber(issue.getIssueNumber())
                     .performedBy(String.valueOf(userId))
                     .tripId(request.getTripId())
+                    .referenceType("VEHICLE_ISSUE")
+                    .requiresApproval(false)
+                    .approvalStatus("APPROVED")
                     .build();
 
             stockMovementRepository.save(movement);
         }
 
-        log.info("Items issued successfully. Issue Number: {}", issue.getIssueNumber());
+        log.info("✅ Items issued successfully. Issue Number: {}", issue.getIssueNumber());
         return mapToResponseDTO(issue);
     }
 
@@ -120,7 +114,7 @@ public class VehicleIssueService {
      * Return items from vehicle
      */
     public VehicleIssueResponseDTO returnItemsFromVehicle(Long issueId, List<ReturnItemRequestDTO> returns, Long userId) {
-        log.info("Returning items from vehicle issue: {}", issueId);
+        log.info("🔄 Returning items from vehicle issue: {}", issueId);
 
         VehicleIssue issue = vehicleIssueRepository.findById(issueId)
                 .orElseThrow(() -> new RuntimeException("Vehicle issue not found: " + issueId));
@@ -134,6 +128,7 @@ public class VehicleIssueService {
             BigDecimal newReturned = issueItem.getQuantityReturned().add(returnReq.getQuantity());
             issueItem.setQuantityReturned(newReturned);
             issueItem.setConditionReturned(returnReq.getCondition());
+            issueItem.setUpdatedAt(LocalDateTime.now());
             vehicleIssueItemRepository.save(issueItem);
 
             // Return to inventory
@@ -153,6 +148,9 @@ public class VehicleIssueService {
                     .notes("Returned from vehicle: " + issue.getVehicleId())
                     .referenceNumber(issue.getIssueNumber())
                     .performedBy(String.valueOf(userId))
+                    .referenceType("VEHICLE_RETURN")
+                    .requiresApproval(false)
+                    .approvalStatus("APPROVED")
                     .build();
 
             stockMovementRepository.save(movement);
@@ -161,12 +159,22 @@ public class VehicleIssueService {
         // Update issue status
         updateIssueStatus(issue);
 
-        log.info("Items returned successfully. Issue Number: {}", issue.getIssueNumber());
+        log.info("✅ Items returned successfully. Issue Number: {}", issue.getIssueNumber());
         return mapToResponseDTO(issue);
     }
 
     @Transactional(readOnly = true)
+    public List<VehicleIssueResponseDTO> getAllVehicleIssues() {
+        log.info("📋 Fetching all vehicle issues");
+        return vehicleIssueRepository.findAllByOrderByIssueDateDesc()
+                .stream()
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
     public List<VehicleIssueResponseDTO> getIssuesByVehicle(Long vehicleId) {
+        log.info("🚗 Fetching issues for vehicle: {}", vehicleId);
         return vehicleIssueRepository.findByVehicleIdOrderByIssueDateDesc(vehicleId)
                 .stream()
                 .map(this::mapToResponseDTO)
@@ -174,44 +182,27 @@ public class VehicleIssueService {
     }
 
     @Transactional(readOnly = true)
+    public List<VehicleIssueResponseDTO> getIssuesByDriver(Long driverId) {
+        log.info("👤 Fetching issues for driver: {}", driverId);
+        return vehicleIssueRepository.findByDriverIdOrderByIssueDateDesc(driverId)
+                .stream()
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
     public VehicleIssueResponseDTO getIssueById(Long issueId) {
+        log.info("📋 Fetching vehicle issue: {}", issueId);
         VehicleIssue issue = vehicleIssueRepository.findById(issueId)
                 .orElseThrow(() -> new RuntimeException("Vehicle issue not found: " + issueId));
         return mapToResponseDTO(issue);
     }
 
-    // Helper methods
+    // ==================== Helper Methods ====================
+
     private String generateIssueNumber() {
         String timestamp = String.valueOf(System.currentTimeMillis()).substring(5);
         return ISSUE_NUMBER_PREFIX + timestamp;
-    }
-
-    private InventoryLocation findOrCreateVehicleLocation(Long vehicleId, String vehicleRegistration) {
-        // Check if location exists
-        List<InventoryLocation> locations = inventoryLocationRepository.findAll();
-        
-        for (InventoryLocation loc : locations) {
-            if (loc.getVehicleId() != null && loc.getVehicleId().equals(vehicleId)) {
-                return loc;
-            }
-        }
-
-        // Create new vehicle location
-        InventoryLocation location = new InventoryLocation();
-        location.setName("Vehicle - " + vehicleRegistration);
-        location.setType("VEHICLE");
-        location.setVehicleId(vehicleId);
-        location.setVehicleRegistration(vehicleRegistration);
-        location.setLocationType("VEHICLE");
-        location.setIsActive(true);
-        
-        return inventoryLocationRepository.save(location);
-    }
-
-    private String getVehicleRegistration(Long vehicleId) {
-        // This should call vehicle service to get registration
-        // For now, return a placeholder
-        return "VEH-" + vehicleId;
     }
 
     private void updateIssueStatus(VehicleIssue issue) {
@@ -237,11 +228,16 @@ public class VehicleIssueService {
             issue.setStatus("ISSUED");
         }
         
+        issue.setUpdatedAt(LocalDateTime.now());
         vehicleIssueRepository.save(issue);
     }
 
     private VehicleIssueResponseDTO mapToResponseDTO(VehicleIssue issue) {
         List<VehicleIssueItem> items = vehicleIssueItemRepository.findByIssueId(issue.getId());
+        
+        List<VehicleIssueItemResponseDTO> itemDTOs = items.stream()
+                .map(this::mapItemToResponseDTO)
+                .collect(Collectors.toList());
         
         return VehicleIssueResponseDTO.builder()
                 .id(issue.getId())
@@ -252,7 +248,7 @@ public class VehicleIssueService {
                 .issueDate(issue.getIssueDate())
                 .status(issue.getStatus())
                 .notes(issue.getNotes())
-                .items(items.stream().map(this::mapItemToResponseDTO).collect(Collectors.toList()))
+                .items(itemDTOs)
                 .createdAt(issue.getCreatedAt())
                 .updatedAt(issue.getUpdatedAt())
                 .build();
