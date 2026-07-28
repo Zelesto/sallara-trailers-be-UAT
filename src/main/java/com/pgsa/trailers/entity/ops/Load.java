@@ -32,6 +32,9 @@ import java.util.List;
 })
 public class Load extends BaseEntity {
 
+    // ====== EXPLICIT LOGGER (since @Slf4j may not work) ======
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(Load.class);
+
     @Column(name = "load_number", unique = true, nullable = false, length = 50)
     private String loadNumber;
 
@@ -316,6 +319,9 @@ public class Load extends BaseEntity {
         if (totalDepotKm == null) {
             totalDepotKm = BigDecimal.ZERO;
         }
+        
+        log.info("✅ Load pre-persist complete: {} | Status: {} | Ref: {}", 
+            this.loadNumber, this.status, this.referenceNumber);
     }
 
     @PreUpdate
@@ -327,11 +333,15 @@ public class Load extends BaseEntity {
                 trip.setLoadDescription(this.description);
                 trip.setLoadStatus(this.status != null ? this.status.name() : "PENDING");
             }
+            log.debug("✅ Updated {} trips with load details", trips.size());
         }
         
         lastStatusUpdate = LocalDateTime.now();
         tripsCount = trips != null ? trips.size() : 0;
         recalculateDepotTotals();
+        
+        log.info("✅ Load pre-update complete: {} | Trips: {} | Depot KM: {}", 
+            this.loadNumber, this.tripsCount, this.totalDepotKm);
     }
 
     public String getType() {
