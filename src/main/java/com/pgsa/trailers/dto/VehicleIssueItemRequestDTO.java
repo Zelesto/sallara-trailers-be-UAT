@@ -1,4 +1,4 @@
-// src/main/java/com/pgsa/trailers/dto/VehicleIssueItemRequestDTO.java
+// src/main/java/com/pgsa/trailers/dto/VehicleIssueRequestDTO.java
 package com.pgsa.trailers.dto;
 
 import lombok.AllArgsConstructor;
@@ -6,16 +6,18 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class VehicleIssueItemRequestDTO {
-    private Long itemId;
-    private BigDecimal quantity;
-    private String condition;
+public class VehicleIssueRequestDTO {
+    private Long vehicleId;
+    private Long driverId;
+    private Long tripId;
+    private LocalDateTime issueDate;
     private String notes;
+    private List<VehicleIssueItemRequestDTO> items;  // ✅ This is what was missing
 }
-
