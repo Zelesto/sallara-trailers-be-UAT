@@ -7,6 +7,7 @@ import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import org.hibernate.annotations.Type;
 
 import java.math.BigDecimal;
@@ -17,6 +18,7 @@ import java.util.Map;
 @Getter
 @Setter
 @Entity
+@Slf4j
 @Table(
         name = "vehicle",
         indexes = {
@@ -156,6 +158,7 @@ public class Vehicle extends BaseEntity {
         this.status = VehicleStatus.ACTIVE;
         this.incidentsLogged = 0;
         this.auditTrail = new HashMap<>();
+        // Use the setters from BaseEntity
         this.setIsActive(true);
         this.setVersion(0);
     }
@@ -255,6 +258,25 @@ public class Vehicle extends BaseEntity {
             registrationNumber);
     }
 
+    // ====== Explicit Getters/Setters for BaseEntity fields ======
+    // These ensure the methods exist and are accessible
+    
+    public Boolean getIsActive() {
+        return super.isActive();
+    }
+
+    public void setIsActive(Boolean isActive) {
+        super.setIsActive(isActive);
+    }
+
+    public Integer getVersion() {
+        return super.getVersion();
+    }
+
+    public void setVersion(Integer version) {
+        super.setVersion(version);
+    }
+
     // ====== Lifecycle Hooks ======
     @PrePersist
     protected void onCreate() {
@@ -267,6 +289,7 @@ public class Vehicle extends BaseEntity {
         if (auditTrail == null) {
             auditTrail = new HashMap<>();
         }
+        // Ensure BaseEntity fields are set
         if (getIsActive() == null) {
             setIsActive(true);
         }
@@ -274,10 +297,12 @@ public class Vehicle extends BaseEntity {
             setVersion(0);
         }
         calculateNextService();
+        log.debug("✅ Vehicle pre-persist: {}", this.registrationNumber);
     }
 
     @PreUpdate
     protected void onUpdate() {
         calculateNextService();
+        log.debug("🔄 Vehicle pre-update: {}", this.registrationNumber);
     }
 }
