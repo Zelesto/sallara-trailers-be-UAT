@@ -1,4 +1,3 @@
-// src/main/java/com/pgsa/trailers/service/inventory/VehicleIssueService.java
 package com.pgsa.trailers.service.inventory;
 
 import com.pgsa.trailers.dto.*;
@@ -11,8 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -20,6 +19,8 @@ import java.util.stream.Collectors;
 @Slf4j
 @Transactional
 public class VehicleIssueService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(VehicleIssueService.class);
 
     private final VehicleIssueRepository vehicleIssueRepository;
     private final VehicleIssueItemRepository vehicleIssueItemRepository;
@@ -161,37 +162,37 @@ public class VehicleIssueService {
         return mapToResponseDTO(issue);
     }
 
-    @@Transactional(readOnly = true)
-public List<VehicleIssueResponseDTO> getAllVehicleIssues() {
-    log.info("📋 Fetching all vehicle issues");
-    try {
-        List<VehicleIssue> issues = vehicleIssueRepository.findAllByOrderByIssueDateDesc();
-        log.info("📋 Found {} vehicle issues in database", issues.size());
-        
-        if (issues.isEmpty()) {
-            log.warn("⚠️ No vehicle issues found in database");
+    @Transactional(readOnly = true)
+    public List<VehicleIssueResponseDTO> getAllVehicleIssues() {
+        log.info("📋 Fetching all vehicle issues");
+        try {
+            List<VehicleIssue> issues = vehicleIssueRepository.findAllByOrderByIssueDateDesc();
+            log.info("📋 Found {} vehicle issues in database", issues.size());
+            
+            if (issues.isEmpty()) {
+                log.warn("⚠️ No vehicle issues found in database");
+                return new ArrayList<>();
+            }
+            
+            // Log each issue for debugging
+            for (VehicleIssue issue : issues) {
+                log.debug("📋 Issue: ID={}, Number={}, Vehicle={}, Driver={}, Status={}", 
+                    issue.getId(), 
+                    issue.getIssueNumber(), 
+                    issue.getVehicleId(), 
+                    issue.getDriverId(),
+                    issue.getStatus()
+                );
+            }
+            
+            return issues.stream()
+                    .map(this::mapToResponseDTO)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("❌ Error fetching vehicle issues: {}", e.getMessage(), e);
             return new ArrayList<>();
         }
-        
-        // Log each issue for debugging
-        for (VehicleIssue issue : issues) {
-            log.debug("📋 Issue: ID={}, Number={}, Vehicle={}, Driver={}, Status={}", 
-                issue.getId(), 
-                issue.getIssueNumber(), 
-                issue.getVehicleId(), 
-                issue.getDriverId(),
-                issue.getStatus()
-            );
-        }
-        
-        return issues.stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
-    } catch (Exception e) {
-        log.error("❌ Error fetching vehicle issues: {}", e.getMessage(), e);
-        return new ArrayList<>();
     }
-}
 
     @Transactional(readOnly = true)
     public List<VehicleIssueResponseDTO> getIssuesByVehicle(Long vehicleId) {
@@ -253,35 +254,35 @@ public List<VehicleIssueResponseDTO> getAllVehicleIssues() {
         vehicleIssueRepository.save(issue);
     }
 
-   private VehicleIssueResponseDTO mapToResponseDTO(VehicleIssue issue) {
-    if (issue == null) {
-        return null;
+    private VehicleIssueResponseDTO mapToResponseDTO(VehicleIssue issue) {
+        if (issue == null) {
+            return null;
+        }
+        
+        log.debug("🔄 Mapping issue: {}", issue.getId());
+        
+        List<VehicleIssueItem> items = vehicleIssueItemRepository.findByIssueId(issue.getId());
+        log.debug("📦 Issue has {} items", items.size());
+        
+        List<VehicleIssueItemResponseDTO> itemDTOs = items.stream()
+                .map(this::mapItemToResponseDTO)
+                .collect(Collectors.toList());
+        
+        return VehicleIssueResponseDTO.builder()
+                .id(issue.getId())
+                .issueNumber(issue.getIssueNumber())
+                .vehicleId(issue.getVehicleId())
+                .driverId(issue.getDriverId())
+                .tripId(issue.getTripId())
+                .issueDate(issue.getIssueDate())
+                .status(issue.getStatus())
+                .notes(issue.getNotes())
+                .items(itemDTOs)
+                .createdAt(issue.getCreatedAt())
+                .updatedAt(issue.getUpdatedAt())
+                .build();
     }
-    
-    log.debug("🔄 Mapping issue: {}", issue.getId());
-    
-    // Get items for this issue
-    List<VehicleIssueItem> items = vehicleIssueItemRepository.findByIssueId(issue.getId());
-    log.debug("📦 Issue has {} items", items.size());
-    
-    List<VehicleIssueItemResponseDTO> itemDTOs = items.stream()
-            .map(this::mapItemToResponseDTO)
-            .collect(Collectors.toList());
-    
-    return VehicleIssueResponseDTO.builder()
-            .id(issue.getId())
-            .issueNumber(issue.getIssueNumber())
-            .vehicleId(issue.getVehicleId())
-            .driverId(issue.getDriverId())
-            .tripId(issue.getTripId())
-            .issueDate(issue.getIssueDate())
-            .status(issue.getStatus())
-            .notes(issue.getNotes())
-            .items(itemDTOs)
-            .createdAt(issue.getCreatedAt())
-            .updatedAt(issue.getUpdatedAt())
-            .build();
-}
+
     private VehicleIssueItemResponseDTO mapItemToResponseDTO(VehicleIssueItem item) {
         InventoryItem inventoryItem = inventoryItemRepository.findById(item.getItemId()).orElse(null);
         
