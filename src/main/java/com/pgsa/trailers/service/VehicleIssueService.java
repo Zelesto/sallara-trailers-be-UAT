@@ -253,28 +253,35 @@ public List<VehicleIssueResponseDTO> getAllVehicleIssues() {
         vehicleIssueRepository.save(issue);
     }
 
-    private VehicleIssueResponseDTO mapToResponseDTO(VehicleIssue issue) {
-        List<VehicleIssueItem> items = vehicleIssueItemRepository.findByIssueId(issue.getId());
-        
-        List<VehicleIssueItemResponseDTO> itemDTOs = items.stream()
-                .map(this::mapItemToResponseDTO)
-                .collect(Collectors.toList());
-        
-        return VehicleIssueResponseDTO.builder()
-                .id(issue.getId())
-                .issueNumber(issue.getIssueNumber())
-                .vehicleId(issue.getVehicleId())
-                .driverId(issue.getDriverId())
-                .tripId(issue.getTripId())
-                .issueDate(issue.getIssueDate())
-                .status(issue.getStatus())
-                .notes(issue.getNotes())
-                .items(itemDTOs)
-                .createdAt(issue.getCreatedAt())
-                .updatedAt(issue.getUpdatedAt())
-                .build();
+   private VehicleIssueResponseDTO mapToResponseDTO(VehicleIssue issue) {
+    if (issue == null) {
+        return null;
     }
-
+    
+    log.debug("🔄 Mapping issue: {}", issue.getId());
+    
+    // Get items for this issue
+    List<VehicleIssueItem> items = vehicleIssueItemRepository.findByIssueId(issue.getId());
+    log.debug("📦 Issue has {} items", items.size());
+    
+    List<VehicleIssueItemResponseDTO> itemDTOs = items.stream()
+            .map(this::mapItemToResponseDTO)
+            .collect(Collectors.toList());
+    
+    return VehicleIssueResponseDTO.builder()
+            .id(issue.getId())
+            .issueNumber(issue.getIssueNumber())
+            .vehicleId(issue.getVehicleId())
+            .driverId(issue.getDriverId())
+            .tripId(issue.getTripId())
+            .issueDate(issue.getIssueDate())
+            .status(issue.getStatus())
+            .notes(issue.getNotes())
+            .items(itemDTOs)
+            .createdAt(issue.getCreatedAt())
+            .updatedAt(issue.getUpdatedAt())
+            .build();
+}
     private VehicleIssueItemResponseDTO mapItemToResponseDTO(VehicleIssueItem item) {
         InventoryItem inventoryItem = inventoryItemRepository.findById(item.getItemId()).orElse(null);
         
