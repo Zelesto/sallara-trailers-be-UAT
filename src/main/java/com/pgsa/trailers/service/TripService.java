@@ -33,6 +33,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.hibernate.Hibernate;
+
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
@@ -486,20 +488,64 @@ public TripResponse getTrip(Long id) {
 
    @Transactional(readOnly = true)
 public Page<TripResponse> listTrips(Pageable pageable) {
-    return tripRepository.findAllWithCustomer(pageable)
-            .map(tripResponseMapper::toResponse);
-}
-    @Transactional(readOnly = true)
-    public List<TripResponse> getTripsByCustomer(Long customerId) {
-        if (!customerRepository.existsById(customerId)) {
-            throw new TripValidationException("Customer not found with ID: " + customerId);
+    log.info("📊 Fetching trips with pageable: {}", pageable);
+    
+    // ✅ Use findAllOrderByIdDesc
+    Page<Trip> trips = tripRepository.findAllOrderByIdDesc(pageable);
+    
+    log.info("📊 Found {} trips total", trips.getTotalElements());
+    log.info("📊 Content size: {}", trips.getContent().size());
+    
+    // ✅ CRITICAL: Initialize ALL lazy proxies before mapping
+    trips.getContent().forEach(trip -> {
+        // Force initialization of Customer
+        if (trip.getCustomer() != null) {
+            trip.getCustomer().getName();
+            trip.getCustomer().getCustomerCode();
         }
-        return tripRepository.findByCustomerId(customerId, Pageable.unpaged())
-                .getContent()
-                .stream()
-                .map(tripResponseMapper::toResponse)
-                .collect(Collectors.toList());
+        // Force initialization of Vehicle
+        if (trip.getVehicle() != null) {
+            trip.getVehicle().getRegistrationNumber();
+            trip.getVehicle().getMake();
+            trip.getVehicle().getModel();
+        }
+        // Force initialization of Driver
+        if (trip.getDriver() != null) {
+            trip.getDriver().getFirstName();
+            trip.getDriver().getLastName();
+            trip.getDriver().getLicenseNumber();
+        }
+        // Force initialization of Supervisor
+        if (trip.getSupervisor() != null) {
+            trip.getSupervisor().getFirstName();
+            trip.getSupervisor().getLastName();
+        }
+        // Force initialization of Load
+        if (trip.getLoad() != null) {
+            trip.getLoad().getLoadNumber();
+            trip.getLoad().getDescription();
+        }
+        // Force initialization of Metrics
+        if (trip.getMetrics() != null) {
+            trip.getMetrics().getTotalDistanceKm();
+        }
+    });
+    
+    // Log first trip for debugging
+    if (!trips.getContent().isEmpty()) {
+        Trip first = trips.getContent().get(0);
+        log.info("📊 First trip: ID={}, Number={}, Status={}, Customer={}, Vehicle={}, Driver={}", 
+            first.getId(), 
+            first.getTripNumber(), 
+            first.getStatus(),
+            first.getCustomer() != null ? first.getCustomer().getName() : "null",
+            first.getVehicle() != null ? first.getVehicle().getRegistrationNumber() : "null",
+            first.getDriver() != null ? first.getDriver().getFirstName() : "null"
+        );
     }
+    
+    return trips.map(tripResponseMapper::toResponse);
+}
 
     @Transactional(readOnly = true)
     public List<TripResponse> getTripsByLoad(String loadId) {
