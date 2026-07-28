@@ -1,273 +1,86 @@
-// src/main/java/com/pgsa/trailers/service/inventory/VehicleIssueService.java
-package com.pgsa.trailers.service.inventory;
+package com.pgsa.trailers.controller.inventory;
 
 import com.pgsa.trailers.dto.VehicleIssueRequestDTO;
 import com.pgsa.trailers.dto.VehicleIssueResponseDTO;
-import com.pgsa.trailers.dto.VehicleIssueItemResponseDTO;
 import com.pgsa.trailers.dto.ReturnItemRequestDTO;
-import com.pgsa.trailers.entity.inventory.*;
-import com.pgsa.trailers.repository.*;
+import com.pgsa.trailers.entity.security.AppUser;
+import com.pgsa.trailers.repository.AppUserRepository;
+import com.pgsa.trailers.service.inventory.VehicleIssueService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
+import jakarta.validation.Valid;
 import java.util.List;
-import java.util.stream.Collectors;
 
-@Service
+@RestController
+@RequestMapping("/api/inventory/vehicle-issues")
 @RequiredArgsConstructor
 @Slf4j
-@Transactional
-public class VehicleIssueService {
+public class VehicleIssueController {
 
-    private final VehicleIssueRepository vehicleIssueRepository;
-    private final VehicleIssueItemRepository vehicleIssueItemRepository;
-    private final InventoryItemRepository inventoryItemRepository;
-    private final InventoryLocationRepository inventoryLocationRepository;
-    private final StockMovementRepository stockMovementRepository;
+    private final VehicleIssueService vehicleIssueService;
+    private final AppUserRepository appUserRepository;
 
-    private static final String ISSUE_NUMBER_PREFIX = "ISS-";
-
-    /**
-     * Issue items to a vehicle
-     */
-    public VehicleIssueResponseDTO issueItemsToVehicle(VehicleIssueRequestDTO request, Long userId) {
-        log.info("🚗 Issuing items to vehicle: {}", request.getVehicleId());
-
-        // Validate items
-        for (VehicleIssueItemRequestDTO itemReq : request.getItems()) {
-            InventoryItem item = inventoryItemRepository.findById(itemReq.getItemId())
-                    .orElseThrow(() -> new RuntimeException("Item not found: " + itemReq.getItemId()));
-
-            if (item.getQuantity() < itemReq.getQuantity().intValue()) {
-                throw new RuntimeException("Insufficient stock for item: " + item.getName() +
-                        ". Available: " + item.getQuantity() + ", Requested: " + itemReq.getQuantity());
-            }
-        }
-
-        // Create Vehicle Issue
-        VehicleIssue issue = VehicleIssue.builder()
-                .issueNumber(generateIssueNumber())
-                .vehicleId(request.getVehicleId())
-                .driverId(request.getDriverId())
-                .tripId(request.getTripId())
-                .issueDate(request.getIssueDate() != null ? request.getIssueDate() : LocalDateTime.now())
-                .status("ISSUED")
-                .notes(request.getNotes())
-                .createdBy(userId)
-                .updatedBy(userId)
-                .build();
-
-        vehicleIssueRepository.save(issue);
-
-        // Process items
-        for (VehicleIssueItemRequestDTO itemReq : request.getItems()) {
-            // Create issue item
-            VehicleIssueItem issueItem = VehicleIssueItem.builder()
-                    .issue(issue)
-                    .itemId(itemReq.getItemId())
-                    .quantityIssued(itemReq.getQuantity())
-                    .quantityReturned(BigDecimal.ZERO)
-                    .conditionIssued(itemReq.getCondition())
-                    .notes(itemReq.getNotes())
-                    .build();
-
-            vehicleIssueItemRepository.save(issueItem);
-
-            // Update inventory (deduct from main stock)
-            InventoryItem item = inventoryItemRepository.findById(itemReq.getItemId())
-                    .orElseThrow(() -> new RuntimeException("Item not found: " + itemReq.getItemId()));
-            
-            int newQuantity = item.getQuantity() - itemReq.getQuantity().intValue();
-            item.setQuantity(newQuantity);
-            inventoryItemRepository.save(item);
-
-            // Create stock movement
-            StockMovement movement = StockMovement.builder()
-                    .itemId(itemReq.getItemId())
-                    .quantity(itemReq.getQuantity().intValue())
-                    .movementType("OUT")
-                    .reason("Vehicle Issue")
-                    .notes("Issued to vehicle: " + request.getVehicleId() + 
-                           ", Driver: " + request.getDriverId() +
-                           ", Trip: " + request.getTripId())
-                    .referenceNumber(issue.getIssueNumber())
-                    .performedBy(String.valueOf(userId))
-                    .tripId(request.getTripId())
-                    .referenceType("VEHICLE_ISSUE")
-                    .requiresApproval(false)
-                    .approvalStatus("APPROVED")
-                    .build();
-
-            stockMovementRepository.save(movement);
-        }
-
-        log.info("✅ Items issued successfully. Issue Number: {}", issue.getIssueNumber());
-        return mapToResponseDTO(issue);
-    }
-
-    /**
-     * Return items from vehicle
-     */
-    public VehicleIssueResponseDTO returnItemsFromVehicle(Long issueId, List<ReturnItemRequestDTO> returns, Long userId) {
-        log.info("🔄 Returning items from vehicle issue: {}", issueId);
-
-        VehicleIssue issue = vehicleIssueRepository.findById(issueId)
-                .orElseThrow(() -> new RuntimeException("Vehicle issue not found: " + issueId));
-
-        for (ReturnItemRequestDTO returnReq : returns) {
-            VehicleIssueItem issueItem = vehicleIssueItemRepository
-                    .findByIssueIdAndItemId(issueId, returnReq.getItemId())
-                    .orElseThrow(() -> new RuntimeException("Item not found in issue: " + returnReq.getItemId()));
-
-            // Update return quantity
-            BigDecimal newReturned = issueItem.getQuantityReturned().add(returnReq.getQuantity());
-            issueItem.setQuantityReturned(newReturned);
-            issueItem.setConditionReturned(returnReq.getCondition());
-            issueItem.setUpdatedAt(LocalDateTime.now());
-            vehicleIssueItemRepository.save(issueItem);
-
-            // Return to inventory
-            InventoryItem item = inventoryItemRepository.findById(returnReq.getItemId())
-                    .orElseThrow(() -> new RuntimeException("Item not found: " + returnReq.getItemId()));
-            
-            int newQuantity = item.getQuantity() + returnReq.getQuantity().intValue();
-            item.setQuantity(newQuantity);
-            inventoryItemRepository.save(item);
-
-            // Create stock movement
-            StockMovement movement = StockMovement.builder()
-                    .itemId(returnReq.getItemId())
-                    .quantity(returnReq.getQuantity().intValue())
-                    .movementType("IN")
-                    .reason("Vehicle Return")
-                    .notes("Returned from vehicle: " + issue.getVehicleId())
-                    .referenceNumber(issue.getIssueNumber())
-                    .performedBy(String.valueOf(userId))
-                    .referenceType("VEHICLE_RETURN")
-                    .requiresApproval(false)
-                    .approvalStatus("APPROVED")
-                    .build();
-
-            stockMovementRepository.save(movement);
-        }
-
-        // Update issue status
-        updateIssueStatus(issue);
-
-        log.info("✅ Items returned successfully. Issue Number: {}", issue.getIssueNumber());
-        return mapToResponseDTO(issue);
-    }
-
-    @Transactional(readOnly = true)
-    public List<VehicleIssueResponseDTO> getAllVehicleIssues() {
+    // ✅ GET all vehicle issues
+    @GetMapping
+    public ResponseEntity<List<VehicleIssueResponseDTO>> getAllVehicleIssues() {
         log.info("📋 Fetching all vehicle issues");
-        return vehicleIssueRepository.findAllByOrderByIssueDateDesc()
-                .stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+        List<VehicleIssueResponseDTO> issues = vehicleIssueService.getAllVehicleIssues();
+        return ResponseEntity.ok(issues);
     }
 
-    @Transactional(readOnly = true)
-    public List<VehicleIssueResponseDTO> getIssuesByVehicle(Long vehicleId) {
+    // ✅ POST - Issue items to vehicle
+    @PostMapping
+    public ResponseEntity<VehicleIssueResponseDTO> issueItemsToVehicle(
+            @RequestBody @Valid VehicleIssueRequestDTO request,
+            Authentication authentication) {
+        Long userId = getUserId(authentication);
+        log.info("🚗 Creating vehicle issue for vehicle: {}", request.getVehicleId());
+        VehicleIssueResponseDTO response = vehicleIssueService.issueItemsToVehicle(request, userId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    // ✅ POST - Return items from vehicle
+    @PostMapping("/{issueId}/return")
+    public ResponseEntity<VehicleIssueResponseDTO> returnItemsFromVehicle(
+            @PathVariable Long issueId,
+            @RequestBody @Valid List<ReturnItemRequestDTO> returns,
+            Authentication authentication) {
+        Long userId = getUserId(authentication);
+        log.info("🔄 Returning items from issue: {}", issueId);
+        VehicleIssueResponseDTO response = vehicleIssueService.returnItemsFromVehicle(issueId, returns, userId);
+        return ResponseEntity.ok(response);
+    }
+
+    // ✅ GET - Get issues by vehicle ID
+    @GetMapping("/vehicle/{vehicleId}")
+    public ResponseEntity<List<VehicleIssueResponseDTO>> getIssuesByVehicle(@PathVariable Long vehicleId) {
         log.info("🚗 Fetching issues for vehicle: {}", vehicleId);
-        return vehicleIssueRepository.findByVehicleIdOrderByIssueDateDesc(vehicleId)
-                .stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+        return ResponseEntity.ok(vehicleIssueService.getIssuesByVehicle(vehicleId));
     }
 
-    @Transactional(readOnly = true)
-    public List<VehicleIssueResponseDTO> getIssuesByDriver(Long driverId) {
+    // ✅ GET - Get issues by driver ID
+    @GetMapping("/driver/{driverId}")
+    public ResponseEntity<List<VehicleIssueResponseDTO>> getIssuesByDriver(@PathVariable Long driverId) {
         log.info("👤 Fetching issues for driver: {}", driverId);
-        return vehicleIssueRepository.findByDriverIdOrderByIssueDateDesc(driverId)
-                .stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+        return ResponseEntity.ok(vehicleIssueService.getIssuesByDriver(driverId));
     }
 
-    @Transactional(readOnly = true)
-    public VehicleIssueResponseDTO getIssueById(Long issueId) {
+    // ✅ GET - Get issue by ID
+    @GetMapping("/{issueId}")
+    public ResponseEntity<VehicleIssueResponseDTO> getIssueById(@PathVariable Long issueId) {
         log.info("📋 Fetching vehicle issue: {}", issueId);
-        VehicleIssue issue = vehicleIssueRepository.findById(issueId)
-                .orElseThrow(() -> new RuntimeException("Vehicle issue not found: " + issueId));
-        return mapToResponseDTO(issue);
+        return ResponseEntity.ok(vehicleIssueService.getIssueById(issueId));
     }
 
-    // ==================== Helper Methods ====================
-
-    private String generateIssueNumber() {
-        String timestamp = String.valueOf(System.currentTimeMillis()).substring(5);
-        return ISSUE_NUMBER_PREFIX + timestamp;
-    }
-
-    private void updateIssueStatus(VehicleIssue issue) {
-        List<VehicleIssueItem> items = vehicleIssueItemRepository.findByIssueId(issue.getId());
-        
-        boolean allReturned = true;
-        boolean anyReturned = false;
-        
-        for (VehicleIssueItem item : items) {
-            if (item.getQuantityReturned().compareTo(item.getQuantityIssued()) < 0) {
-                allReturned = false;
-            }
-            if (item.getQuantityReturned().compareTo(BigDecimal.ZERO) > 0) {
-                anyReturned = true;
-            }
-        }
-        
-        if (allReturned) {
-            issue.setStatus("RETURNED");
-        } else if (anyReturned) {
-            issue.setStatus("PARTIALLY_RETURNED");
-        } else {
-            issue.setStatus("ISSUED");
-        }
-        
-        issue.setUpdatedAt(LocalDateTime.now());
-        vehicleIssueRepository.save(issue);
-    }
-
-    private VehicleIssueResponseDTO mapToResponseDTO(VehicleIssue issue) {
-        List<VehicleIssueItem> items = vehicleIssueItemRepository.findByIssueId(issue.getId());
-        
-        List<VehicleIssueItemResponseDTO> itemDTOs = items.stream()
-                .map(this::mapItemToResponseDTO)
-                .collect(Collectors.toList());
-        
-        return VehicleIssueResponseDTO.builder()
-                .id(issue.getId())
-                .issueNumber(issue.getIssueNumber())
-                .vehicleId(issue.getVehicleId())
-                .driverId(issue.getDriverId())
-                .tripId(issue.getTripId())
-                .issueDate(issue.getIssueDate())
-                .status(issue.getStatus())
-                .notes(issue.getNotes())
-                .items(itemDTOs)
-                .createdAt(issue.getCreatedAt())
-                .updatedAt(issue.getUpdatedAt())
-                .build();
-    }
-
-    private VehicleIssueItemResponseDTO mapItemToResponseDTO(VehicleIssueItem item) {
-        InventoryItem inventoryItem = inventoryItemRepository.findById(item.getItemId()).orElse(null);
-        
-        return VehicleIssueItemResponseDTO.builder()
-                .id(item.getId())
-                .itemId(item.getItemId())
-                .itemName(inventoryItem != null ? inventoryItem.getName() : "Unknown")
-                .itemCategory(inventoryItem != null ? inventoryItem.getCategory() : null)
-                .quantityIssued(item.getQuantityIssued())
-                .quantityReturned(item.getQuantityReturned())
-                .quantityOutstanding(item.getQuantityIssued().subtract(item.getQuantityReturned()))
-                .conditionIssued(item.getConditionIssued())
-                .conditionReturned(item.getConditionReturned())
-                .notes(item.getNotes())
-                .build();
+    private Long getUserId(Authentication authentication) {
+        String email = authentication.getName();
+        AppUser user = appUserRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new IllegalStateException("User not found"));
+        return user.getId();
     }
 }
