@@ -422,6 +422,31 @@ public class Trip {
     }
 
     /* ========================
+       Load Management Methods - ADDED
+       ======================== */
+
+    /**
+     * Set the load number for this trip
+     */
+    public void setLoadNumber(String loadNumber) {
+        this.loadNumber = loadNumber;
+    }
+
+    /**
+     * Set the load type for this trip
+     */
+    public void setLoadType(String loadType) {
+        this.loadType = loadType;
+    }
+
+    /**
+     * Set the load description for this trip
+     */
+    public void setLoadDescription(String loadDescription) {
+        this.loadDescription = loadDescription;
+    }
+
+    /* ========================
        Convenience Methods
        ======================== */
 
