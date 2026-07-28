@@ -490,9 +490,10 @@ public TripResponse getTrip(Long id) {
 public Page<TripResponse> listTrips(Pageable pageable) {
     log.info("📊 Fetching trips with pageable: {}", pageable);
     
-    Page<Trip> trips = tripRepository.findAllWithCustomer(pageable);
+    // ✅ FIXED: Use findAllOrderByIdDesc which is a proven working method
+    Page<Trip> trips = tripRepository.findAllOrderByIdDesc(pageable);
     
-    // 🔥 Initialize lazy proxies while still in transaction
+    // Initialize lazy proxies while still in transaction
     trips.getContent().forEach(trip -> {
         Hibernate.initialize(trip.getCustomer());
         Hibernate.initialize(trip.getVehicle());
@@ -505,19 +506,16 @@ public Page<TripResponse> listTrips(Pageable pageable) {
     log.info("📊 Found {} trips total", trips.getTotalElements());
     log.info("📊 Content size: {}", trips.getContent().size());
     
+    if (!trips.getContent().isEmpty()) {
+        Trip first = trips.getContent().get(0);
+        log.info("📊 First trip: ID={}, Number={}, Status={}", 
+            first.getId(), first.getTripNumber(), first.getStatus());
+    } else {
+        log.warn("⚠️ No trips found in database!");
+    }
+    
     return trips.map(tripResponseMapper::toResponse);
 }
-    @Transactional(readOnly = true)
-    public List<TripResponse> getTripsByCustomer(Long customerId) {
-        if (!customerRepository.existsById(customerId)) {
-            throw new TripValidationException("Customer not found with ID: " + customerId);
-        }
-        return tripRepository.findByCustomerId(customerId, Pageable.unpaged())
-                .getContent()
-                .stream()
-                .map(tripResponseMapper::toResponse)
-                .collect(Collectors.toList());
-    }
 
     @Transactional(readOnly = true)
     public List<TripResponse> getTripsByLoad(String loadId) {
