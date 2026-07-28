@@ -1,4 +1,3 @@
-// src/main/java/com/pgsa/trailers/service/inventory/StockMovementService.java
 package com.pgsa.trailers.service;
 
 import com.pgsa.trailers.dto.StockMovementRequestDTO;
@@ -27,6 +26,9 @@ import java.util.stream.Collectors;
 @Slf4j
 @Transactional
 public class StockMovementService {
+
+    // ====== EXPLICIT LOGGER (since @Slf4j may not work) ======
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(StockMovementService.class);
 
     private final StockMovementRepository stockMovementRepository;
     private final InventoryItemRepository inventoryItemRepository;
