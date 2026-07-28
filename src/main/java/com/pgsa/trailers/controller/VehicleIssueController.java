@@ -38,6 +38,21 @@ public ResponseEntity<List<VehicleIssueResponseDTO>> getAllVehicleIssues() {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
 }
+
+
+    @GetMapping("/debug/all")
+public ResponseEntity<List<VehicleIssue>> debugGetAllIssues() {
+    log.info("🐛 Debug: Getting all vehicle issues from repository");
+    try {
+        List<VehicleIssue> issues = vehicleIssueRepository.findAll();
+        log.info("🐛 Found {} issues", issues.size());
+        return ResponseEntity.ok(issues);
+    } catch (Exception e) {
+        log.error("❌ Debug error: {}", e.getMessage(), e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+    }
+}
+    
     // ✅ POST - Issue items to vehicle
     @PostMapping
     public ResponseEntity<VehicleIssueResponseDTO> issueItemsToVehicle(
