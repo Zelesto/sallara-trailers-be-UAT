@@ -4,6 +4,7 @@ import com.pgsa.trailers.dto.TripMetricsDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Component
@@ -29,6 +30,8 @@ public class TripMetricsMapper {
         if (trip != null) {
             dto.setTripId(trip.getId());
             dto.setTripNumber(trip.getTripNumber());
+            dto.setOriginLocation(trip.getOriginLocation());
+            dto.setDestinationLocation(trip.getDestinationLocation());
             // Set vehicle type if vehicle exists
             if (trip.getVehicle() != null && trip.getVehicle().getVehicleType() != null) {
                 dto.setVehicleType(trip.getVehicle().getVehicleType().name());
@@ -55,11 +58,20 @@ public class TripMetricsMapper {
         dto.setPlannedVsActualDurationVarianceHours(metrics.getPlannedVsActualDurationVarianceHours());
         dto.setGeocodingConfidenceScore(metrics.getGeocodingConfidenceScore());
 
-        // Audit fields
+        // Audit fields - use getFinalized() for Boolean type
         dto.setCreatedAt(metrics.getCreatedAt());
         dto.setUpdatedAt(metrics.getUpdatedAt());
-        dto.setFinalized(metrics.isFinalized());
+        dto.setFinalized(metrics.isFinalized());  // metrics.isFinalized() is correct (entity uses primitive boolean)
         dto.setFinalizedAt(metrics.getFinalizedAt());
+
+        // Calculate fuel efficiency
+        if (dto.getTotalDistanceKm() != null && dto.getFuelUsedLiters() != null 
+                && dto.getFuelUsedLiters().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal efficiency = dto.getTotalDistanceKm().divide(dto.getFuelUsedLiters(), 2, BigDecimal.ROUND_HALF_UP);
+            dto.setFuelEfficiencyKmPerLiter(efficiency);
+        } else {
+            dto.setFuelEfficiencyKmPerLiter(BigDecimal.ZERO);
+        }
 
         log.debug("✅ Converted metrics to DTO for trip ID: {}", dto.getTripId());
         return dto;
@@ -101,8 +113,9 @@ public class TripMetricsMapper {
         metrics.setPlannedVsActualDurationVarianceHours(dto.getPlannedVsActualDurationVarianceHours());
         metrics.setGeocodingConfidenceScore(dto.getGeocodingConfidenceScore());
 
-        // Audit fields
-        metrics.setFinalized(dto.isFinalized() != null ? dto.isFinalized() : false);
+        // Audit fields - DTO uses Boolean, so use getFinalized()
+        Boolean finalized = dto.getFinalized();  // ✅ Use getFinalized() not isFinalized()
+        metrics.setFinalized(finalized != null ? finalized : false);
         metrics.setFinalizedAt(dto.getFinalizedAt());
 
         log.debug("✅ Converted DTO to entity");
@@ -169,9 +182,10 @@ public class TripMetricsMapper {
             metrics.setGeocodingConfidenceScore(dto.getGeocodingConfidenceScore());
         }
 
-        // Audit fields
-        if (dto.isFinalized() != null) {
-            metrics.setFinalized(dto.isFinalized());
+        // Audit fields - DTO uses Boolean, so use getFinalized()
+        Boolean finalized = dto.getFinalized();  // ✅ Use getFinalized() not isFinalized()
+        if (finalized != null) {
+            metrics.setFinalized(finalized);
         }
         if (dto.getFinalizedAt() != null) {
             metrics.setFinalizedAt(dto.getFinalizedAt());
@@ -190,20 +204,20 @@ public class TripMetricsMapper {
             metrics.setTrip(trip);
         }
         
-        metrics.setTotalDistanceKm(java.math.BigDecimal.ZERO);
-        metrics.setTotalDurationHours(java.math.BigDecimal.ZERO);
-        metrics.setIdleTimeHours(java.math.BigDecimal.ZERO);
-        metrics.setAverageSpeedKmh(java.math.BigDecimal.ZERO);
-        metrics.setFuelUsedLiters(java.math.BigDecimal.ZERO);
+        metrics.setTotalDistanceKm(BigDecimal.ZERO);
+        metrics.setTotalDurationHours(BigDecimal.ZERO);
+        metrics.setIdleTimeHours(BigDecimal.ZERO);
+        metrics.setAverageSpeedKmh(BigDecimal.ZERO);
+        metrics.setFuelUsedLiters(BigDecimal.ZERO);
         metrics.setIncidentCount(0);
         metrics.setTasksCompleted(0);
-        metrics.setRevenueAmount(java.math.BigDecimal.ZERO);
-        metrics.setCostAmount(java.math.BigDecimal.ZERO);
-        metrics.setOriginCityTravelTimeHours(java.math.BigDecimal.ZERO);
-        metrics.setDestinationCityTravelTimeHours(java.math.BigDecimal.ZERO);
-        metrics.setPlannedVsActualDistanceVarianceKm(java.math.BigDecimal.ZERO);
-        metrics.setPlannedVsActualDurationVarianceHours(java.math.BigDecimal.ZERO);
-        metrics.setGeocodingConfidenceScore(java.math.BigDecimal.ZERO);
+        metrics.setRevenueAmount(BigDecimal.ZERO);
+        metrics.setCostAmount(BigDecimal.ZERO);
+        metrics.setOriginCityTravelTimeHours(BigDecimal.ZERO);
+        metrics.setDestinationCityTravelTimeHours(BigDecimal.ZERO);
+        metrics.setPlannedVsActualDistanceVarianceKm(BigDecimal.ZERO);
+        metrics.setPlannedVsActualDurationVarianceHours(BigDecimal.ZERO);
+        metrics.setGeocodingConfidenceScore(BigDecimal.ZERO);
         metrics.setFinalized(false);
         
         log.debug("✅ Created default metrics for trip ID: {}", trip != null ? trip.getId() : "null");
