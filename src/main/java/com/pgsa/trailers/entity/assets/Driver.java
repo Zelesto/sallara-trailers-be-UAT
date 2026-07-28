@@ -7,6 +7,7 @@ import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import org.hibernate.annotations.Type;
 
 import java.math.BigDecimal;
@@ -18,6 +19,7 @@ import java.util.Map;
 @Getter
 @Setter
 @Entity
+@Slf4j
 @Table(
         name = "driver",
         indexes = {
@@ -31,6 +33,9 @@ import java.util.Map;
         }
 )
 public class Driver extends BaseEntity {
+
+    // ====== EXPLICIT LOGGER (since @Slf4j may not work) ======
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(Driver.class);
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "app_user_id", nullable = false)
@@ -84,8 +89,6 @@ public class Driver extends BaseEntity {
     @Column(name = "training_completed")
     private Boolean trainingCompleted = false;
 
-    
-
     @Column(name = "medical_clearance_date")
     private LocalDate medicalClearanceDate;
 
@@ -122,7 +125,6 @@ public class Driver extends BaseEntity {
         this.incidentsLogged = 0;
         this.totalTrips = 0;
         this.trainingCompleted = false;
-        
         this.auditTrail = new HashMap<>();
         this.setIsActive(true);
         this.setVersion(0);
@@ -354,6 +356,280 @@ public class Driver extends BaseEntity {
                 !nextMedicalDue.isAfter(warningDate);
     }
 
+    // ========== EXPLICIT GETTERS AND SETTERS (since Lombok may not work) ==========
+
+    // --- BaseEntity methods ---
+    
+    public Boolean getIsActive() {
+        return super.isActive();
+    }
+
+    public void setIsActive(Boolean isActive) {
+        super.setIsActive(isActive);
+    }
+
+    public Integer getVersion() {
+        return super.getVersion();
+    }
+
+    public void setVersion(Integer version) {
+        super.setVersion(version);
+    }
+
+    public Long getId() {
+        return super.getId();
+    }
+
+    // --- AppUser ---
+    
+    public AppUser getAppUser() {
+        return appUser;
+    }
+
+    public void setAppUser(AppUser appUser) {
+        this.appUser = appUser;
+    }
+
+    // --- First Name ---
+    
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    // --- Last Name ---
+    
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    // --- License Number ---
+    
+    public String getLicenseNumber() {
+        return licenseNumber;
+    }
+
+    public void setLicenseNumber(String licenseNumber) {
+        this.licenseNumber = licenseNumber;
+    }
+
+    // --- License Type ---
+    
+    public String getLicenseType() {
+        return licenseType;
+    }
+
+    public void setLicenseType(String licenseType) {
+        this.licenseType = licenseType;
+    }
+
+    // --- License Expiry ---
+    
+    public LocalDate getLicenseExpiry() {
+        return licenseExpiry;
+    }
+
+    public void setLicenseExpiry(LocalDate licenseExpiry) {
+        this.licenseExpiry = licenseExpiry;
+    }
+
+    // --- Hire Date ---
+    
+    public LocalDate getHireDate() {
+        return hireDate;
+    }
+
+    public void setHireDate(LocalDate hireDate) {
+        this.hireDate = hireDate;
+    }
+
+    // --- Phone Number ---
+    
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    // --- Email ---
+    
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    // --- Status ---
+    
+    public DriverStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(DriverStatus status) {
+        this.status = status;
+    }
+
+    // --- Termination Date ---
+    
+    public LocalDate getTerminationDate() {
+        return terminationDate;
+    }
+
+    public void setTerminationDate(LocalDate terminationDate) {
+        this.terminationDate = terminationDate;
+    }
+
+    // --- Termination Reason ---
+    
+    public String getTerminationReason() {
+        return terminationReason;
+    }
+
+    public void setTerminationReason(String terminationReason) {
+        this.terminationReason = terminationReason;
+    }
+
+    // --- Employment Type ---
+    
+    public String getEmploymentType() {
+        return employmentType;
+    }
+
+    public void setEmploymentType(String employmentType) {
+        this.employmentType = employmentType;
+    }
+
+    // --- Shift Pattern ---
+    
+    public String getShiftPattern() {
+        return shiftPattern;
+    }
+
+    public void setShiftPattern(String shiftPattern) {
+        this.shiftPattern = shiftPattern;
+    }
+
+    // --- Assigned Vehicle ID ---
+    
+    public Long getAssignedVehicleId() {
+        return assignedVehicleId;
+    }
+
+    public void setAssignedVehicleId(Long assignedVehicleId) {
+        this.assignedVehicleId = assignedVehicleId;
+    }
+
+    // --- Training Completed ---
+    
+    public Boolean getTrainingCompleted() {
+        return trainingCompleted;
+    }
+
+    public void setTrainingCompleted(Boolean trainingCompleted) {
+        this.trainingCompleted = trainingCompleted;
+    }
+
+    // --- Medical Clearance Date ---
+    
+    public LocalDate getMedicalClearanceDate() {
+        return medicalClearanceDate;
+    }
+
+    public void setMedicalClearanceDate(LocalDate medicalClearanceDate) {
+        this.medicalClearanceDate = medicalClearanceDate;
+    }
+
+    // --- Next Medical Due ---
+    
+    public LocalDate getNextMedicalDue() {
+        return nextMedicalDue;
+    }
+
+    public void setNextMedicalDue(LocalDate nextMedicalDue) {
+        this.nextMedicalDue = nextMedicalDue;
+    }
+
+    // --- Incidents Logged ---
+    
+    public Integer getIncidentsLogged() {
+        return incidentsLogged;
+    }
+
+    public void setIncidentsLogged(Integer incidentsLogged) {
+        this.incidentsLogged = incidentsLogged;
+    }
+
+    // --- Total Trips ---
+    
+    public Integer getTotalTrips() {
+        return totalTrips;
+    }
+
+    public void setTotalTrips(Integer totalTrips) {
+        this.totalTrips = totalTrips;
+    }
+
+    // --- Total Km Travelled ---
+    
+    public BigDecimal getTotalKmTravelled() {
+        return totalKmTravelled;
+    }
+
+    public void setTotalKmTravelled(BigDecimal totalKmTravelled) {
+        this.totalKmTravelled = totalKmTravelled;
+    }
+
+    // --- Total Hours Active ---
+    
+    public BigDecimal getTotalHoursActive() {
+        return totalHoursActive;
+    }
+
+    public void setTotalHoursActive(BigDecimal totalHoursActive) {
+        this.totalHoursActive = totalHoursActive;
+    }
+
+    // --- Performance Score ---
+    
+    public BigDecimal getPerformanceScore() {
+        return performanceScore;
+    }
+
+    public void setPerformanceScore(BigDecimal performanceScore) {
+        this.performanceScore = performanceScore;
+    }
+
+    // --- Notes ---
+    
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
+
+    // --- Audit Trail ---
+    
+    public Map<String, Object> getAuditTrail() {
+        return auditTrail;
+    }
+
+    public void setAuditTrail(Map<String, Object> auditTrail) {
+        this.auditTrail = auditTrail;
+    }
+
     // ========== EQUALS & HASHCODE ==========
 
     @Override
@@ -408,7 +684,6 @@ public class Driver extends BaseEntity {
         if (trainingCompleted == null) {
             trainingCompleted = false;
         }
-        
         if (auditTrail == null) {
             auditTrail = new HashMap<>();
         }
@@ -418,10 +693,11 @@ public class Driver extends BaseEntity {
         if (getVersion() == null) {
             setVersion(0);
         }
+        log.debug("✅ Driver pre-persist: {}", getFullName());
     }
 
     @PreUpdate
     protected void onUpdate() {
-        // Any pre-update logic
+        log.debug("🔄 Driver pre-update: {}", getFullName());
     }
 }
