@@ -7,6 +7,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import com.pgsa.trailers.entity.ops.Customer;     
+import com.pgsa.trailers.entity.assets.Vehicle;    
+import com.pgsa.trailers.entity.assets.Driver; 
+import com.pgsa.trailers.entity.ops.Load; 
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -19,6 +24,12 @@ public class TripResponse {
     private Long id;
     private String tripNumber;
     private String tripType;
+
+    private CustomerResponseDTO customer;  // ✅ Using your existing CustomerResponseDTO
+    private VehicleDTO vehicle;            // ✅ Your existing VehicleDTO
+    private DriverDTO driver;              // ✅ Your existing DriverDTO
+    private DriverDTO supervisor;          // ✅ Your existing DriverDTO
+    private LoadResponseDTO load;          // ✅ Using your existing LoadResponseDTO
 
     // ======================== CUSTOMER ========================
     private Long customerId;
@@ -135,7 +146,7 @@ public class TripResponse {
     private Long updatedBy;
     private LocalDateTime lastStatusUpdate;
 
-   // ======================== DEPOT TRACKING ========================
+    // ======================== DEPOT TRACKING ========================
     @Builder.Default
     private BigDecimal fromDepotKm = BigDecimal.ZERO;
     
