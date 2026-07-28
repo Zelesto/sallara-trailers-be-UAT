@@ -312,4 +312,169 @@ public class TripMetrics {
     public boolean isFinalized() {
         return finalized;
     }
+
+
+        // ====== EXPLICIT GETTERS (since Lombok is not working) ======
+
+public Long getId() {
+    return id;
+}
+
+public Trip getTrip() {
+    return trip;
+}
+
+public BigDecimal getTotalDistanceKm() {
+    return totalDistanceKm;
+}
+
+public BigDecimal getTotalDurationHours() {
+    return totalDurationHours;
+}
+
+public BigDecimal getIdleTimeHours() {
+    return idleTimeHours;
+}
+
+public BigDecimal getAverageSpeedKmh() {
+    return averageSpeedKmh;
+}
+
+public BigDecimal getFuelUsedLiters() {
+    return fuelUsedLiters;
+}
+
+public Integer getIncidentCount() {
+    return incidentCount;
+}
+
+public Integer getTasksCompleted() {
+    return tasksCompleted;
+}
+
+public BigDecimal getRevenueAmount() {
+    return revenueAmount;
+}
+
+public BigDecimal getCostAmount() {
+    return costAmount;
+}
+
+public BigDecimal getOriginCityTravelTimeHours() {
+    return originCityTravelTimeHours;
+}
+
+public BigDecimal getDestinationCityTravelTimeHours() {
+    return destinationCityTravelTimeHours;
+}
+
+public BigDecimal getPlannedVsActualDistanceVarianceKm() {
+    return plannedVsActualDistanceVarianceKm;
+}
+
+public BigDecimal getPlannedVsActualDurationVarianceHours() {
+    return plannedVsActualDurationVarianceHours;
+}
+
+public BigDecimal getGeocodingConfidenceScore() {
+    return geocodingConfidenceScore;
+}
+
+public LocalDateTime getCreatedAt() {
+    return createdAt;
+}
+
+public LocalDateTime getUpdatedAt() {
+    return updatedAt;
+}
+
+public boolean isFinalized() {
+    return finalized;
+}
+
+public LocalDateTime getFinalizedAt() {
+    return finalizedAt;
+}
+
+// ====== EXPLICIT SETTERS (since Lombok is not working) ======
+
+public void setId(Long id) {
+    this.id = id;
+}
+
+public void setTrip(Trip trip) {
+    this.trip = trip;
+}
+
+public void setTotalDistanceKm(BigDecimal totalDistanceKm) {
+    this.totalDistanceKm = totalDistanceKm;
+}
+
+public void setTotalDurationHours(BigDecimal totalDurationHours) {
+    this.totalDurationHours = totalDurationHours;
+}
+
+public void setIdleTimeHours(BigDecimal idleTimeHours) {
+    this.idleTimeHours = idleTimeHours;
+}
+
+public void setAverageSpeedKmh(BigDecimal averageSpeedKmh) {
+    this.averageSpeedKmh = averageSpeedKmh;
+}
+
+public void setFuelUsedLiters(BigDecimal fuelUsedLiters) {
+    this.fuelUsedLiters = fuelUsedLiters;
+}
+
+public void setIncidentCount(Integer incidentCount) {
+    this.incidentCount = incidentCount;
+}
+
+public void setTasksCompleted(Integer tasksCompleted) {
+    this.tasksCompleted = tasksCompleted;
+}
+
+public void setRevenueAmount(BigDecimal revenueAmount) {
+    this.revenueAmount = revenueAmount;
+}
+
+public void setCostAmount(BigDecimal costAmount) {
+    this.costAmount = costAmount;
+}
+
+public void setOriginCityTravelTimeHours(BigDecimal originCityTravelTimeHours) {
+    this.originCityTravelTimeHours = originCityTravelTimeHours;
+}
+
+public void setDestinationCityTravelTimeHours(BigDecimal destinationCityTravelTimeHours) {
+    this.destinationCityTravelTimeHours = destinationCityTravelTimeHours;
+}
+
+public void setPlannedVsActualDistanceVarianceKm(BigDecimal plannedVsActualDistanceVarianceKm) {
+    this.plannedVsActualDistanceVarianceKm = plannedVsActualDistanceVarianceKm;
+}
+
+public void setPlannedVsActualDurationVarianceHours(BigDecimal plannedVsActualDurationVarianceHours) {
+    this.plannedVsActualDurationVarianceHours = plannedVsActualDurationVarianceHours;
+}
+
+public void setGeocodingConfidenceScore(BigDecimal geocodingConfidenceScore) {
+    this.geocodingConfidenceScore = geocodingConfidenceScore;
+}
+
+public void setCreatedAt(LocalDateTime createdAt) {
+    this.createdAt = createdAt;
+}
+
+public void setUpdatedAt(LocalDateTime updatedAt) {
+    this.updatedAt = updatedAt;
+}
+
+public void setFinalized(boolean finalized) {
+    this.finalized = finalized;
+}
+
+public void setFinalizedAt(LocalDateTime finalizedAt) {
+    this.finalizedAt = finalizedAt;
+}
 }
