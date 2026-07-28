@@ -2,6 +2,7 @@ package com.pgsa.trailers.entity.ops;
 
 import com.pgsa.trailers.dto.TripMetricsDTO;
 import org.springframework.stereotype.Component;
+import java.time.LocalDateTime;
 
 @Component
 public class TripMetricsMapper {
