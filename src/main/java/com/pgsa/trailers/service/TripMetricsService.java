@@ -5,6 +5,7 @@ import com.pgsa.trailers.dto.TripMetricsDTO;
 import com.pgsa.trailers.dto.TripMetricsUpdateRequest;
 import com.pgsa.trailers.entity.ops.Trip;
 import com.pgsa.trailers.entity.ops.TripMetrics;
+import com.pgsa.trailers.entity.ops.TripMetricsMapper;
 import com.pgsa.trailers.enums.TripStatus;
 import com.pgsa.trailers.entity.ResourceNotFoundException;
 import com.pgsa.trailers.repository.TripMetricsRepository;
@@ -24,6 +25,8 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class TripMetricsService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TripMetricsService.class);
+
     private static final BigDecimal FUEL_PRICE_PER_LITER = new BigDecimal("23.50");
     private static final BigDecimal DEFAULT_FUEL_RATE = new BigDecimal("35"); // L per 100km
     private static final BigDecimal DEFAULT_AVG_SPEED = new BigDecimal("60"); // km/h
@@ -31,6 +34,7 @@ public class TripMetricsService {
     private final TripMetricsRepository tripMetricsRepository;
     private final TripRepository tripRepository;
     private final RoutingService routingService;
+    private final TripMetricsMapper tripMetricsMapper;
 
     /* =========================================================
        AUTO CALCULATION (routing-based)
@@ -70,7 +74,7 @@ public class TripMetricsService {
 
         log.info("AUTO planned metrics calculated for trip {}", tripId);
 
-        return TripMetricsDTO.fromEntity(saved);
+        return convertToDTO(saved);
     }
 
     /* =========================================================
@@ -115,67 +119,67 @@ public class TripMetricsService {
 
         log.info("MANUAL metrics updated for trip {}", tripId);
 
-        return TripMetricsDTO.fromEntity(saved);
+        return convertToDTO(saved);
     }
 
     @Transactional
-public void updateTripMetricsFromActualOdometer(
-        Long tripId,
-        BigDecimal startOdo,
-        BigDecimal endOdo
-) {
-    Trip trip = getTrip(tripId);
-    TripMetrics metrics = getOrCreateMetrics(trip);
+    public void updateTripMetricsFromActualOdometer(
+            Long tripId,
+            BigDecimal startOdo,
+            BigDecimal endOdo
+    ) {
+        Trip trip = getTrip(tripId);
+        TripMetrics metrics = getOrCreateMetrics(trip);
 
-    if (startOdo != null && endOdo != null) {
+        if (startOdo != null && endOdo != null) {
 
-        if (endOdo.compareTo(startOdo) < 0) {
-            throw new IllegalArgumentException(
-                    "End odometer cannot be less than start odometer"
-            );
+            if (endOdo.compareTo(startOdo) < 0) {
+                throw new IllegalArgumentException(
+                        "End odometer cannot be less than start odometer"
+                );
+            }
+
+            BigDecimal distance = endOdo.subtract(startOdo);
+
+            metrics.setTotalDistanceKm(distance);
+
+            trip.setActualDistanceKm(distance);
+            tripRepository.save(trip);
+
+            String vehicleType =
+                    trip.getVehicle() != null &&
+                    trip.getVehicle().getVehicleType() != null
+                            ? trip.getVehicle().getVehicleType().name()
+                            : null;
+
+            applyFuelAndCost(metrics, distance, vehicleType);
+            applyDerivedMetrics(metrics);
         }
 
-        BigDecimal distance = endOdo.subtract(startOdo);
-
-        metrics.setTotalDistanceKm(distance);
-
-        trip.setActualDistanceKm(distance);
-        tripRepository.save(trip);
-
-        String vehicleType =
-                trip.getVehicle() != null &&
-                trip.getVehicle().getVehicleType() != null
-                        ? trip.getVehicle().getVehicleType().name()
-                        : null;
-
-        applyFuelAndCost(metrics, distance, vehicleType);
-        applyDerivedMetrics(metrics);
+        tripMetricsRepository.save(metrics);
+        log.debug("Updated metrics from odometer for trip {}", tripId);
     }
-
-    tripMetricsRepository.save(metrics);
-    log.debug("Updated metrics from odometer for trip {}", tripId);
-}
 
     /* =========================================================
        READ
        ========================================================= */
     @Transactional(readOnly = true)
-public TripMetricsDTO getTripMetrics(Long tripId) {
+    public TripMetricsDTO getTripMetrics(Long tripId) {
 
-    Trip trip = getTrip(tripId);
+        Trip trip = getTrip(tripId);
 
-    TripMetrics metrics = tripMetricsRepository
-            .findByTripId(tripId)
-            .orElseGet(() -> {
-                TripMetrics m = new TripMetrics();
-                m.setTrip(trip);
-                m.setIncidentCount(0);
-                m.setTasksCompleted(0);
-                return m;
-            });
+        TripMetrics metrics = tripMetricsRepository
+                .findByTripId(tripId)
+                .orElseGet(() -> {
+                    TripMetrics m = new TripMetrics();
+                    m.setTrip(trip);
+                    m.setIncidentCount(0);
+                    m.setTasksCompleted(0);
+                    return m;
+                });
 
-    return TripMetricsDTO.fromEntity(metrics);
-}
+        return convertToDTO(metrics);
+    }
 
     /* =========================================================
        PREVIEW ONLY (NO SAVE)
@@ -224,82 +228,82 @@ public TripMetricsDTO getTripMetrics(Long tripId) {
        INITIALIZE
        ========================================================= */
     @Transactional
-public TripMetrics initializeMetrics(Long tripId) {  // Change void to TripMetrics
-    if (tripMetricsRepository.existsByTripId(tripId)) {
-        log.debug("Metrics already exist for trip {}", tripId);
-        return tripMetricsRepository.findByTripId(tripId).orElse(null);
+    public TripMetrics initializeMetrics(Long tripId) {
+        if (tripMetricsRepository.existsByTripId(tripId)) {
+            log.debug("Metrics already exist for trip {}", tripId);
+            return tripMetricsRepository.findByTripId(tripId).orElse(null);
+        }
+        
+        Trip trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new ResourceNotFoundException("Trip", "id", tripId));
+        
+        TripMetrics metrics = new TripMetrics();
+        metrics.setTrip(trip);
+        metrics.setIncidentCount(0);
+        metrics.setTasksCompleted(0);
+        metrics.setFinalized(false);
+        
+        TripMetrics saved = tripMetricsRepository.save(metrics);
+        log.info("Initialized metrics for trip {}", tripId);
+        
+        return saved;
     }
-    
-    Trip trip = tripRepository.findById(tripId)
-            .orElseThrow(() -> new ResourceNotFoundException("Trip", "id", tripId));
-    
-    TripMetrics metrics = new TripMetrics();
-    metrics.setTrip(trip);
-    metrics.setIncidentCount(0);
-    metrics.setTasksCompleted(0);
-    metrics.setFinalized(false);
-    
-    TripMetrics saved = tripMetricsRepository.save(metrics);
-    log.info("Initialized metrics for trip {}", tripId);
-    
-    return saved;  // Return the saved metrics
-}
-
 
     /* =========================================================
-   CALCULATE FROM SAVED TRIP (SAFE)
-   ========================================================= */
-@Transactional
-public void calculateMetricsForTrip(Long tripId) {
+       CALCULATE FROM SAVED TRIP (SAFE)
+       ========================================================= */
+    @Transactional
+    public void calculateMetricsForTrip(Long tripId) {
 
-    Trip trip = getTrip(tripId);
+        Trip trip = getTrip(tripId);
 
-    if (trip.getOriginLocation() == null ||
-        trip.getOriginLocation().isBlank() ||
-        trip.getDestinationLocation() == null ||
-        trip.getDestinationLocation().isBlank()) {
+        if (trip.getOriginLocation() == null ||
+            trip.getOriginLocation().isBlank() ||
+            trip.getDestinationLocation() == null ||
+            trip.getDestinationLocation().isBlank()) {
 
-        log.warn(
-                "Skipping metrics calculation for trip {} because locations are missing",
-                tripId
-        );
-        return;
-    }
-
-    try {
-
-        RouteCalculationRequestDTO request =
-                new RouteCalculationRequestDTO();
-
-        request.setOriginLocation(trip.getOriginLocation());
-        request.setDestinationLocation(trip.getDestinationLocation());
-
-        if (trip.getVehicle() != null &&
-            trip.getVehicle().getVehicleType() != null) {
-
-            request.setVehicleType(
-                    trip.getVehicle()
-                            .getVehicleType()
-                            .name()
+            log.warn(
+                    "Skipping metrics calculation for trip {} because locations are missing",
+                    tripId
             );
+            return;
         }
 
-        calculateAndSaveMetrics(tripId, request);
+        try {
 
-        log.info(
-                "Successfully calculated metrics for trip {}",
-                tripId
-        );
+            RouteCalculationRequestDTO request =
+                    new RouteCalculationRequestDTO();
 
-    } catch (Exception e) {
+            request.setOriginLocation(trip.getOriginLocation());
+            request.setDestinationLocation(trip.getDestinationLocation());
 
-        log.warn(
-                "Route calculation failed for trip {}. Trip remains valid.",
-                tripId,
-                e
-        );
+            if (trip.getVehicle() != null &&
+                trip.getVehicle().getVehicleType() != null) {
+
+                request.setVehicleType(
+                        trip.getVehicle()
+                                .getVehicleType()
+                                .name()
+                );
+            }
+
+            calculateAndSaveMetrics(tripId, request);
+
+            log.info(
+                    "Successfully calculated metrics for trip {}",
+                    tripId
+            );
+
+        } catch (Exception e) {
+
+            log.warn(
+                    "Route calculation failed for trip {}. Trip remains valid.",
+                    tripId,
+                    e
+            );
+        }
     }
-}
+
     /* =========================================================
        FINALIZATION
        ========================================================= */
@@ -388,26 +392,26 @@ public void calculateMetricsForTrip(Long tripId) {
 
     private BigDecimal estimateFuel(BigDecimal distance, String vehicleType) {
 
-    if (distance == null ||
-        distance.compareTo(BigDecimal.ZERO) <= 0) {
-        return BigDecimal.ZERO;
+        if (distance == null ||
+            distance.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal ratePer100km = DEFAULT_FUEL_RATE;
+
+        if (vehicleType != null) {
+            ratePer100km = switch (vehicleType.toUpperCase()) {
+                case "VAN" -> new BigDecimal("12");
+                case "CAR", "SUV" -> new BigDecimal("8");
+                case "TRAILER", "SEMI" -> new BigDecimal("40");
+                case "TRUCK" -> new BigDecimal("35");
+                default -> DEFAULT_FUEL_RATE;
+            };
+        }
+
+        return distance.multiply(ratePer100km)
+                .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
     }
-
-    BigDecimal ratePer100km = DEFAULT_FUEL_RATE;
-
-    if (vehicleType != null) {
-        ratePer100km = switch (vehicleType.toUpperCase()) {
-            case "VAN" -> new BigDecimal("12");
-            case "CAR", "SUV" -> new BigDecimal("8");
-            case "TRAILER", "SEMI" -> new BigDecimal("40");
-            case "TRUCK" -> new BigDecimal("35");
-            default -> DEFAULT_FUEL_RATE;
-        };
-    }
-
-    return distance.multiply(ratePer100km)
-            .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
-}
 
     private void applyDerivedMetrics(TripMetrics metrics) {
         // Calculate average speed
@@ -432,5 +436,15 @@ public void calculateMetricsForTrip(Long tripId) {
             
             // This would be km per liter - add to TripMetrics entity if needed
         }
+    }
+
+    /**
+     * Convert TripMetrics entity to DTO
+     */
+    private TripMetricsDTO convertToDTO(TripMetrics metrics) {
+        if (metrics == null) {
+            return null;
+        }
+        return tripMetricsMapper.toDto(metrics);
     }
 }
