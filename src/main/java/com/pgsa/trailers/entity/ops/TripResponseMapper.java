@@ -229,30 +229,42 @@ public class TripResponseMapper {
     }
 
     /**
-     * Convert Vehicle entity to VehicleDTO
-     */
-    private VehicleDTO toVehicleDTO(Vehicle vehicle) {
-        if (vehicle == null) {
-            return null;
-        }
-
-        VehicleDTO dto = new VehicleDTO();
-        dto.setId(vehicle.getId());
-        dto.setRegistrationNumber(vehicle.getRegistrationNumber());
-        dto.setMake(vehicle.getMake());
-        dto.setModel(vehicle.getModel());
-        // Only set these if they exist in your Vehicle entity
-        // dto.setYear(vehicle.getYear());
-        // dto.setVin(vehicle.getVin());
-        // dto.setFuelType(vehicle.getFuelType());
-        // dto.setCurrentOdometer(vehicle.getCurrentOdometer());
-        // dto.setLastServiceDate(vehicle.getLastServiceDate());
-        // dto.setNextServiceDue(vehicle.getNextServiceDue());
-        dto.setIsActive(vehicle.getIsActive());
-        // dto.setNotes(vehicle.getNotes());
-        
-        return dto;
+ * Convert Vehicle entity to VehicleDTO - Safe version with null/exception handling
+ */
+private VehicleDTO toVehicleDTO(Vehicle vehicle) {
+    if (vehicle == null) {
+        return null;
     }
+
+    VehicleDTO dto = new VehicleDTO();
+    dto.setId(vehicle.getId());
+    
+    try {
+        dto.setRegistrationNumber(vehicle.getRegistrationNumber());
+    } catch (Exception e) {
+        log.warn("Could not load registration number for vehicle {}: {}", vehicle.getId(), e.getMessage());
+    }
+    
+    try {
+        dto.setMake(vehicle.getMake());
+    } catch (Exception e) {
+        log.warn("Could not load make for vehicle {}: {}", vehicle.getId(), e.getMessage());
+    }
+    
+    try {
+        dto.setModel(vehicle.getModel());
+    } catch (Exception e) {
+        log.warn("Could not load model for vehicle {}: {}", vehicle.getId(), e.getMessage());
+    }
+    
+    try {
+        dto.setIsActive(vehicle.getIsActive());
+    } catch (Exception e) {
+        log.warn("Could not load isActive for vehicle {}: {}", vehicle.getId(), e.getMessage());
+    }
+    
+    return dto;
+}
 
     /**
      * Convert Driver entity to DriverDTO
