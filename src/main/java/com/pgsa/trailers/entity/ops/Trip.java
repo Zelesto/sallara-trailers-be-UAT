@@ -508,6 +508,40 @@ public class Trip {
         this.destinationLocation = buildDestinationAddress();
     }
 
+        /* ========================
+   Explicit Getter Methods (if Lombok is not processing)
+   ======================== */
+        
+        public String getTripNumber() {
+            return tripNumber;
+        }
+        
+        public BigDecimal getCargoWeight() {
+            return cargoWeight;
+        }
+        
+        public BigDecimal getCargoValue() {
+            return cargoValue;
+        }
+        
+        public TripStatus getStatus() {
+            return status;
+        }
+        
+        public BigDecimal getFromDepotKm() {
+            return fromDepotKm;
+        }
+        
+        public BigDecimal getToDepotKm() {
+            return toDepotKm;
+        }
+        
+        public BigDecimal getTotalDepotKm() {
+            BigDecimal from = fromDepotKm != null ? fromDepotKm : BigDecimal.ZERO;
+            BigDecimal to = toDepotKm != null ? toDepotKm : BigDecimal.ZERO;
+            return from.add(to);
+        }
+
     /* ========================
        LIFECYCLE CALLBACKS
        ======================== */
