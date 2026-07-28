@@ -21,4 +21,3 @@ public class VehicleIssueRequestDTO {
     private String notes;
     private List<VehicleIssueItemRequestDTO> items;
 }
-
