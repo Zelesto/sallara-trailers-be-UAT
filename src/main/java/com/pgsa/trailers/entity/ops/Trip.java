@@ -44,7 +44,8 @@ import java.util.Objects;
 @EntityListeners(AuditingEntityListener.class)
 public class Trip {
 
-        private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(Trip.class);
+    // ====== Explicit Logger (since @Slf4j may not work) ======
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(Trip.class);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -424,32 +425,117 @@ public class Trip {
     }
 
     /* ========================
-       Load Management Methods - ADDED
+       LOAD MANAGEMENT METHODS - ADDED FOR COMPILATION
        ======================== */
 
-          public void setLoad(Load load) {
-            this.load = load;
-        }
-        
-        public void setLoadId(String loadId) {
-            this.loadId = loadId;
-        }
-        
-        public void setLoadNumber(String loadNumber) {
-            this.loadNumber = loadNumber;
-        }
-        
-        public void setLoadType(String loadType) {
-            this.loadType = loadType;
-        }
-        
-        public void setLoadDescription(String loadDescription) {
-            this.loadDescription = loadDescription;
-        }
-        
-        public void setLoadStatus(String loadStatus) {
-            this.loadStatus = loadStatus;
-        }
+    public void setLoad(Load load) {
+        this.load = load;
+    }
+
+    public void setLoadId(String loadId) {
+        this.loadId = loadId;
+    }
+
+    public void setLoadNumber(String loadNumber) {
+        this.loadNumber = loadNumber;
+    }
+
+    public void setLoadType(String loadType) {
+        this.loadType = loadType;
+    }
+
+    public void setLoadDescription(String loadDescription) {
+        this.loadDescription = loadDescription;
+    }
+
+    public void setLoadStatus(String loadStatus) {
+        this.loadStatus = loadStatus;
+    }
+
+    /* ========================
+       EXPLICIT GETTERS (if Lombok fails)
+       ======================== */
+
+    public String getTripNumber() {
+        return tripNumber;
+    }
+
+    public BigDecimal getCargoWeight() {
+        return cargoWeight;
+    }
+
+    public BigDecimal getCargoValue() {
+        return cargoValue;
+    }
+
+    public TripStatus getStatus() {
+        return status;
+    }
+
+    public BigDecimal getFromDepotKm() {
+        return fromDepotKm;
+    }
+
+    public BigDecimal getToDepotKm() {
+        return toDepotKm;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getLoadNumber() {
+        return loadNumber;
+    }
+
+    public String getLoadType() {
+        return loadType;
+    }
+
+    public String getLoadDescription() {
+        return loadDescription;
+    }
+
+    public String getLoadStatus() {
+        return loadStatus;
+    }
+
+    public Load getLoad() {
+        return load;
+    }
+
+    public String getLoadId() {
+        return loadId;
+    }
+
+    /* ========================
+       EXPLICIT SETTERS (if Lombok fails)
+       ======================== */
+
+    public void setTripNumber(String tripNumber) {
+        this.tripNumber = tripNumber;
+    }
+
+    public void setCargoWeight(BigDecimal cargoWeight) {
+        this.cargoWeight = cargoWeight;
+    }
+
+    public void setCargoValue(BigDecimal cargoValue) {
+        this.cargoValue = cargoValue;
+    }
+
+    public void setStatus(TripStatus status) {
+        this.status = status;
+    }
+
+    public void setFromDepotKm(BigDecimal fromDepotKm) {
+        this.fromDepotKm = fromDepotKm;
+    }
+
+    public void setToDepotKm(BigDecimal toDepotKm) {
+        this.toDepotKm = toDepotKm;
+    }
+
     /* ========================
        Convenience Methods
        ======================== */
@@ -512,36 +598,6 @@ public class Trip {
         this.destinationLocation = buildDestinationAddress();
     }
 
-        /* ========================
-   Explicit Getter Methods (if Lombok is not processing)
-   ======================== */
-        
-        public String getTripNumber() {
-            return tripNumber;
-        }
-        
-        public BigDecimal getCargoWeight() {
-            return cargoWeight;
-        }
-        
-        public BigDecimal getCargoValue() {
-            return cargoValue;
-        }
-        
-        public TripStatus getStatus() {
-            return status;
-        }
-        
-        public BigDecimal getFromDepotKm() {
-            return fromDepotKm;
-        }
-        
-        public BigDecimal getToDepotKm() {
-            return toDepotKm;
-        }
-        
-
-
     /* ========================
        LIFECYCLE CALLBACKS
        ======================== */
@@ -566,7 +622,6 @@ public class Trip {
         }
         
         // Emergency: If tripNumber is null, generate a fallback
-        // This should never happen as TripService generates it, but just in case
         if (tripNumber == null || tripNumber.trim().isEmpty()) {
             log.warn("🚨 TRIP NUMBER IS NULL IN @PrePersist! Generating emergency fallback.");
             this.tripNumber = "TRP-EMERG-" + System.currentTimeMillis();
