@@ -234,6 +234,11 @@ public class Trip {
     @Column(name = "actual_duration_hours", precision = 10, scale = 2)
     private BigDecimal actualDurationHours;
 
+
+
+        public Vehicle getVehicle() {
+            return this.vehicle;
+        }
     /* ========================
        Operational Metrics
        ======================== */
