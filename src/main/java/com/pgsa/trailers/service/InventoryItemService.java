@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,6 +87,38 @@ public class InventoryItemService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<InventoryItemResponseDTO> getDriverIssuableItems() {
+        return inventoryItemRepository.findByIsDriverIssuableTrueAndIsHeldFalseAndIsActiveTrue()
+                .stream()
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<InventoryItemResponseDTO> getVehicleIssuableItems() {
+        return inventoryItemRepository.findByIsVehicleIssuableTrueAndIsHeldFalseAndIsActiveTrue()
+                .stream()
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<InventoryItemResponseDTO> getLowStockItems() {
+        return inventoryItemRepository.findLowStockItems()
+                .stream()
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<InventoryItemResponseDTO> getOutOfStockItems() {
+        return inventoryItemRepository.findOutOfStockItems()
+                .stream()
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
     public InventoryItemResponseDTO updateQuantity(Long id, Integer quantity, String operation) {
         InventoryItem item = inventoryItemRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Inventory item not found with ID: " + id));
@@ -117,18 +150,33 @@ public class InventoryItemService {
     }
 
     public InventoryItemResponseDTO createItem(InventoryItemRequestDTO request) {
+        log.info("Creating inventory item: {}", request.getName());
+        
+        // Get current user (you'll need to implement this based on your security context)
+        String currentUser = getCurrentUser();
+        
         InventoryItem item = InventoryItem.builder()
                 .name(request.getName())
                 .category(request.getCategory())
                 .unitOfMeasure(request.getUnitOfMeasure())
-                .isConsumable(request.getIsConsumable() != null ? request.getIsConsumable() : false)
+                .isConsumable(request.getIsConsumable() != null ? request.getIsConsumable() : true)
                 .reorderLevel(request.getReorderLevel())
                 .locationId(request.getLocationId())
                 .quantity(request.getQuantity() != null ? request.getQuantity() : 0)
                 .unitCost(request.getUnitCost())
-                .minLevel(request.getMinLevel())
-                .isActive(true)
+                .minLevel(request.getMinLevel() != null ? request.getMinLevel() : 0)
                 .notes(request.getNotes())
+                // New fields with defaults
+                .isActive(request.getIsActive() != null ? request.getIsActive() : true)
+                .isDriverIssuable(request.getIsDriverIssuable() != null ? request.getIsDriverIssuable() : true)
+                .isVehicleIssuable(request.getIsVehicleIssuable() != null ? request.getIsVehicleIssuable() : true)
+                .returnByDate(request.getReturnByDate())
+                .isHeld(request.getIsHeld() != null ? request.getIsHeld() : false)
+                .holdCode(request.getHoldCode())
+                .holdDate(request.getHoldDate())
+                .holdReason(request.getHoldReason())
+                .heldBy(request.getHeldBy())
+                .createdBy(currentUser)
                 .build();
 
         InventoryItem saved = inventoryItemRepository.save(item);
@@ -137,19 +185,36 @@ public class InventoryItemService {
     }
 
     public InventoryItemResponseDTO updateItem(Long id, InventoryItemRequestDTO request) {
+        log.info("Updating inventory item: {}", id);
+        
         InventoryItem item = inventoryItemRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Inventory item not found with ID: " + id));
 
-        item.setName(request.getName());
-        item.setCategory(request.getCategory());
-        item.setUnitOfMeasure(request.getUnitOfMeasure());
-        item.setIsConsumable(request.getIsConsumable());
-        item.setReorderLevel(request.getReorderLevel());
+        // Update basic fields
+        if (request.getName() != null) item.setName(request.getName());
+        if (request.getCategory() != null) item.setCategory(request.getCategory());
+        if (request.getUnitOfMeasure() != null) item.setUnitOfMeasure(request.getUnitOfMeasure());
+        if (request.getIsConsumable() != null) item.setIsConsumable(request.getIsConsumable());
+        if (request.getReorderLevel() != null) item.setReorderLevel(request.getReorderLevel());
         if (request.getLocationId() != null) item.setLocationId(request.getLocationId());
         if (request.getQuantity() != null) item.setQuantity(request.getQuantity());
         if (request.getUnitCost() != null) item.setUnitCost(request.getUnitCost());
         if (request.getMinLevel() != null) item.setMinLevel(request.getMinLevel());
         if (request.getNotes() != null) item.setNotes(request.getNotes());
+        
+        // Update new fields
+        if (request.getIsActive() != null) item.setIsActive(request.getIsActive());
+        if (request.getIsDriverIssuable() != null) item.setIsDriverIssuable(request.getIsDriverIssuable());
+        if (request.getIsVehicleIssuable() != null) item.setIsVehicleIssuable(request.getIsVehicleIssuable());
+        if (request.getReturnByDate() != null) item.setReturnByDate(request.getReturnByDate());
+        if (request.getIsHeld() != null) item.setIsHeld(request.getIsHeld());
+        if (request.getHoldCode() != null) item.setHoldCode(request.getHoldCode());
+        if (request.getHoldDate() != null) item.setHoldDate(request.getHoldDate());
+        if (request.getHoldReason() != null) item.setHoldReason(request.getHoldReason());
+        if (request.getHeldBy() != null) item.setHeldBy(request.getHeldBy());
+        
+        // Set updated by
+        item.setUpdatedBy(getCurrentUser());
 
         InventoryItem updated = inventoryItemRepository.save(item);
         log.info("Updated inventory item with ID: {}", updated.getId());
@@ -167,6 +232,10 @@ public class InventoryItemService {
     @Transactional(readOnly = true)
     public InventoryStatisticsDTO getStatistics() {
         Long totalItems = inventoryItemRepository.countTotalItems();
+        Long activeItems = inventoryItemRepository.countActiveItems();
+        Long lowStockItems = inventoryItemRepository.countLowStockItems();
+        Long outOfStockItems = inventoryItemRepository.countOutOfStockItems();
+        Long heldItems = inventoryItemRepository.countHeldItems();
         
         // Category counts
         List<Object[]> categoryResults = inventoryItemRepository.countByCategory();
@@ -188,12 +257,22 @@ public class InventoryItemService {
                 BigDecimal.valueOf(avgReorderLevel).setScale(2, RoundingMode.HALF_UP) : 
                 BigDecimal.ZERO;
 
+        // Total value of inventory
+        BigDecimal totalValue = inventoryItemRepository.calculateTotalValue();
+        if (totalValue == null) {
+            totalValue = BigDecimal.ZERO;
+        }
+
         return InventoryStatisticsDTO.builder()
                 .totalItems(totalItems)
-                .activeItems(totalItems)
+                .activeItems(activeItems)
+                .lowStockItems(lowStockItems)
+                .outOfStockItems(outOfStockItems)
+                .heldItems(heldItems)
                 .categoryCounts(categoryCounts)
                 .locationCounts(locationCounts)
                 .averageReorderLevel(averageReorderLevel)
+                .totalValue(totalValue)
                 .build();
     }
 
@@ -239,6 +318,31 @@ public class InventoryItemService {
                 .notes(item.getNotes())
                 .createdAt(item.getCreatedAt())
                 .updatedAt(item.getUpdatedAt())
+                // New fields
+                .isActive(item.getIsActive())
+                .isDriverIssuable(item.getIsDriverIssuable())
+                .isVehicleIssuable(item.getIsVehicleIssuable())
+                .returnByDate(item.getReturnByDate())
+                .isHeld(item.getIsHeld())
+                .holdCode(item.getHoldCode())
+                .holdDate(item.getHoldDate())
+                .holdReason(item.getHoldReason())
+                .heldBy(item.getHeldBy())
+                .createdBy(item.getCreatedBy())
+                .updatedBy(item.getUpdatedBy())
                 .build();
+    }
+
+    /**
+     * Get current user from security context
+     * You need to implement this based on your security setup
+     */
+    private String getCurrentUser() {
+        // If you're using Spring Security, you can get the current user like this:
+        // Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        // if (authentication != null && authentication.isAuthenticated()) {
+        //     return authentication.getName();
+        // }
+        return null; // Return null for now, you can set a default or implement properly
     }
 }
