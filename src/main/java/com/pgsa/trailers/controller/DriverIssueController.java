@@ -44,6 +44,21 @@ public class DriverIssueController {
     }
 
     /**
+ * Swap an item - return damaged and issue replacement for driver
+ */
+@PostMapping("/{issueId}/swap")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
+public ResponseEntity<DriverIssueResponseDTO> swapDriverItem(
+        @PathVariable Long issueId,
+        @RequestBody @Valid SwapItemRequestDTO swapRequest,
+        Authentication authentication) {
+    Long userId = getUserId(authentication);
+    log.info("🔄 Swapping driver item from issue: {}", issueId);
+    DriverIssueResponseDTO response = driverIssueService.swapItem(issueId, swapRequest, userId);
+    return ResponseEntity.ok(response);
+}
+
+    /**
      * Create a new driver issue
      */
     @PostMapping
