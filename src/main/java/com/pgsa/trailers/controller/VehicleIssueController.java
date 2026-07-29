@@ -50,6 +50,21 @@ public class VehicleIssueController {
     }
 
     /**
+ * Swap an item - return damaged and issue replacement for vehicle
+ */
+@PostMapping("/{issueId}/swap")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
+public ResponseEntity<VehicleIssueResponseDTO> swapItem(
+        @PathVariable Long issueId,
+        @RequestBody @Valid SwapItemRequestDTO swapRequest,
+        Authentication authentication) {
+    Long userId = getUserId(authentication);
+    log.info("🔄 Swapping vehicle item from issue: {}", issueId);
+    VehicleIssueResponseDTO response = vehicleIssueService.swapItem(issueId, swapRequest, userId);
+    return ResponseEntity.ok(response);
+}
+
+    /**
      * Create a new vehicle issue (issue items to vehicle)
      */
     @PostMapping
