@@ -1,3 +1,4 @@
+// src/main/java/com/pgsa/trailers/entity/inventory/InventoryItem.java
 package com.pgsa.trailers.entity.inventory;
 
 import jakarta.persistence.*;
@@ -9,8 +10,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "inventory_item")
@@ -57,6 +58,28 @@ public class InventoryItem {
     @Column(name = "notes", length = 500)
     private String notes;
 
+    // ✅ Add these fields (they were missing)
+    @Column(name = "is_driver_issuable")
+    private Boolean isDriverIssuable;
+
+    @Column(name = "is_vehicle_issuable")
+    private Boolean isVehicleIssuable;
+
+    @Column(name = "hold_code")
+    private String holdCode;
+
+    @Column(name = "hold_reason")
+    private String holdReason;
+
+    @Column(name = "hold_date")
+    private LocalDateTime holdDate;
+
+    @Column(name = "held_by")
+    private String heldBy;
+
+    @Column(name = "return_by_date")
+    private LocalDate returnByDate;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -71,154 +94,74 @@ public class InventoryItem {
     @Column(name = "updated_by")
     private String updatedBy;
 
-    @Column(name = "is_vehicle_issuable")
-    private Boolean isVehicleIssuable = true;
-    
-    @Column(name = "is_driver_issuable")
-    private Boolean isDriverIssuable = true;
-    
-    @Column(name = "hold_code")
-    private String holdCode;  // "DAMAGED", "FAULTY", "BROKEN", "RECALL", "RETURNED"
-    
-    @Column(name = "hold_reason")
-    private String holdReason;
-    
-    @Column(name = "hold_date")
-    private LocalDateTime holdDate;
-    
-    @Column(name = "held_by")
-    private String heldBy;
-    
-    @Column(name = "return_by_date")
-    private LocalDate returnByDate;  // For items that need to be returned by a certain date
+    // ====== EXPLICIT GETTERS AND SETTERS (if Lombok fails) ======
 
-    // ====== EXPLICIT GETTERS AND SETTERS (since Lombok may not work) ======
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public Long getId() {
-        return id;
-    }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
 
-    public String getName() {
-        return name;
-    }
+    public String getUnitOfMeasure() { return unitOfMeasure; }
+    public void setUnitOfMeasure(String unitOfMeasure) { this.unitOfMeasure = unitOfMeasure; }
 
-    public void setName(String name) {
-        this.name = name;
-    }
+    public Boolean getIsConsumable() { return isConsumable; }
+    public void setIsConsumable(Boolean isConsumable) { this.isConsumable = isConsumable; }
 
-    public String getCategory() {
-        return category;
-    }
+    public BigDecimal getReorderLevel() { return reorderLevel; }
+    public void setReorderLevel(BigDecimal reorderLevel) { this.reorderLevel = reorderLevel; }
 
-    public void setCategory(String category) {
-        this.category = category;
-    }
+    public Long getLocationId() { return locationId; }
+    public void setLocationId(Long locationId) { this.locationId = locationId; }
 
-    public String getUnitOfMeasure() {
-        return unitOfMeasure;
-    }
+    public Integer getQuantity() { return quantity; }
+    public void setQuantity(Integer quantity) { this.quantity = quantity; }
 
-    public void setUnitOfMeasure(String unitOfMeasure) {
-        this.unitOfMeasure = unitOfMeasure;
-    }
+    public BigDecimal getUnitCost() { return unitCost; }
+    public void setUnitCost(BigDecimal unitCost) { this.unitCost = unitCost; }
 
-    public Boolean getIsConsumable() {
-        return isConsumable;
-    }
+    public Integer getMinLevel() { return minLevel; }
+    public void setMinLevel(Integer minLevel) { this.minLevel = minLevel; }
 
-    public void setIsConsumable(Boolean isConsumable) {
-        this.isConsumable = isConsumable;
-    }
+    public Boolean getIsActive() { return isActive; }
+    public void setIsActive(Boolean isActive) { this.isActive = isActive; }
 
-    public BigDecimal getReorderLevel() {
-        return reorderLevel;
-    }
+    public String getNotes() { return notes; }
+    public void setNotes(String notes) { this.notes = notes; }
 
-    public void setReorderLevel(BigDecimal reorderLevel) {
-        this.reorderLevel = reorderLevel;
-    }
+    public Boolean getIsDriverIssuable() { return isDriverIssuable; }
+    public void setIsDriverIssuable(Boolean isDriverIssuable) { this.isDriverIssuable = isDriverIssuable; }
 
-    public Long getLocationId() {
-        return locationId;
-    }
+    public Boolean getIsVehicleIssuable() { return isVehicleIssuable; }
+    public void setIsVehicleIssuable(Boolean isVehicleIssuable) { this.isVehicleIssuable = isVehicleIssuable; }
 
-    public void setLocationId(Long locationId) {
-        this.locationId = locationId;
-    }
+    public String getHoldCode() { return holdCode; }
+    public void setHoldCode(String holdCode) { this.holdCode = holdCode; }
 
-    public Integer getQuantity() {
-        return quantity;
-    }
+    public String getHoldReason() { return holdReason; }
+    public void setHoldReason(String holdReason) { this.holdReason = holdReason; }
 
-    public void setQuantity(Integer quantity) {
-        this.quantity = quantity;
-    }
+    public LocalDateTime getHoldDate() { return holdDate; }
+    public void setHoldDate(LocalDateTime holdDate) { this.holdDate = holdDate; }
 
-    public BigDecimal getUnitCost() {
-        return unitCost;
-    }
+    public String getHeldBy() { return heldBy; }
+    public void setHeldBy(String heldBy) { this.heldBy = heldBy; }
 
-    public void setUnitCost(BigDecimal unitCost) {
-        this.unitCost = unitCost;
-    }
+    public LocalDate getReturnByDate() { return returnByDate; }
+    public void setReturnByDate(LocalDate returnByDate) { this.returnByDate = returnByDate; }
 
-    public Integer getMinLevel() {
-        return minLevel;
-    }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
-    public void setMinLevel(Integer minLevel) {
-        this.minLevel = minLevel;
-    }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 
-    public Boolean getIsActive() {
-        return isActive;
-    }
+    public String getCreatedBy() { return createdBy; }
+    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
 
-    public void setIsActive(Boolean isActive) {
-        this.isActive = isActive;
-    }
-
-    public String getNotes() {
-        return notes;
-    }
-
-    public void setNotes(String notes) {
-        this.notes = notes;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
-    public String getCreatedBy() {
-        return createdBy;
-    }
-
-    public void setCreatedBy(String createdBy) {
-        this.createdBy = createdBy;
-    }
-
-    public String getUpdatedBy() {
-        return updatedBy;
-    }
-
-    public void setUpdatedBy(String updatedBy) {
-        this.updatedBy = updatedBy;
-    }
+    public String getUpdatedBy() { return updatedBy; }
+    public void setUpdatedBy(String updatedBy) { this.updatedBy = updatedBy; }
 }
