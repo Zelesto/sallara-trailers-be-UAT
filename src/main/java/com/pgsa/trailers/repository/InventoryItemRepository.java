@@ -27,29 +27,36 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
     // Find by is active
     List<InventoryItem> findByIsActiveTrue();
 
+    // Find by driver issuable, not held, and active
     List<InventoryItem> findByIsDriverIssuableTrueAndIsHeldFalseAndIsActiveTrue();
     
+    // Find by vehicle issuable, not held, and active
     List<InventoryItem> findByIsVehicleIssuableTrueAndIsHeldFalseAndIsActiveTrue();
 
-    // Search items
+    // Search items - ONLY ONE definition
     @Query("SELECT i FROM InventoryItem i WHERE " +
            "LOWER(i.name) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(i.category) LIKE LOWER(CONCAT('%', :search, '%'))")
+           "LOWER(i.category) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(i.unitOfMeasure) LIKE LOWER(CONCAT('%', :search, '%'))")
     Page<InventoryItem> searchItems(@Param("search") String search, Pageable pageable);
 
     // Count total items
     @Query("SELECT COUNT(i) FROM InventoryItem i")
     Long countTotalItems();
 
-     @Query("SELECT COUNT(i) FROM InventoryItem i WHERE i.isActive = true")
+    // Count active items
+    @Query("SELECT COUNT(i) FROM InventoryItem i WHERE i.isActive = true")
     Long countActiveItems();
     
+    // Count low stock items
     @Query("SELECT COUNT(i) FROM InventoryItem i WHERE i.isActive = true AND i.isHeld = false AND i.quantity <= i.minLevel AND i.quantity > 0")
     Long countLowStockItems();
     
+    // Count out of stock items
     @Query("SELECT COUNT(i) FROM InventoryItem i WHERE i.isActive = true AND i.isHeld = false AND (i.quantity IS NULL OR i.quantity <= 0)")
     Long countOutOfStockItems();
     
+    // Count held items
     @Query("SELECT COUNT(i) FROM InventoryItem i WHERE i.isHeld = true")
     Long countHeldItems();
 
@@ -61,27 +68,19 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
     @Query("SELECT i.locationId, COUNT(i) FROM InventoryItem i WHERE i.locationId IS NOT NULL GROUP BY i.locationId")
     List<Object[]> countByLocation();
 
-    // Average reorder level
+    // Average reorder level - ONLY ONE definition
     @Query("SELECT AVG(i.reorderLevel) FROM InventoryItem i WHERE i.reorderLevel IS NOT NULL")
     Double averageReorderLevel();
 
+    // Calculate total inventory value
+    @Query("SELECT SUM(i.quantity * i.unitCost) FROM InventoryItem i WHERE i.unitCost IS NOT NULL AND i.quantity IS NOT NULL")
+    BigDecimal calculateTotalValue();
+
     // Find low stock items
-    @Query("SELECT i FROM InventoryItem i WHERE i.quantity IS NOT NULL AND i.minLevel IS NOT NULL AND i.quantity <= i.minLevel")
+    @Query("SELECT i FROM InventoryItem i WHERE i.isActive = true AND i.isHeld = false AND i.quantity IS NOT NULL AND i.minLevel IS NOT NULL AND i.quantity <= i.minLevel AND i.quantity > 0")
     List<InventoryItem> findLowStockItems();
 
     // Find out of stock items
-    @Query("SELECT i FROM InventoryItem i WHERE i.quantity IS NULL OR i.quantity <= 0")
+    @Query("SELECT i FROM InventoryItem i WHERE i.isActive = true AND i.isHeld = false AND (i.quantity IS NULL OR i.quantity <= 0)")
     List<InventoryItem> findOutOfStockItems();
-    
-    @Query("SELECT AVG(i.reorderLevel) FROM InventoryItem i WHERE i.reorderLevel IS NOT NULL")
-    Double averageReorderLevel();
-    
-    @Query("SELECT SUM(i.quantity * i.unitCost) FROM InventoryItem i WHERE i.unitCost IS NOT NULL AND i.quantity IS NOT NULL")
-    BigDecimal calculateTotalValue();
-    
-    @Query("SELECT i FROM InventoryItem i WHERE " +
-           "LOWER(i.name) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(i.category) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(i.unitOfMeasure) LIKE LOWER(CONCAT('%', :search, '%'))")
-    Page<InventoryItem> searchItems(@Param("search") String search, Pageable pageable);
 }
