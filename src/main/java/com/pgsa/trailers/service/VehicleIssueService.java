@@ -109,6 +109,106 @@ public class VehicleIssueService {
     }
 
     /**
+ * Swap an item - return damaged and issue replacement for vehicle
+ */
+@Transactional
+public VehicleIssueResponseDTO swapItem(Long oldIssueId, SwapItemRequestDTO swapRequest, Long userId) {
+    log.info("🔄 Swapping item from vehicle issue: {}", oldIssueId);
+    
+    // 1. Find the existing issue
+    VehicleIssue oldIssue = vehicleIssueRepository.findById(oldIssueId)
+            .orElseThrow(() -> new RuntimeException("Vehicle issue not found: " + oldIssueId));
+    
+    // 2. Find the specific item in the issue
+    VehicleIssueItem oldItem = vehicleIssueItemRepository
+            .findByIssueIdAndItemId(oldIssueId, swapRequest.getOldItemId())
+            .orElseThrow(() -> new RuntimeException("Item not found in issue: " + swapRequest.getOldItemId()));
+    
+    // 3. Validate old item is not already returned
+    if (oldItem.getQuantityReturned().compareTo(oldItem.getQuantityIssued()) >= 0) {
+        throw new RuntimeException("Item already returned, cannot swap");
+    }
+    
+    // 4. Validate new item has sufficient stock
+    InventoryItem newItem = inventoryItemRepository.findById(swapRequest.getNewItemId())
+            .orElseThrow(() -> new RuntimeException("New item not found: " + swapRequest.getNewItemId()));
+    
+    if (newItem.getQuantity() < swapRequest.getNewQuantity()) {
+        throw new RuntimeException("Insufficient stock for new item: " + newItem.getName() +
+                ". Available: " + newItem.getQuantity() + ", Requested: " + swapRequest.getNewQuantity());
+    }
+    
+    // 5. Process the old item return
+    BigDecimal returnQuantity = swapRequest.getReturnQuantity() != null ? 
+            swapRequest.getReturnQuantity() : oldItem.getQuantityIssued();
+    
+    // Mark old item as returned
+    oldItem.setQuantityReturned(oldItem.getQuantityReturned().add(returnQuantity));
+    oldItem.setConditionReturned(swapRequest.getDamagedCondition());
+    oldItem.setIsSwap(true);
+    oldItem.setSwapReason(swapRequest.getDamagedCondition());
+    oldItem.setUpdatedAt(LocalDateTime.now());
+    vehicleIssueItemRepository.save(oldItem);
+    
+    // 6. Create hold/damage record on the old item
+    InventoryItem inventoryItem = inventoryItemRepository.findById(swapRequest.getOldItemId())
+            .orElseThrow(() -> new RuntimeException("Inventory item not found"));
+    
+    inventoryItem.setHoldCode(swapRequest.getDamagedCondition());
+    inventoryItem.setHoldReason(swapRequest.getDamageNotes());
+    inventoryItem.setHoldDate(LocalDateTime.now());
+    inventoryItem.setHeldBy(String.valueOf(userId));
+    inventoryItemRepository.save(inventoryItem);
+    
+    // 7. Return old item to inventory with hold status
+    int currentQuantity = inventoryItem.getQuantity() != null ? inventoryItem.getQuantity() : 0;
+    inventoryItem.setQuantity(currentQuantity + returnQuantity.intValue());
+    inventoryItemRepository.save(inventoryItem);
+    
+    // 8. Create stock movement for return
+    StockMovement returnMovement = StockMovement.builder()
+            .itemId(swapRequest.getOldItemId())
+            .quantity(returnQuantity.intValue())
+            .movementType("IN")
+            .reason("Vehicle Swap Return - " + swapRequest.getDamagedCondition())
+            .notes("Damaged item returned from vehicle. Hold code: " + swapRequest.getDamagedCondition())
+            .referenceNumber(oldIssue.getIssueNumber())
+            .performedBy(String.valueOf(userId))
+            .referenceType("VEHICLE_SWAP_RETURN")
+            .requiresApproval(false)
+            .approvalStatus("APPROVED")
+            .build();
+    stockMovementRepository.save(returnMovement);
+    
+    // 9. Create new issue for the replacement item
+    VehicleIssueRequestDTO newIssueRequest = new VehicleIssueRequestDTO();
+    newIssueRequest.setVehicleId(oldIssue.getVehicleId());
+    newIssueRequest.setDriverId(oldIssue.getDriverId());
+    newIssueRequest.setTripId(oldIssue.getTripId());
+    newIssueRequest.setIssueDate(LocalDateTime.now());
+    newIssueRequest.setNotes("SWAP: Replacing damaged item. Original Issue: " + oldIssue.getIssueNumber());
+    
+    VehicleIssueItemRequestDTO newItemRequest = new VehicleIssueItemRequestDTO();
+    newItemRequest.setItemId(swapRequest.getNewItemId());
+    newItemRequest.setQuantity(BigDecimal.valueOf(swapRequest.getNewQuantity()));
+    newItemRequest.setCondition("NEW");
+    newItemRequest.setNotes("Swap replacement for " + swapRequest.getDamagedCondition());
+    
+    newIssueRequest.setItems(List.of(newItemRequest));
+    
+    // 10. Create the new issue
+    VehicleIssueResponseDTO newIssue = issueItemsToVehicle(newIssueRequest, userId);
+    
+    // 11. Link the new issue to the old one
+    oldItem.setSwapIssueId(newIssue.getId());
+    vehicleIssueItemRepository.save(oldItem);
+    
+    log.info("✅ Vehicle swap completed: Old issue {} returned, New issue {} created", oldIssueId, newIssue.getId());
+    
+    return newIssue;
+}
+
+    /**
      * Return items from vehicle
      */
     public VehicleIssueResponseDTO returnItemsFromVehicle(Long issueId, List<ReturnItemRequestDTO> returns, Long userId) {
