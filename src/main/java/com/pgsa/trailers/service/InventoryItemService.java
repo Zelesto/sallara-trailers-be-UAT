@@ -152,7 +152,6 @@ public class InventoryItemService {
     public InventoryItemResponseDTO createItem(InventoryItemRequestDTO request) {
         log.info("Creating inventory item: {}", request.getName());
         
-        // Get current user
         String currentUser = getCurrentUser();
         
         // Convert LocalDate to LocalDateTime for holdDate if needed
@@ -172,14 +171,14 @@ public class InventoryItemService {
                 .unitCost(request.getUnitCost())
                 .minLevel(request.getMinLevel() != null ? request.getMinLevel() : 0)
                 .notes(request.getNotes())
-                // New fields with defaults
+                // New fields with defaults - USE setIsHeld NOT isHeld
                 .isActive(request.getIsActive() != null ? request.getIsActive() : true)
                 .isDriverIssuable(request.getIsDriverIssuable() != null ? request.getIsDriverIssuable() : true)
                 .isVehicleIssuable(request.getIsVehicleIssuable() != null ? request.getIsVehicleIssuable() : true)
                 .returnByDate(request.getReturnByDate())
                 .isHeld(request.getIsHeld() != null ? request.getIsHeld() : false)
                 .holdCode(request.getHoldCode())
-                .holdDate(holdDateTime)  // Now using LocalDateTime
+                .holdDate(holdDateTime)
                 .holdReason(request.getHoldReason())
                 .heldBy(request.getHeldBy())
                 .createdBy(currentUser)
@@ -208,7 +207,7 @@ public class InventoryItemService {
         if (request.getMinLevel() != null) item.setMinLevel(request.getMinLevel());
         if (request.getNotes() != null) item.setNotes(request.getNotes());
         
-        // Update new fields
+        // Update new fields - USE setIsHeld NOT setIsHeld
         if (request.getIsActive() != null) item.setIsActive(request.getIsActive());
         if (request.getIsDriverIssuable() != null) item.setIsDriverIssuable(request.getIsDriverIssuable());
         if (request.getIsVehicleIssuable() != null) item.setIsVehicleIssuable(request.getIsVehicleIssuable());
@@ -216,7 +215,6 @@ public class InventoryItemService {
         if (request.getIsHeld() != null) item.setIsHeld(request.getIsHeld());
         if (request.getHoldCode() != null) item.setHoldCode(request.getHoldCode());
         if (request.getHoldDate() != null) {
-            // Convert LocalDate to LocalDateTime
             item.setHoldDate(request.getHoldDate().atStartOfDay());
         }
         if (request.getHoldReason() != null) item.setHoldReason(request.getHoldReason());
@@ -326,7 +324,7 @@ public class InventoryItemService {
                 .notes(item.getNotes())
                 .createdAt(item.getCreatedAt())
                 .updatedAt(item.getUpdatedAt())
-                // New fields
+                // New fields - USE getIsHeld() NOT isHeld()
                 .isActive(item.getIsActive())
                 .isDriverIssuable(item.getIsDriverIssuable())
                 .isVehicleIssuable(item.getIsVehicleIssuable())
@@ -350,6 +348,6 @@ public class InventoryItemService {
         // if (authentication != null && authentication.isAuthenticated()) {
         //     return authentication.getName();
         // }
-        return null; // Return null for now
+        return null;
     }
 }
