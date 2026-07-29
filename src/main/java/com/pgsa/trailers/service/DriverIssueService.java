@@ -83,20 +83,22 @@ public class DriverIssueService {
 
             // Create stock movement
             StockMovement movement = StockMovement.builder()
-                    .itemId(itemReq.getItemId())
-                    .quantity(itemReq.getQuantity().intValue())
-                    .movementType("OUT")
-                    .reason("Driver Issue")
-                    .notes("Issued to driver: " + request.getDriverId())
-                    .referenceNumber(issue.getIssueNumber())
-                    .performedBy(String.valueOf(userId))
-                    .driverId(request.getDriverId())
-                    .referenceType("DRIVER_ISSUE")
-                    .requiresApproval(false)
-                    .approvalStatus("APPROVED")
-                    .build();
+        .itemId(itemReq.getItemId())
+        .quantity(itemReq.getQuantity().intValue())
+        .movementType("OUT")
+        .reason("Driver Issue")
+        .notes("Issued to driver: " + request.getDriverId())
+        .referenceNumber(issue.getIssueNumber())
+        .performedBy(String.valueOf(userId))
+        .referenceType("DRIVER_ISSUE")
+        .requiresApproval(false)
+        .approvalStatus("APPROVED")
+        .build();
 
-            stockMovementRepository.save(movement);
+        // ✅ Set driverId separately
+        movement.setDriverId(request.getDriverId());
+        
+        stockMovementRepository.save(movement);
         }
 
         log.info("✅ Items issued to driver successfully. Issue Number: {}", issue.getIssueNumber());
@@ -136,21 +138,22 @@ public class DriverIssueService {
 
             // Create stock movement
             StockMovement movement = StockMovement.builder()
-                    .itemId(returnReq.getItemId())
-                    .quantity(returnReq.getQuantity().intValue())
-                    .movementType("IN")
-                    .reason("Driver Return")
-                    .notes("Returned from driver: " + issue.getDriverId() +
-                           ", Condition: " + returnReq.getCondition())
-                    .referenceNumber(issue.getIssueNumber())
-                    .performedBy(String.valueOf(userId))
-                    .driverId(issue.getDriverId())
-                    .referenceType("DRIVER_RETURN")
-                    .requiresApproval(false)
-                    .approvalStatus("APPROVED")
-                    .build();
+        .itemId(returnReq.getItemId())
+        .quantity(returnReq.getQuantity().intValue())
+        .movementType("IN")
+        .reason("Driver Return")
+        .notes("Returned from driver: " + issue.getDriverId())
+        .referenceNumber(issue.getIssueNumber())
+        .performedBy(String.valueOf(userId))
+        .referenceType("DRIVER_RETURN")
+        .requiresApproval(false)
+        .approvalStatus("APPROVED")
+        .build();
 
-            stockMovementRepository.save(movement);
+        // ✅ Set driverId separately
+        movement.setDriverId(issue.getDriverId());
+        
+        stockMovementRepository.save(movement);
         }
 
         // Update issue status
