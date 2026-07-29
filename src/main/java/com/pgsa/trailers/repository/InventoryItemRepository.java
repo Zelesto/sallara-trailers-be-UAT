@@ -27,6 +27,10 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
     // Find by is active
     List<InventoryItem> findByIsActiveTrue();
 
+    List<InventoryItem> findByIsDriverIssuableTrueAndIsHeldFalseAndIsActiveTrue();
+    
+    List<InventoryItem> findByIsVehicleIssuableTrueAndIsHeldFalseAndIsActiveTrue();
+
     // Search items
     @Query("SELECT i FROM InventoryItem i WHERE " +
            "LOWER(i.name) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
@@ -36,6 +40,18 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
     // Count total items
     @Query("SELECT COUNT(i) FROM InventoryItem i")
     Long countTotalItems();
+
+     @Query("SELECT COUNT(i) FROM InventoryItem i WHERE i.isActive = true")
+    Long countActiveItems();
+    
+    @Query("SELECT COUNT(i) FROM InventoryItem i WHERE i.isActive = true AND i.isHeld = false AND i.quantity <= i.minLevel AND i.quantity > 0")
+    Long countLowStockItems();
+    
+    @Query("SELECT COUNT(i) FROM InventoryItem i WHERE i.isActive = true AND i.isHeld = false AND (i.quantity IS NULL OR i.quantity <= 0)")
+    Long countOutOfStockItems();
+    
+    @Query("SELECT COUNT(i) FROM InventoryItem i WHERE i.isHeld = true")
+    Long countHeldItems();
 
     // Count by category
     @Query("SELECT i.category, COUNT(i) FROM InventoryItem i GROUP BY i.category")
@@ -56,4 +72,16 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
     // Find out of stock items
     @Query("SELECT i FROM InventoryItem i WHERE i.quantity IS NULL OR i.quantity <= 0")
     List<InventoryItem> findOutOfStockItems();
+    
+    @Query("SELECT AVG(i.reorderLevel) FROM InventoryItem i WHERE i.reorderLevel IS NOT NULL")
+    Double averageReorderLevel();
+    
+    @Query("SELECT SUM(i.quantity * i.unitCost) FROM InventoryItem i WHERE i.unitCost IS NOT NULL AND i.quantity IS NOT NULL")
+    BigDecimal calculateTotalValue();
+    
+    @Query("SELECT i FROM InventoryItem i WHERE " +
+           "LOWER(i.name) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(i.category) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(i.unitOfMeasure) LIKE LOWER(CONCAT('%', :search, '%'))")
+    Page<InventoryItem> searchItems(@Param("search") String search, Pageable pageable);
 }
