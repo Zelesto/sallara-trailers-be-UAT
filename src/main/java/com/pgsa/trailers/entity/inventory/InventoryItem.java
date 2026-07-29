@@ -58,7 +58,6 @@ public class InventoryItem {
     @Column(name = "notes", length = 500)
     private String notes;
 
-    // ✅ Add these fields (they were missing)
     @Column(name = "is_driver_issuable")
     private Boolean isDriverIssuable;
 
@@ -80,6 +79,10 @@ public class InventoryItem {
     @Column(name = "return_by_date")
     private LocalDate returnByDate;
 
+    // IMPORTANT: Use Boolean object type, not primitive boolean
+    @Column(name = "is_held")
+    private Boolean isHeld;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -94,7 +97,8 @@ public class InventoryItem {
     @Column(name = "updated_by")
     private String updatedBy;
 
-    // ====== EXPLICIT GETTERS AND SETTERS (if Lombok fails) ======
+    // ====== EXPLICIT GETTERS AND SETTERS ======
+    // This ensures the methods exist even if Lombok fails
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -152,6 +156,10 @@ public class InventoryItem {
 
     public LocalDate getReturnByDate() { return returnByDate; }
     public void setReturnByDate(LocalDate returnByDate) { this.returnByDate = returnByDate; }
+
+    // IMPORTANT: Getter for isHeld - MUST be named getIsHeld() for Jackson/Lombok
+    public Boolean getIsHeld() { return isHeld; }
+    public void setIsHeld(Boolean isHeld) { this.isHeld = isHeld; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
