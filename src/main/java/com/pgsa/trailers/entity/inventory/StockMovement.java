@@ -80,4 +80,12 @@ public class StockMovement {
 
     @Column(name = "rejection_reason", length = 500)
     private String rejectionReason;
+
+    @Column(name = "driver_id")
+    private Long driverId;
+    
+    // Also add the builder method
+    public StockMovementBuilder driverId(Long driverId) {
+    this.driverId = driverId;
+    return this;
 }
