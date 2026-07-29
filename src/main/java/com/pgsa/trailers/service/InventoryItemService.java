@@ -1,4 +1,4 @@
-// src/main/java/com/pgsa/trailers/service/inventory/InventoryItemService.java
+// src/main/java/com/pgsa/trailers/service/InventoryItemService.java
 package com.pgsa.trailers.service;
 
 import com.pgsa.trailers.dto.InventoryItemRequestDTO;
@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -152,8 +152,14 @@ public class InventoryItemService {
     public InventoryItemResponseDTO createItem(InventoryItemRequestDTO request) {
         log.info("Creating inventory item: {}", request.getName());
         
-        // Get current user (you'll need to implement this based on your security context)
+        // Get current user
         String currentUser = getCurrentUser();
+        
+        // Convert LocalDate to LocalDateTime for holdDate if needed
+        LocalDateTime holdDateTime = null;
+        if (request.getHoldDate() != null) {
+            holdDateTime = request.getHoldDate().atStartOfDay();
+        }
         
         InventoryItem item = InventoryItem.builder()
                 .name(request.getName())
@@ -173,7 +179,7 @@ public class InventoryItemService {
                 .returnByDate(request.getReturnByDate())
                 .isHeld(request.getIsHeld() != null ? request.getIsHeld() : false)
                 .holdCode(request.getHoldCode())
-                .holdDate(request.getHoldDate())
+                .holdDate(holdDateTime)  // Now using LocalDateTime
                 .holdReason(request.getHoldReason())
                 .heldBy(request.getHeldBy())
                 .createdBy(currentUser)
@@ -209,7 +215,10 @@ public class InventoryItemService {
         if (request.getReturnByDate() != null) item.setReturnByDate(request.getReturnByDate());
         if (request.getIsHeld() != null) item.setIsHeld(request.getIsHeld());
         if (request.getHoldCode() != null) item.setHoldCode(request.getHoldCode());
-        if (request.getHoldDate() != null) item.setHoldDate(request.getHoldDate());
+        if (request.getHoldDate() != null) {
+            // Convert LocalDate to LocalDateTime
+            item.setHoldDate(request.getHoldDate().atStartOfDay());
+        }
         if (request.getHoldReason() != null) item.setHoldReason(request.getHoldReason());
         if (request.getHeldBy() != null) item.setHeldBy(request.getHeldBy());
         
@@ -277,8 +286,7 @@ public class InventoryItemService {
     }
 
     /**
-     * Public method to map InventoryItem entity to Response DTO
-     * Used by controller for low-stock and out-of-stock endpoints
+     * Map InventoryItem entity to Response DTO
      */
     public InventoryItemResponseDTO mapToResponseDTO(InventoryItem item) {
         String locationName = null;
@@ -325,7 +333,7 @@ public class InventoryItemService {
                 .returnByDate(item.getReturnByDate())
                 .isHeld(item.getIsHeld())
                 .holdCode(item.getHoldCode())
-                .holdDate(item.getHoldDate())
+                .holdDate(item.getHoldDate() != null ? item.getHoldDate().toLocalDate() : null)
                 .holdReason(item.getHoldReason())
                 .heldBy(item.getHeldBy())
                 .createdBy(item.getCreatedBy())
@@ -335,7 +343,6 @@ public class InventoryItemService {
 
     /**
      * Get current user from security context
-     * You need to implement this based on your security setup
      */
     private String getCurrentUser() {
         // If you're using Spring Security, you can get the current user like this:
@@ -343,6 +350,6 @@ public class InventoryItemService {
         // if (authentication != null && authentication.isAuthenticated()) {
         //     return authentication.getName();
         // }
-        return null; // Return null for now, you can set a default or implement properly
+        return null; // Return null for now
     }
 }
