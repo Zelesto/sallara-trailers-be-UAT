@@ -70,6 +70,27 @@ public class InventoryItem {
     @Column(name = "updated_by")
     private String updatedBy;
 
+    @Column(name = "is_vehicle_issuable")
+    private Boolean isVehicleIssuable = true;
+    
+    @Column(name = "is_driver_issuable")
+    private Boolean isDriverIssuable = true;
+    
+    @Column(name = "hold_code")
+    private String holdCode;  // "DAMAGED", "FAULTY", "BROKEN", "RECALL", "RETURNED"
+    
+    @Column(name = "hold_reason")
+    private String holdReason;
+    
+    @Column(name = "hold_date")
+    private LocalDateTime holdDate;
+    
+    @Column(name = "held_by")
+    private String heldBy;
+    
+    @Column(name = "return_by_date")
+    private LocalDate returnByDate;  // For items that need to be returned by a certain date
+
     // ====== EXPLICIT GETTERS AND SETTERS (since Lombok may not work) ======
 
     public Long getId() {
