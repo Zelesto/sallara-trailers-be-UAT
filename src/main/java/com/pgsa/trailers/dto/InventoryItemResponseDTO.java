@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -29,4 +30,17 @@ public class InventoryItemResponseDTO {
     private String notes;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    
+    // New fields
+    private Boolean isActive;
+    private Boolean isDriverIssuable;
+    private Boolean isVehicleIssuable;
+    private LocalDate returnByDate;
+    private Boolean isHeld;
+    private String holdCode;
+    private LocalDate holdDate;
+    private String holdReason;
+    private String heldBy;
+    private String createdBy;
+    private String updatedBy;
 }
