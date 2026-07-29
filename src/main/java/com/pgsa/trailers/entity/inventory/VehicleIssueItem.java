@@ -1,4 +1,3 @@
-// src/main/java/com/pgsa/trailers/entity/inventory/VehicleIssueItem.java
 package com.pgsa.trailers.entity.inventory;
 
 import jakarta.persistence.*;
@@ -44,6 +43,16 @@ public class VehicleIssueItem {
     @Column(name = "condition_returned", length = 50)
     private String conditionReturned;
 
+    // ✅ ADD THESE FIELDS (same as DriverIssueItem)
+    @Column(name = "is_swap")
+    private Boolean isSwap = false;
+
+    @Column(name = "swap_reason", length = 50)
+    private String swapReason;
+
+    @Column(name = "swap_issue_id")
+    private Long swapIssueId;
+
     @Column(name = "notes", length = 500)
     private String notes;
 
@@ -54,17 +63,4 @@ public class VehicleIssueItem {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-    // ✅ Add explicit setters for swap fields (if Lombok fails)
-    public void setIsSwap(Boolean isSwap) {
-        this.isSwap = isSwap;
-    }
-
-    public void setSwapReason(String swapReason) {
-        this.swapReason = swapReason;
-    }
-
-    public void setSwapIssueId(Long swapIssueId) {
-        this.swapIssueId = swapIssueId;
-    }
 }
