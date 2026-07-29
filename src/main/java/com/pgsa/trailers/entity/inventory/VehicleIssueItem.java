@@ -54,4 +54,17 @@ public class VehicleIssueItem {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    // ✅ Add explicit setters for swap fields (if Lombok fails)
+    public void setIsSwap(Boolean isSwap) {
+        this.isSwap = isSwap;
+    }
+
+    public void setSwapReason(String swapReason) {
+        this.swapReason = swapReason;
+    }
+
+    public void setSwapIssueId(Long swapIssueId) {
+        this.swapIssueId = swapIssueId;
+    }
 }
