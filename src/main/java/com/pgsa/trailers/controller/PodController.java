@@ -314,9 +314,9 @@ public class PodController {
         }
     }
 
-    /**
- * Download POD document - Direct download from public URL (UAT fix)
- * Bypasses S3 client and uses direct HTTP download
+  /**
+ * Download POD document - Direct download from public URL
+ * Bypasses S3 client and downloads directly from Supabase
  */
 @GetMapping("/{id}/download")
 public ResponseEntity<?> downloadPod(@PathVariable Long id) {
@@ -342,10 +342,9 @@ public ResponseEntity<?> downloadPod(@PathVariable Long id) {
         
         log.info("📥 File URL: {}", fileUrl);
         log.info("📥 File Name: {}", pod.getFileName());
-        log.info("📥 File Size: {}", pod.getFileSize());
         
+        // Download directly from Supabase public URL
         try {
-            // Download directly from Supabase public URL
             log.info("📥 Downloading directly from Supabase public URL...");
             
             java.net.URL url = new java.net.URL(fileUrl);
@@ -372,12 +371,15 @@ public ResponseEntity<?> downloadPod(@PathVariable Long id) {
                     log.info("✅ File size: {} bytes", fileData.length);
                     
                     String fileName = pod.getFileName() != null ? pod.getFileName() : pod.getPodNumber() + ".pdf";
-                    String contentType = getContentType(pod.getDocumentType());
+                    String contentType = connection.getContentType();
+                    if (contentType == null || contentType.isEmpty()) {
+                        contentType = "application/pdf";
+                    }
                     
                     return ResponseEntity.ok()
                         .header(HttpHeaders.CONTENT_DISPOSITION, 
                             "attachment; filename=\"" + fileName + "\"")
-                        .header(HttpHeaders.CONTENT_TYPE, contentType != null ? contentType : "application/pdf")
+                        .header(HttpHeaders.CONTENT_TYPE, contentType)
                         .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(fileData.length))
                         .header("Access-Control-Expose-Headers", "Content-Disposition, Content-Type, Content-Length")
                         .body(fileData);
@@ -385,59 +387,40 @@ public ResponseEntity<?> downloadPod(@PathVariable Long id) {
             } else {
                 log.error("❌ Failed to download file. Response code: {}", responseCode);
                 
-                // Fallback: Try S3 client as backup
-                log.info("🔄 Falling back to S3 client...");
-                try {
-                    byte[] fileData = storageService.downloadFile(fileUrl);
-                    if (fileData != null && fileData.length > 0) {
-                        log.info("✅ File downloaded via S3 client: {} bytes", fileData.length);
-                        String fileName = pod.getFileName() != null ? pod.getFileName() : pod.getPodNumber() + ".pdf";
-                        String contentType = getContentType(pod.getDocumentType());
-                        
-                        return ResponseEntity.ok()
-                            .header(HttpHeaders.CONTENT_DISPOSITION, 
-                                "attachment; filename=\"" + fileName + "\"")
-                            .header(HttpHeaders.CONTENT_TYPE, contentType != null ? contentType : "application/pdf")
-                            .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(fileData.length))
-                            .header("Access-Control-Expose-Headers", "Content-Disposition, Content-Type, Content-Length")
-                            .body(fileData);
+                // Read error response
+                try (java.io.InputStream errorStream = connection.getErrorStream()) {
+                    if (errorStream != null) {
+                        String errorMsg = new String(errorStream.readAllBytes());
+                        log.error("   Error response: {}", errorMsg);
                     }
-                } catch (Exception fallbackError) {
-                    log.error("❌ Fallback S3 client also failed: {}", fallbackError.getMessage());
+                } catch (Exception ex) {
+                    log.warn("Could not read error response: {}", ex.getMessage());
                 }
                 
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of(
-                        "error", "Failed to download file",
+                        "error", "Failed to download file from storage",
                         "responseCode", responseCode,
                         "fileUrl", fileUrl
                     ));
             }
             
+        } catch (java.net.UnknownHostException e) {
+            log.error("❌ Unknown host: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of(
+                    "error", "Cannot connect to storage",
+                    "message", "DNS resolution failed: " + e.getMessage()
+                ));
+        } catch (java.net.SocketTimeoutException e) {
+            log.error("❌ Connection timeout: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of(
+                    "error", "Connection timeout",
+                    "message", "Storage service is taking too long to respond"
+                ));
         } catch (Exception e) {
             log.error("❌ Error downloading file directly: {}", e.getMessage(), e);
-            
-            // Last resort: Try S3 client
-            try {
-                log.info("🔄 Last resort: Trying S3 client...");
-                byte[] fileData = storageService.downloadFile(fileUrl);
-                if (fileData != null && fileData.length > 0) {
-                    log.info("✅ File downloaded via S3 client: {} bytes", fileData.length);
-                    String fileName = pod.getFileName() != null ? pod.getFileName() : pod.getPodNumber() + ".pdf";
-                    String contentType = getContentType(pod.getDocumentType());
-                    
-                    return ResponseEntity.ok()
-                        .header(HttpHeaders.CONTENT_DISPOSITION, 
-                            "attachment; filename=\"" + fileName + "\"")
-                        .header(HttpHeaders.CONTENT_TYPE, contentType != null ? contentType : "application/pdf")
-                        .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(fileData.length))
-                        .header("Access-Control-Expose-Headers", "Content-Disposition, Content-Type, Content-Length")
-                        .body(fileData);
-                }
-            } catch (Exception lastError) {
-                log.error("❌ Last resort S3 client also failed: {}", lastError.getMessage());
-            }
-            
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of(
                     "error", "Failed to download file",
