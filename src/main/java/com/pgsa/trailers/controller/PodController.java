@@ -314,129 +314,75 @@ public class PodController {
         }
     }
 
-  /**
- * Download POD document - Direct download from public URL
- * Bypasses S3 client and downloads directly from Supabase
- */
-@GetMapping("/{id}/download")
-public ResponseEntity<?> downloadPod(@PathVariable Long id) {
-    log.info("========================================");
-    log.info("📥 Download request for POD ID: {}", id);
-    log.info("========================================");
-    
-    try {
-        // Get the POD
-        PodResponseDTO pod = podService.getPodById(id);
-        if (pod == null) {
-            log.warn("❌ POD not found: {}", id);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(Map.of("error", "POD not found"));
-        }
-        
-        String fileUrl = pod.getFileUrl();
-        if (fileUrl == null || fileUrl.isEmpty()) {
-            log.warn("❌ No file URL for POD: {}", id);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(Map.of("error", "No file associated with this POD"));
-        }
-        
-        log.info("📥 File URL: {}", fileUrl);
-        log.info("📥 File Name: {}", pod.getFileName());
-        
-        // Download directly from Supabase public URL
+    /**
+     * Download POD document
+     */
+    @GetMapping("/{id}/download")
+    public ResponseEntity<?> downloadPod(@PathVariable Long id) {
         try {
-            log.info("📥 Downloading directly from Supabase public URL...");
+            log.info("📥 Download request for POD ID: {}", id);
             
-            java.net.URL url = new java.net.URL(fileUrl);
-            java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");
-            connection.setConnectTimeout(15000);
-            connection.setReadTimeout(30000);
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0");
-            
-            int responseCode = connection.getResponseCode();
-            log.info("   Response code: {}", responseCode);
-            
-            if (responseCode == 200) {
-                // Read the file data
-                try (java.io.InputStream inputStream = connection.getInputStream()) {
-                    byte[] fileData = inputStream.readAllBytes();
-                    
-                    if (fileData == null || fileData.length == 0) {
-                        log.warn("❌ File data is empty for POD: {}", id);
-                        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                            .body(Map.of("error", "File data is empty"));
-                    }
-                    
-                    log.info("✅ File size: {} bytes", fileData.length);
-                    
-                    String fileName = pod.getFileName() != null ? pod.getFileName() : pod.getPodNumber() + ".pdf";
-                    String contentType = connection.getContentType();
-                    if (contentType == null || contentType.isEmpty()) {
-                        contentType = "application/pdf";
-                    }
-                    
-                    return ResponseEntity.ok()
-                        .header(HttpHeaders.CONTENT_DISPOSITION, 
-                            "attachment; filename=\"" + fileName + "\"")
-                        .header(HttpHeaders.CONTENT_TYPE, contentType)
-                        .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(fileData.length))
-                        .header("Access-Control-Expose-Headers", "Content-Disposition, Content-Type, Content-Length")
-                        .body(fileData);
-                }
-            } else {
-                log.error("❌ Failed to download file. Response code: {}", responseCode);
-                
-                // Read error response
-                try (java.io.InputStream errorStream = connection.getErrorStream()) {
-                    if (errorStream != null) {
-                        String errorMsg = new String(errorStream.readAllBytes());
-                        log.error("   Error response: {}", errorMsg);
-                    }
-                } catch (Exception ex) {
-                    log.warn("Could not read error response: {}", ex.getMessage());
-                }
-                
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of(
-                        "error", "Failed to download file from storage",
-                        "responseCode", responseCode,
-                        "fileUrl", fileUrl
-                    ));
+            // Get the POD
+            PodResponseDTO pod = podService.getPodById(id);
+            if (pod == null) {
+                log.warn("❌ POD not found: {}", id);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "POD not found"));
             }
             
-        } catch (java.net.UnknownHostException e) {
-            log.error("❌ Unknown host: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of(
-                    "error", "Cannot connect to storage",
-                    "message", "DNS resolution failed: " + e.getMessage()
-                ));
-        } catch (java.net.SocketTimeoutException e) {
-            log.error("❌ Connection timeout: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of(
-                    "error", "Connection timeout",
-                    "message", "Storage service is taking too long to respond"
-                ));
+            String fileUrl = pod.getFileUrl();
+            if (fileUrl == null || fileUrl.isEmpty()) {
+                log.warn("❌ No file URL for POD: {}", id);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "No file associated with this POD"));
+            }
+            
+            log.info("📥 File URL from database: {}", fileUrl);
+            
+            // Check if file exists first
+            if (!storageService.fileExists(fileUrl)) {
+                log.warn("❌ File does not exist in storage: {}", fileUrl);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "File not found in storage"));
+            }
+            
+            try {
+                // Download from Supabase
+                byte[] fileData = storageService.downloadFile(fileUrl);
+                
+                if (fileData == null || fileData.length == 0) {
+                    log.warn("❌ File data is empty for POD: {}", id);
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", "File data is empty"));
+                }
+                
+                log.info("✅ File size: {} bytes", fileData.length);
+                
+                String fileName = pod.getFileName() != null ? pod.getFileName() : pod.getPodNumber() + ".pdf";
+                String contentType = getContentType(pod.getDocumentType());
+                
+                // Return the actual file
+                return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, 
+                        "attachment; filename=\"" + fileName + "\"")
+                    .header(HttpHeaders.CONTENT_TYPE, contentType)
+                    .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(fileData.length))
+                    .header("Access-Control-Expose-Headers", "Content-Disposition, Content-Type, Content-Length")
+                    .body(fileData);
+                    
+            } catch (Exception e) {
+                log.error("❌ Error downloading file from storage: {}", e.getMessage(), e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to download file: " + e.getMessage()));
+            }
+            
         } catch (Exception e) {
-            log.error("❌ Error downloading file directly: {}", e.getMessage(), e);
+            log.error("❌ Error in download endpoint: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of(
-                    "error", "Failed to download file",
-                    "message", e.getMessage()
-                ));
+                .body(Map.of("error", "Download failed: " + e.getMessage()));
         }
-        
-    } catch (Exception e) {
-        log.error("❌ Error in download endpoint: {}", e.getMessage(), e);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(Map.of(
-                "error", "Download failed",
-                "message", e.getMessage()
-            ));
     }
-}
+
     /**
      * Get POD file URL (for direct access)
      */
