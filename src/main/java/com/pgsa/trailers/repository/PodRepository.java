@@ -55,7 +55,7 @@ public interface PodRepository extends JpaRepository<Pod, Long> {
      * Search PODs by pod number, customer name, or trip number
      * Note: tripNumber is stored in Trip entity, so we join with Trip
      */
-    @Query("SELECT p FROM Pod p WHERE " +
+    @Query("SELECT p FROM Pods p WHERE " +
            "LOWER(p.podNumber) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(p.customerName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(p.driverName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
@@ -65,37 +65,37 @@ public interface PodRepository extends JpaRepository<Pod, Long> {
     /**
      * Count PODs pending debrief
      */
-    @Query("SELECT COUNT(p) FROM Pod p WHERE p.status IN ('PENDING', 'SCANNED')")
+    @Query("SELECT COUNT(p) FROM Pods p WHERE p.status IN ('PENDING', 'SCANNED')")
     long countPendingDebrief();
 
     /**
      * Count PODs scanned since a specific time
      */
-    @Query("SELECT COUNT(p) FROM Pod p WHERE p.source = 'SCANNED' AND p.uploadedAt >= :since")
+    @Query("SELECT COUNT(p) FROM Pods p WHERE p.source = 'SCANNED' AND p.uploadedAt >= :since")
     long countScannedSince(@Param("since") LocalDateTime since);
 
     /**
      * Find PODs with null or empty file URL
      */
-    @Query("SELECT p FROM Pod p WHERE p.fileUrl IS NULL OR p.fileUrl = ''")
+    @Query("SELECT p FROM Pods p WHERE p.fileUrl IS NULL OR p.fileUrl = ''")
     List<Pod> findByFileUrlIsNullOrFileUrlIsEmpty();
 
     /**
      * Find PODs with null or empty file URL with pagination
      */
-    @Query("SELECT p FROM Pod p WHERE p.fileUrl IS NULL OR p.fileUrl = ''")
+    @Query("SELECT p FROM Pods p WHERE p.fileUrl IS NULL OR p.fileUrl = ''")
     Page<Pod> findByFileUrlIsNullOrFileUrlIsEmpty(Pageable pageable);
 
     /**
      * Find PODs by status and file URL null or empty
      */
-    @Query("SELECT p FROM Pod p WHERE p.status = :status AND (p.fileUrl IS NULL OR p.fileUrl = '')")
+    @Query("SELECT p FROM Pods p WHERE p.status = :status AND (p.fileUrl IS NULL OR p.fileUrl = '')")
     List<Pod> findByStatusAndFileUrlIsNullOrEmpty(@Param("status") String status);
 
     /**
      * Find PODs by delivery date range
      */
-    @Query("SELECT p FROM Pod p WHERE p.deliveryDate BETWEEN :startDate AND :endDate")
+    @Query("SELECT p FROM Pods p WHERE p.deliveryDate BETWEEN :startDate AND :endDate")
     List<Pod> findByDeliveryDateBetween(@Param("startDate") LocalDateTime startDate, 
                                         @Param("endDate") LocalDateTime endDate);
 
@@ -122,13 +122,13 @@ public interface PodRepository extends JpaRepository<Pod, Long> {
     /**
      * Get all PODs with file URLs
      */
-    @Query("SELECT p FROM Pod p WHERE p.fileUrl IS NOT NULL AND p.fileUrl != ''")
+    @Query("SELECT p FROM Pods p WHERE p.fileUrl IS NOT NULL AND p.fileUrl != ''")
     List<Pod> findAllWithFileUrls();
 
     /**
      * Get all PODs without file URLs
      */
-    @Query("SELECT p FROM Pod p WHERE p.fileUrl IS NULL OR p.fileUrl = ''")
+    @Query("SELECT p FROM Pods p WHERE p.fileUrl IS NULL OR p.fileUrl = ''")
     List<Pod> findAllWithoutFileUrls();
 
     /**
@@ -149,50 +149,50 @@ public interface PodRepository extends JpaRepository<Pod, Long> {
     /**
      * Get POD statistics by status
      */
-    @Query("SELECT p.status, COUNT(p) FROM Pod p GROUP BY p.status")
+    @Query("SELECT p.status, COUNT(p) FROM Pods p GROUP BY p.status")
     List<Object[]> countByStatusGroup();
 
     /**
      * Get POD statistics by source
      */
-    @Query("SELECT p.source, COUNT(p) FROM Pod p GROUP BY p.source")
+    @Query("SELECT p.source, COUNT(p) FROM Pods p GROUP BY p.source")
     List<Object[]> countBySourceGroup();
 
     /**
      * Find PODs created between dates
      */
-    @Query("SELECT p FROM Pod p WHERE p.createdAt BETWEEN :startDate AND :endDate")
+    @Query("SELECT p FROM Pods p WHERE p.createdAt BETWEEN :startDate AND :endDate")
     List<Pod> findByCreatedAtBetween(@Param("startDate") LocalDateTime startDate,
                                      @Param("endDate") LocalDateTime endDate);
 
     /**
      * Find PODs by trip number - FIXED: Join with Trip entity
      */
-    @Query("SELECT p FROM Pod p JOIN Trip t ON p.tripId = t.id WHERE t.tripNumber = :tripNumber")
+    @Query("SELECT p FROM Pods p JOIN Trip t ON p.tripId = t.id WHERE t.tripNumber = :tripNumber")
     List<Pod> findByTripNumber(@Param("tripNumber") String tripNumber);
 
     /**
      * Find PODs that are not debriefed
      */
-    @Query("SELECT p FROM Pod p WHERE p.debriefedAt IS NULL")
+    @Query("SELECT p FROM Pods p WHERE p.debriefedAt IS NULL")
     List<Pod> findNotDebriefed();
 
     /**
      * Find PODs debriefed after a specific time
      */
-    @Query("SELECT p FROM Pod p WHERE p.debriefedAt >= :since")
+    @Query("SELECT p FROM Pods p WHERE p.debriefedAt >= :since")
     List<Pod> findDebriefedSince(@Param("since") LocalDateTime since);
 
     /**
      * Count PODs by delivery date
      */
-    @Query("SELECT p.deliveryDate, COUNT(p) FROM Pod p GROUP BY p.deliveryDate")
+    @Query("SELECT p.deliveryDate, COUNT(p) FROM Pods p GROUP BY p.deliveryDate")
     List<Object[]> countByDeliveryDateGroup();
 
     /**
      * Find recent PODs (last 7 days)
      */
-    @Query("SELECT p FROM Pod p WHERE p.createdAt >= :since ORDER BY p.createdAt DESC")
+    @Query("SELECT p FROM Pods p WHERE p.createdAt >= :since ORDER BY p.createdAt DESC")
     List<Pod> findRecentPods(@Param("since") LocalDateTime since, Pageable pageable);
 
     /**
@@ -208,7 +208,7 @@ public interface PodRepository extends JpaRepository<Pod, Long> {
     /**
      * Find PODs by trip ID and status
      */
-    @Query("SELECT p FROM Pod p WHERE p.tripId = :tripId AND p.status = :status")
+    @Query("SELECT p FROM Pods p WHERE p.tripId = :tripId AND p.status = :status")
     List<Pod> findByTripIdAndStatus(@Param("tripId") Long tripId, @Param("status") String status);
 
     /**
@@ -219,74 +219,74 @@ public interface PodRepository extends JpaRepository<Pod, Long> {
     /**
      * Find PODs with debrief data
      */
-    @Query("SELECT p FROM Pod p WHERE p.debriefedAt IS NOT NULL AND p.tripId = :tripId")
+    @Query("SELECT p FROM Pods p WHERE p.debriefedAt IS NOT NULL AND p.tripId = :tripId")
     List<Pod> findDebriefedByTripId(@Param("tripId") Long tripId);
 
     /**
      * Find PODs without debrief data
      */
-    @Query("SELECT p FROM Pod p WHERE p.debriefedAt IS NULL AND p.tripId = :tripId")
+    @Query("SELECT p FROM Pods p WHERE p.debriefedAt IS NULL AND p.tripId = :tripId")
     List<Pod> findNotDebriefedByTripId(@Param("tripId") Long tripId);
 
     /**
      * Get the latest POD for a trip
      */
-    @Query("SELECT p FROM Pod p WHERE p.tripId = :tripId ORDER BY p.createdAt DESC")
+    @Query("SELECT p FROM Pods p WHERE p.tripId = :tripId ORDER BY p.createdAt DESC")
     List<Pod> findLatestByTripId(@Param("tripId") Long tripId, Pageable pageable);
 
     /**
      * Get the latest POD for a trip - Returns Optional
      */
-    @Query("SELECT p FROM Pod p WHERE p.tripId = :tripId ORDER BY p.createdAt DESC")
+    @Query("SELECT p FROM Pods p WHERE p.tripId = :tripId ORDER BY p.createdAt DESC")
     Optional<Pod> findLatestByTripId(@Param("tripId") Long tripId);
 
     /**
      * Count total PODs with file URLs
      */
-    @Query("SELECT COUNT(p) FROM Pod p WHERE p.fileUrl IS NOT NULL AND p.fileUrl != ''")
+    @Query("SELECT COUNT(p) FROM Pods p WHERE p.fileUrl IS NOT NULL AND p.fileUrl != ''")
     long countPodsWithFiles();
 
     /**
      * Count total PODs without file URLs
      */
-    @Query("SELECT COUNT(p) FROM Pod p WHERE p.fileUrl IS NULL OR p.fileUrl = ''")
+    @Query("SELECT COUNT(p) FROM Pods p WHERE p.fileUrl IS NULL OR p.fileUrl = ''")
     long countPodsWithoutFiles();
 
     /**
      * Find PODs by multiple trip IDs
      */
-    @Query("SELECT p FROM Pod p WHERE p.tripId IN :tripIds")
+    @Query("SELECT p FROM Pods p WHERE p.tripId IN :tripIds")
     List<Pod> findByTripIdIn(@Param("tripIds") List<Long> tripIds);
 
     /**
      * Count PODs by trip IDs
      */
-    @Query("SELECT p.tripId, COUNT(p) FROM Pod p WHERE p.tripId IN :tripIds GROUP BY p.tripId")
+    @Query("SELECT p.tripId, COUNT(p) FROM Pods p WHERE p.tripId IN :tripIds GROUP BY p.tripId")
     List<Object[]> countByTripIdIn(@Param("tripIds") List<Long> tripIds);
 
 /**Trip Finalization*/
     /**
  * Count PODs by trip ID and status in list - FOR TRIP FINALIZATION
  */
-@Query("SELECT COUNT(p) FROM Pod p WHERE p.tripId = :tripId AND p.status IN :statuses")
+@Query("SELECT COUNT(p) FROM Pods p WHERE p.tripId = :tripId AND p.status IN :statuses")
 long countByTripIdAndStatusIn(@Param("tripId") Long tripId, @Param("statuses") List<String> statuses);
 
 /**
  * Count PODs by trip ID and status not in list - FOR TRIP FINALIZATION
  */
-@Query("SELECT COUNT(p) FROM Pod p WHERE p.tripId = :tripId AND p.status NOT IN :statuses")
+@Query("SELECT COUNT(p) FROM Pods p WHERE p.tripId = :tripId AND p.status NOT IN :statuses")
 long countByTripIdAndStatusNotIn(@Param("tripId") Long tripId, @Param("statuses") List<String> statuses);
 
 /**
  * Find all PODs for a trip with specific statuses
  */
-@Query("SELECT p FROM Pod p WHERE p.tripId = :tripId AND p.status IN :statuses")
+@Query("SELECT p FROM Pods p WHERE p.tripId = :tripId AND p.status IN :statuses")
 List<Pod> findByTripIdAndStatusIn(@Param("tripId") Long tripId, @Param("statuses") List<String> statuses);
 
 /**
  * Find all PODs for a trip with status not in list
  */
-@Query("SELECT p FROM Pod p WHERE p.tripId = :tripId AND p.status NOT IN :statuses")
+@Query("SELECT p FROM Pods p WHERE p.tripId = :tripId AND p.status NOT IN :statuses")
 List<Pod> findByTripIdAndStatusNotIn(@Param("tripId") Long tripId, @Param("statuses") List<String> statuses);
     
 
@@ -304,7 +304,7 @@ long countByTripIdAndSource(Long tripId, String source);
 /**
  * Find PODs with document reference
  */
-@Query("SELECT p FROM Pod p WHERE p.documentReference IS NOT NULL")
+@Query("SELECT p FROM Pods p WHERE p.documentReference IS NOT NULL")
 List<Pod> findAllWithDocumentReference();
 
 /**
@@ -315,18 +315,18 @@ Optional<Pod> findByDocumentReference(String documentReference);
 /**
  * Find appended PODs for a trip
  */
-@Query("SELECT p FROM Pod p WHERE p.tripId = :tripId AND p.source = 'APPENDED'")
+@Query("SELECT p FROM Pods p WHERE p.tripId = :tripId AND p.source = 'APPENDED'")
 List<Pod> findAppendedByTripId(@Param("tripId") Long tripId);
 
 /**
  * Get POD count by trip with grouping
  */
-@Query("SELECT p.tripId, COUNT(p) FROM Pod p GROUP BY p.tripId")
+@Query("SELECT p.tripId, COUNT(p) FROM Pods p GROUP BY p.tripId")
 List<Object[]> countPodsByTrip();
 
 /**
  * Find PODs with debrief notes default
  */
-@Query("SELECT p FROM Pod p WHERE p.debriefNotes IS NULL OR p.debriefNotes = ''")
+@Query("SELECT p FROM Pods p WHERE p.debriefNotes IS NULL OR p.debriefNotes = ''")
 List<Pod> findWithoutDebriefNotes();
 }
