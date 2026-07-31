@@ -59,86 +59,86 @@ public class PodController {
     }
 
     /**
-     * Create a new POD - Handles both JSON and FormData
-     * FIXED: Use @RequestParam for all fields including file (not @RequestPart)
-     */
-    @PostMapping(consumes = {MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<?> createPod(
-            @RequestParam(required = false) Long tripId,
-            @RequestParam(required = false) String customerName,
-            @RequestParam(required = false) String deliveryDate,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String notes,
-            @RequestParam(required = false) String documentType,
-            @RequestParam(required = false) MultipartFile file) {
-        
-        log.info("========================================");
-        log.info("📝 Creating new POD");
-        log.info("   tripId: {}", tripId);
-        log.info("   customerName: {}", customerName);
-        log.info("   deliveryDate: {}", deliveryDate);
-        log.info("   status: {}", status);
-        log.info("   notes: {}", notes);
-        log.info("   file: {}", file != null ? file.getOriginalFilename() : "No file");
-        log.info("========================================");
-        
-        try {
-            // ✅ Validate required fields
-            if (tripId == null) {
-                log.error("❌ tripId is missing from request");
-                return ResponseEntity.badRequest()
-                    .body(Map.of(
-                        "error", "Validation failed",
-                        "message", "Trip ID is required to create a POD. Please select a valid trip.",
-                        "field", "tripId"
-                    ));
-            }
-            
-            // ✅ Create DTO
-            PodRequestDTO podRequest = new PodRequestDTO();
-            podRequest.setTripId(tripId);
-            podRequest.setCustomerName(customerName != null && !customerName.isEmpty() ? customerName : "Adhoc Customer");
-            
-            if (deliveryDate != null && !deliveryDate.isEmpty()) {
-                try {
-                    podRequest.setDeliveryDate(LocalDate.parse(deliveryDate));
-                } catch (Exception e) {
-                    log.warn("Invalid delivery date format: {}, using current date", deliveryDate);
-                    podRequest.setDeliveryDate(LocalDate.now());
-                }
-            } else {
-                podRequest.setDeliveryDate(LocalDate.now());
-            }
-            
-            podRequest.setStatus(status != null && !status.isEmpty() ? status : "PENDING");
-            podRequest.setNotes(notes);
-            podRequest.setDocumentType(documentType != null && !documentType.isEmpty() ? documentType : "PDF");
-            
-            log.info("   Final podRequest: tripId={}, customerName={}, deliveryDate={}, status={}", 
-                podRequest.getTripId(), podRequest.getCustomerName(), podRequest.getDeliveryDate(), podRequest.getStatus());
-            
-            // ✅ Create POD
-            PodResponseDTO createdPod = podService.createPod(podRequest, file);
-            return ResponseEntity.status(HttpStatus.CREATED).body(createdPod);
-            
-        } catch (Exception e) {
-            log.error("❌ Error creating POD: {}", e.getMessage(), e);
-            
-            // Get the root cause
-            Throwable rootCause = e;
-            while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
-                rootCause = rootCause.getCause();
-            }
-            
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+ * Create a new POD - Handles both JSON and FormData
+ * FIXED: Use @RequestParam for fields and @RequestPart for file
+ */
+@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+public ResponseEntity<?> createPod(
+        @RequestParam(required = false) Long tripId,
+        @RequestParam(required = false) String customerName,
+        @RequestParam(required = false) String deliveryDate,
+        @RequestParam(required = false) String status,
+        @RequestParam(required = false) String notes,
+        @RequestParam(required = false) String documentType,
+        @RequestPart(value = "file", required = false) MultipartFile file) {  // ✅ Changed to @RequestPart
+    
+    log.info("========================================");
+    log.info("📝 Creating new POD");
+    log.info("   tripId: {}", tripId);
+    log.info("   customerName: {}", customerName);
+    log.info("   deliveryDate: {}", deliveryDate);
+    log.info("   status: {}", status);
+    log.info("   notes: {}", notes);
+    log.info("   file: {}", file != null ? file.getOriginalFilename() : "No file");
+    log.info("========================================");
+    
+    try {
+        // ✅ Validate required fields
+        if (tripId == null) {
+            log.error("❌ tripId is missing from request");
+            return ResponseEntity.badRequest()
                 .body(Map.of(
-                    "error", "Failed to create POD",
-                    "message", e.getMessage(),
-                    "rootCause", rootCause.getMessage(),
-                    "type", e.getClass().getSimpleName()
+                    "error", "Validation failed",
+                    "message", "Trip ID is required to create a POD. Please select a valid trip.",
+                    "field", "tripId"
                 ));
         }
+        
+        // ✅ Create DTO
+        PodRequestDTO podRequest = new PodRequestDTO();
+        podRequest.setTripId(tripId);
+        podRequest.setCustomerName(customerName != null && !customerName.isEmpty() ? customerName : "Adhoc Customer");
+        
+        if (deliveryDate != null && !deliveryDate.isEmpty()) {
+            try {
+                podRequest.setDeliveryDate(LocalDate.parse(deliveryDate));
+            } catch (Exception e) {
+                log.warn("Invalid delivery date format: {}, using current date", deliveryDate);
+                podRequest.setDeliveryDate(LocalDate.now());
+            }
+        } else {
+            podRequest.setDeliveryDate(LocalDate.now());
+        }
+        
+        podRequest.setStatus(status != null && !status.isEmpty() ? status : "PENDING");
+        podRequest.setNotes(notes);
+        podRequest.setDocumentType(documentType != null && !documentType.isEmpty() ? documentType : "PDF");
+        
+        log.info("   Final podRequest: tripId={}, customerName={}, deliveryDate={}, status={}", 
+            podRequest.getTripId(), podRequest.getCustomerName(), podRequest.getDeliveryDate(), podRequest.getStatus());
+        
+        // ✅ Create POD
+        PodResponseDTO createdPod = podService.createPod(podRequest, file);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdPod);
+        
+    } catch (Exception e) {
+        log.error("❌ Error creating POD: {}", e.getMessage(), e);
+        
+        // Get the root cause
+        Throwable rootCause = e;
+        while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
+            rootCause = rootCause.getCause();
+        }
+        
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(Map.of(
+                "error", "Failed to create POD",
+                "message", e.getMessage(),
+                "rootCause", rootCause.getMessage(),
+                "type", e.getClass().getSimpleName()
+            ));
     }
+}
 
     /**
      * Scan a new POD from driver
@@ -527,23 +527,37 @@ public class PodController {
     }
 
     /**
-     * Update POD
-     */
-    @PutMapping(value = "/{id}", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<PodResponseDTO> updatePod(
-            @PathVariable Long id,
-            @RequestPart(value = "podData", required = false) PodRequestDTO podRequest,
-            @RequestPart(value = "file", required = false) MultipartFile file) {
-        log.info("📝 Updating POD: {}", id);
+ * Update POD - Handles both JSON and FormData
+ * FIXED: Use @RequestPart for file
+ */
+@PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+public ResponseEntity<PodResponseDTO> updatePod(
+        @PathVariable Long id,
+        @RequestParam(required = false) String customerName,
+        @RequestParam(required = false) String deliveryDate,
+        @RequestParam(required = false) String status,
+        @RequestParam(required = false) String notes,
+        @RequestParam(required = false) String documentType,
+        @RequestPart(value = "file", required = false) MultipartFile file) {  // ✅ Changed to @RequestPart
+    
+    log.info("📝 Updating POD: {}", id);
+    
+    try {
+        // Build request DTO
+        PodRequestDTO podRequest = new PodRequestDTO();
+        podRequest.setCustomerName(customerName);
+        podRequest.setDeliveryDate(deliveryDate != null ? LocalDate.parse(deliveryDate) : null);
+        podRequest.setStatus(status);
+        podRequest.setNotes(notes);
+        podRequest.setDocumentType(documentType);
         
-        try {
-            PodResponseDTO updatedPod = podService.updatePod(id, podRequest);
-            return ResponseEntity.ok(updatedPod);
-        } catch (Exception e) {
-            log.error("❌ Error updating POD {}: {}", id, e.getMessage(), e);
-            throw e;
-        }
+        PodResponseDTO updatedPod = podService.updatePod(id, podRequest);
+        return ResponseEntity.ok(updatedPod);
+    } catch (Exception e) {
+        log.error("❌ Error updating POD {}: {}", id, e.getMessage(), e);
+        throw e;
     }
+}
 
     /**
      * Update POD status
