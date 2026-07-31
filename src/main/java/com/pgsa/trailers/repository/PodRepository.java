@@ -93,11 +93,11 @@ public interface PodRepository extends JpaRepository<Pod, Long> {
     List<Pod> findByStatusAndFileUrlIsNullOrEmpty(@Param("status") String status);
 
     /**
-     * Find PODs by delivery date range
-     */
-    @Query("SELECT p FROM Pods p WHERE p.deliveryDate BETWEEN :startDate AND :endDate")
-    List<Pod> findByDeliveryDateBetween(@Param("startDate") LocalDateTime startDate, 
-                                        @Param("endDate") LocalDateTime endDate);
+ * Find PODs by delivery date range
+ */
+@Query("SELECT p FROM Pods p WHERE p.deliveryDate BETWEEN :startDate AND :endDate")
+List<Pod> findByDeliveryDateBetween(@Param("startDate") LocalDate startDate, 
+                                    @Param("endDate") LocalDate endDate);
 
     /**
      * Find PODs by customer name
