@@ -58,9 +58,9 @@ public class PodController {
         return "System";
     }
 
-    /**
- * Create a new POD - Handles both JSON and FormData
- * FIXED: Use @RequestParam for fields and @RequestPart for file
+   /**
+ * Create a new POD - Handles FormData with file upload
+ * FIXED: Use @RequestPart for file
  */
 @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 public ResponseEntity<?> createPod(
@@ -73,13 +73,14 @@ public ResponseEntity<?> createPod(
         @RequestPart(value = "file", required = false) MultipartFile file) {  // ✅ Changed to @RequestPart
     
     log.info("========================================");
-    log.info("📝 Creating new POD");
+    log.info("📝 Creating new POD with file upload");
     log.info("   tripId: {}", tripId);
     log.info("   customerName: {}", customerName);
     log.info("   deliveryDate: {}", deliveryDate);
     log.info("   status: {}", status);
     log.info("   notes: {}", notes);
     log.info("   file: {}", file != null ? file.getOriginalFilename() : "No file");
+    log.info("   file size: {}", file != null ? file.getSize() : 0);
     log.info("========================================");
     
     try {
@@ -114,8 +115,7 @@ public ResponseEntity<?> createPod(
         podRequest.setNotes(notes);
         podRequest.setDocumentType(documentType != null && !documentType.isEmpty() ? documentType : "PDF");
         
-        log.info("   Final podRequest: tripId={}, customerName={}, deliveryDate={}, status={}", 
-            podRequest.getTripId(), podRequest.getCustomerName(), podRequest.getDeliveryDate(), podRequest.getStatus());
+        log.info("   Final podRequest: {}", podRequest);
         
         // ✅ Create POD
         PodResponseDTO createdPod = podService.createPod(podRequest, file);
