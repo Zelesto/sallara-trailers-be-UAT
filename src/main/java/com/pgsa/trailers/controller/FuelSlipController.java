@@ -1,3 +1,4 @@
+// src/main/java/com/pgsa/trailers/controller/FuelSlipController.java
 package com.pgsa.trailers.controller;
 
 import com.pgsa.trailers.dto.FuelSlipDTO;
@@ -5,14 +6,17 @@ import com.pgsa.trailers.dto.FuelSlipRequest;
 import com.pgsa.trailers.entity.ops.FuelSlip;
 import com.pgsa.trailers.service.FuelSlipService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;  // <-- ADD THIS
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.Collections;  // <-- ADD THIS
 import java.util.List;
 import java.util.Map;
 
+@Slf4j  // <-- ADD THIS ANNOTATION
 @RestController
 @RequestMapping("/api/fuel/slips")
 @RequiredArgsConstructor
@@ -42,40 +46,16 @@ public class FuelSlipController {
     // READ
     // ----------------------
 
-
-
-    @GetMapping
-public ResponseEntity<?> getAllFuelSlips(@RequestParam(required = false) Map<String, String> params) {
-    log.info("GET /api/fuel/slips");
-    try {
-        // Check if service is available
-        List<FuelSlip> slips = fuelSlipService.getAllSlips();
-        return ResponseEntity.ok(slips != null ? slips : Collections.emptyList());
-    } catch (Exception e) {
-        log.error("Error fetching fuel slips: {}", e.getMessage(), e);
-        // Return empty array instead of 500
-        return ResponseEntity.ok(Collections.emptyList());
-    }
-}
-
-    
-    // 1️⃣ Get a single slip by ID
-    @GetMapping("/{id}")
-    public ResponseEntity<FuelSlipDTO> getById(@PathVariable Long id) {
-        FuelSlipDTO slip = fuelSlipService.getFuelSlipById(id);
-        return ResponseEntity.ok(slip);
-    }
-
-    // 2️⃣ Get all slips (with optional filters) - ✅ FIXED
+    // Get all slips - REMOVED DUPLICATE
     @GetMapping
     public ResponseEntity<List<FuelSlipDTO>> getAll(
-            @RequestParam(required = false) Long tripId,      // 🔥 ADDED
+            @RequestParam(required = false) Long tripId,
             @RequestParam(required = false) Long driverId,
             @RequestParam(required = false) Long vehicleId
     ) {
+        log.info("GET /api/fuel/slips");
         List<FuelSlipDTO> slips;
 
-        // 🔥 FIX: Handle tripId filter FIRST
         if (tripId != null) {
             slips = fuelSlipService.getFuelSlipsByTripId(tripId);
         } else if (driverId != null && vehicleId != null) {
@@ -91,7 +71,14 @@ public ResponseEntity<?> getAllFuelSlips(@RequestParam(required = false) Map<Str
         return ResponseEntity.ok(slips);
     }
 
-    // 3️⃣ Get slips for a period
+    // 1️⃣ Get a single slip by ID
+    @GetMapping("/{id}")
+    public ResponseEntity<FuelSlipDTO> getById(@PathVariable Long id) {
+        FuelSlipDTO slip = fuelSlipService.getFuelSlipById(id);
+        return ResponseEntity.ok(slip);
+    }
+
+    // 2️⃣ Get slips for a period
     @GetMapping("/period")
     public ResponseEntity<List<FuelSlipDTO>> getForPeriod(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
@@ -101,14 +88,14 @@ public ResponseEntity<?> getAllFuelSlips(@RequestParam(required = false) Map<Str
         return ResponseEntity.ok(slips);
     }
 
-    // 4️⃣ Get slips by driver
+    // 3️⃣ Get slips by driver
     @GetMapping("/driver/{driverId}")
     public ResponseEntity<List<FuelSlipDTO>> getByDriver(@PathVariable Long driverId) {
         List<FuelSlipDTO> slips = fuelSlipService.getFuelSlipsByDriver(driverId);
         return ResponseEntity.ok(slips);
     }
 
-    // 5️⃣ Get slips by vehicle
+    // 4️⃣ Get slips by vehicle
     @GetMapping("/vehicle/{vehicleId}")
     public ResponseEntity<List<FuelSlipDTO>> getByVehicle(@PathVariable Long vehicleId) {
         List<FuelSlipDTO> slips = fuelSlipService.getFuelSlipsByVehicle(vehicleId);
