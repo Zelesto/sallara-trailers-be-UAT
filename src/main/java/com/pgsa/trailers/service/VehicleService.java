@@ -200,6 +200,19 @@ public class VehicleService {
         }
     }
 
+    // ====== Empty ======
+    public List<Certificate> getCertificatesByVehicleId(Long vehicleId) {
+    // If you have a repository for certificates, use it
+    // Otherwise, return empty list
+    return Collections.emptyList();
+    }
+    
+    public List<MaintenanceRecord> getMaintenanceRecordsByVehicleId(Long vehicleId) {
+        // If you have a repository for maintenance, use it
+        // Otherwise, return empty list
+        return Collections.emptyList();
+    }
+    
     // ====== Delete Methods ======
     
     @Transactional
