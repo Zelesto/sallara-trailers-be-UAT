@@ -1,7 +1,6 @@
 // src/main/java/com/pgsa/trailers/service/TimesheetService.java
 package com.pgsa.trailers.service;
 
-import com.pgsa.trailers.dto.TimesheetEntryDTO;
 import com.pgsa.trailers.dto.PunchRequestDTO;
 import com.pgsa.trailers.entity.assets.Driver;
 import com.pgsa.trailers.entity.attendance.TimesheetEntry;
@@ -18,7 +17,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -81,7 +79,6 @@ public class TimesheetService {
                 clockOutEntry.setEndTime(LocalTime.now());
                 clockOutEntry.setClockOutTime(LocalDateTime.now());
                 clockOutEntry.setPunchStatus("CLOCKED_OUT");
-                // Calculate total hours
                 if (clockOutEntry.getClockInTime() != null) {
                     long hours = ChronoUnit.HOURS.between(clockOutEntry.getClockInTime(), LocalDateTime.now());
                     clockOutEntry.setTotalHours(BigDecimal.valueOf(hours));
@@ -117,6 +114,7 @@ public class TimesheetService {
     }
 
     public BigDecimal getTotalHours(Long driverId, LocalDate startDate, LocalDate endDate) {
-        return timesheetEntryRepository.sumTotalHoursByDriverAndDateRange(driverId, startDate, endDate);
+        BigDecimal hours = timesheetEntryRepository.sumTotalHoursByDriverAndDateRange(driverId, startDate, endDate);
+        return hours != null ? hours : BigDecimal.ZERO;
     }
 }
