@@ -41,6 +41,23 @@ public class FuelSlipController {
     // READ
     // ----------------------
 
+
+
+    @GetMapping
+public ResponseEntity<?> getAllFuelSlips(@RequestParam(required = false) Map<String, String> params) {
+    log.info("GET /api/fuel/slips");
+    try {
+        // Check if service is available
+        List<FuelSlip> slips = fuelSlipService.getAllSlips();
+        return ResponseEntity.ok(slips != null ? slips : Collections.emptyList());
+    } catch (Exception e) {
+        log.error("Error fetching fuel slips: {}", e.getMessage(), e);
+        // Return empty array instead of 500
+        return ResponseEntity.ok(Collections.emptyList());
+    }
+}
+
+    
     // 1️⃣ Get a single slip by ID
     @GetMapping("/{id}")
     public ResponseEntity<FuelSlipDTO> getById(@PathVariable Long id) {
