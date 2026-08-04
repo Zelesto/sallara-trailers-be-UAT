@@ -7,8 +7,12 @@ import java.math.BigDecimal;
 
 @Data
 public class PunchRequestDTO {
+    @JsonProperty("driver_id")  // Map from snake_case
     private Long driverId;
-    private String punchType; // CLOCK_IN, BREAK_START, BREAK_END, CLOCK_OUT
+    
+    @JsonProperty("punch_type")
+    private String punchType;
+    
     private String location;
     private BigDecimal latitude;
     private BigDecimal longitude;
