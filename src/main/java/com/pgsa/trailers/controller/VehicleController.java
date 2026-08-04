@@ -1,7 +1,10 @@
+// src/main/java/com/pgsa/trailers/controller/VehicleController.java
 package com.pgsa.trailers.controller;
 
 import com.pgsa.trailers.dto.VehicleDTO;
 import com.pgsa.trailers.entity.assets.Vehicle;
+import com.pgsa.trailers.entity.vehicle.Certificate;  // <-- ADD THIS
+import com.pgsa.trailers.entity.vehicle.MaintenanceRecord;  // <-- ADD THIS
 import com.pgsa.trailers.enums.VehicleStatus;
 import com.pgsa.trailers.service.VehicleService;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.Collections;  // <-- ADD THIS
 import java.util.List;
 
 @Slf4j
@@ -63,32 +67,40 @@ public class VehicleController {
     }
 
     @GetMapping("/{id}/certificates")
-public ResponseEntity<?> getCertificates(@PathVariable Long id) {
-    log.info("GET /api/vehicles/{}/certificates", id);
-    try {
-        // If not implemented, return empty array instead of 500
-        List<Certificate> certificates = vehicleService.getCertificates(id);
-        return ResponseEntity.ok(certificates != null ? certificates : Collections.emptyList());
-    } catch (Exception e) {
-        log.warn("Certificate endpoint not fully implemented, returning mock data");
-        // Return mock data
-        return ResponseEntity.ok(getMockCertificates(id));
+    public ResponseEntity<?> getCertificates(@PathVariable Long id) {
+        log.info("GET /api/vehicles/{}/certificates", id);
+        try {
+            List<Certificate> certificates = vehicleService.getCertificatesByVehicleId(id);
+            return ResponseEntity.ok(certificates != null ? certificates : Collections.emptyList());
+        } catch (Exception e) {
+            log.warn("Certificate endpoint not fully implemented, returning mock data");
+            return ResponseEntity.ok(getMockCertificates(id));
+        }
     }
-}
 
     @GetMapping("/{id}/maintenance")
-public ResponseEntity<?> getMaintenanceSchedule(@PathVariable Long id) {
-    log.info("GET /api/vehicles/{}/maintenance", id);
-    try {
-        List<MaintenanceRecord> records = vehicleService.getMaintenanceSchedule(id);
-        return ResponseEntity.ok(records != null ? records : Collections.emptyList());
-    } catch (Exception e) {
-        log.warn("Maintenance endpoint not fully implemented, returning mock data");
-        return ResponseEntity.ok(getMockMaintenanceRecords(id));
+    public ResponseEntity<?> getMaintenanceSchedule(@PathVariable Long id) {
+        log.info("GET /api/vehicles/{}/maintenance", id);
+        try {
+            List<MaintenanceRecord> records = vehicleService.getMaintenanceRecordsByVehicleId(id);
+            return ResponseEntity.ok(records != null ? records : Collections.emptyList());
+        } catch (Exception e) {
+            log.warn("Maintenance endpoint not fully implemented, returning mock data");
+            return ResponseEntity.ok(getMockMaintenanceRecords(id));
+        }
     }
-}
 
+    // ====== MOCK DATA METHODS ======
     
+    private List<Certificate> getMockCertificates(Long vehicleId) {
+        // Return mock certificates - these will be used when the actual service is not implemented
+        return Collections.emptyList();
+    }
+
+    private List<MaintenanceRecord> getMockMaintenanceRecords(Long vehicleId) {
+        // Return mock maintenance records - these will be used when the actual service is not implemented
+        return Collections.emptyList();
+    }
 
     @GetMapping("/registration/{registrationNumber}")
     public ResponseEntity<Vehicle> getVehicleByRegistration(@PathVariable String registrationNumber) {
@@ -157,61 +169,12 @@ public ResponseEntity<?> getMaintenanceSchedule(@PathVariable Long id) {
         }
     }
 
-    @GetMapping("/overdue-service")
-    public ResponseEntity<List<Vehicle>> getVehiclesOverdueForService() {
-        log.info("GET /api/vehicles/overdue-service");
-        try {
-            List<Vehicle> vehicles = vehicleService.getVehiclesOverdueForService();
-            return ResponseEntity.ok(vehicles);
-        } catch (Exception e) {
-            log.error("Error fetching vehicles overdue for service: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError().build();
-        }
-    }
-
-    @GetMapping("/upcoming-service")
-    public ResponseEntity<List<Vehicle>> getVehiclesWithUpcomingService() {
-        log.info("GET /api/vehicles/upcoming-service");
-        try {
-            List<Vehicle> vehicles = vehicleService.getVehiclesWithUpcomingService();
-            return ResponseEntity.ok(vehicles);
-        } catch (Exception e) {
-            log.error("Error fetching vehicles with upcoming service: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError().build();
-        }
-    }
-
-    @GetMapping("/expired-insurance")
-    public ResponseEntity<List<Vehicle>> getVehiclesWithExpiredInsurance() {
-        log.info("GET /api/vehicles/expired-insurance");
-        try {
-            List<Vehicle> vehicles = vehicleService.getVehiclesWithExpiredInsurance();
-            return ResponseEntity.ok(vehicles);
-        } catch (Exception e) {
-            log.error("Error fetching vehicles with expired insurance: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError().build();
-        }
-    }
-
-    @GetMapping("/expired-roadworthy")
-    public ResponseEntity<List<Vehicle>> getVehiclesWithExpiredRoadworthy() {
-        log.info("GET /api/vehicles/expired-roadworthy");
-        try {
-            List<Vehicle> vehicles = vehicleService.getVehiclesWithExpiredRoadworthy();
-            return ResponseEntity.ok(vehicles);
-        } catch (Exception e) {
-            log.error("Error fetching vehicles with expired roadworthy: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError().build();
-        }
-    }
-
     // ====== POST Endpoints ======
     
     @PostMapping
     public ResponseEntity<?> createVehicle(@RequestBody VehicleDTO vehicleDTO) {
         log.info("POST /api/vehicles - Creating vehicle: {}", vehicleDTO.getRegistrationNumber());
         try {
-            // Validate required fields
             if (vehicleDTO.getRegistrationNumber() == null || vehicleDTO.getRegistrationNumber().isEmpty()) {
                 return ResponseEntity.badRequest().body("Registration number is required");
             }
@@ -232,22 +195,14 @@ public ResponseEntity<?> getMaintenanceSchedule(@PathVariable Long id) {
     @PutMapping("/{id}")
     public ResponseEntity<?> updateVehicle(@PathVariable Long id, @RequestBody VehicleDTO vehicleDTO) {
         log.info("PUT /api/vehicles/{} - Updating vehicle", id);
-        log.info("Received DTO: registrationNumber={}, make={}, model={}, vehicleType={}, status={}", 
-            vehicleDTO.getRegistrationNumber(),
-            vehicleDTO.getMake(),
-            vehicleDTO.getModel(),
-            vehicleDTO.getVehicleType(),
-            vehicleDTO.getStatus());
-        
         try {
             Vehicle updatedVehicle = vehicleService.updateVehicle(id, vehicleDTO);
-            log.info("✅ Successfully updated vehicle: {}", updatedVehicle);
             return ResponseEntity.ok(updatedVehicle);
         } catch (RuntimeException e) {
             log.error("Error updating vehicle {}: {}", id, e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
-            log.error("❌ Error updating vehicle {}: {}", id, e.getMessage(), e);
+            log.error("Error updating vehicle {}: {}", id, e.getMessage(), e);
             return ResponseEntity.internalServerError().body("Failed to update vehicle: " + e.getMessage());
         }
     }
