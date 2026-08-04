@@ -1,8 +1,11 @@
+// src/main/java/com/pgsa/trailers/service/VehicleService.java
 package com.pgsa.trailers.service;
 
 import com.pgsa.trailers.dto.VehicleDTO;
 import com.pgsa.trailers.entity.assets.Driver;
 import com.pgsa.trailers.entity.assets.Vehicle;
+import com.pgsa.trailers.entity.vehicle.Certificate;  // <-- ADD THIS
+import com.pgsa.trailers.entity.vehicle.MaintenanceRecord;  // <-- ADD THIS
 import com.pgsa.trailers.enums.VehicleStatus;
 import com.pgsa.trailers.enums.VehicleType;
 import com.pgsa.trailers.repository.DriverRepository;
@@ -11,13 +14,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.pgsa.trailers.entity.vehicle;
 
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collections;  // <-- ADD THIS
 import java.util.List;
-
 import java.util.HashMap;
 import java.util.Map; 
 
@@ -106,6 +108,20 @@ public class VehicleService {
     public List<Vehicle> getVehiclesWithExpiredRoadworthy() {
         log.debug("Fetching vehicles with expired roadworthy");
         return vehicleRepository.findByRoadworthyExpiryBefore(LocalDate.now());
+    }
+
+    // ====== Certificate & Maintenance Methods ======
+    
+    public List<Certificate> getCertificatesByVehicleId(Long vehicleId) {
+        // If you have a repository for certificates, use it
+        // Otherwise, return empty list
+        return Collections.emptyList();
+    }
+    
+    public List<MaintenanceRecord> getMaintenanceRecordsByVehicleId(Long vehicleId) {
+        // If you have a repository for maintenance, use it
+        // Otherwise, return empty list
+        return Collections.emptyList();
     }
 
     // ====== Create Methods ======
@@ -201,19 +217,6 @@ public class VehicleService {
         }
     }
 
-    // ====== Empty ======
-    public List<Certificate> getCertificatesByVehicleId(Long vehicleId) {
-    // If you have a repository for certificates, use it
-    // Otherwise, return empty list
-    return Collections.emptyList();
-    }
-    
-    public List<MaintenanceRecord> getMaintenanceRecordsByVehicleId(Long vehicleId) {
-        // If you have a repository for maintenance, use it
-        // Otherwise, return empty list
-        return Collections.emptyList();
-    }
-    
     // ====== Delete Methods ======
     
     @Transactional
