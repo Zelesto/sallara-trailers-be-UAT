@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -59,4 +60,68 @@ public class DriverRequest {
     
     @JsonProperty("password")
     private String password;
+
+    // ====== NEW FIELDS ======
+    @JsonProperty("current_status")
+    private String currentStatus;
+    
+    @JsonProperty("date_of_birth")
+    private LocalDate dateOfBirth;
+    
+    @JsonProperty("gender")
+    private String gender;
+    
+    @JsonProperty("country")
+    private String country;
+    
+    @JsonProperty("address")
+    private String address;
+    
+    @JsonProperty("emergency_contact_name")
+    private String emergencyContactName;
+    
+    @JsonProperty("emergency_contact_phone")
+    private String emergencyContactPhone;
+    
+    @JsonProperty("bank_name")
+    private String bankName;
+    
+    @JsonProperty("bank_account_number")
+    private String bankAccountNumber;
+    
+    @JsonProperty("bank_branch_code")
+    private String bankBranchCode;
+    
+    @JsonProperty("tax_number")
+    private String taxNumber;
+    
+    @JsonProperty("last_medical_exam_date")
+    private LocalDate lastMedicalExamDate;
+    
+    @JsonProperty("next_medical_exam_date")
+    private LocalDate nextMedicalExamDate;
+    
+    @JsonProperty("driver_license_class")
+    private String driverLicenseClass;
+    
+    @JsonProperty("license_issue_date")
+    private LocalDate licenseIssueDate;
+    
+    @JsonProperty("license_restrictions")
+    private String licenseRestrictions;
+    
+    @JsonProperty("endorsements")
+    private String endorsements;
+    
+    @JsonProperty("driver_photo_url")
+    private String driverPhotoUrl;
+    
+    @JsonProperty("employee_id")
+    private String employeeId;
+    
+    @JsonProperty("department")
+    private String department;
+    
+    @JsonProperty("supervisor_id")
+    private Long supervisorId;
 }
