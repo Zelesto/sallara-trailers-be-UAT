@@ -25,19 +25,25 @@ public class TimesheetController {
     private final TimesheetService timesheetService;
 
     @PostMapping("/punch")
-    public ResponseEntity<?> punch(@RequestBody PunchRequestDTO request) {
-        log.info("POST /api/timesheet/punch - Driver: {}, Type: {}", request.getDriverId(), request.getPunchType());
-        try {
-            TimesheetEntry entry = timesheetService.punch(request);
-            return ResponseEntity.ok(entry);
-        } catch (RuntimeException e) {
-            log.error("Error processing punch: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(e.getMessage());
-        } catch (Exception e) {
-            log.error("Error processing punch: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError().body("Failed to process punch");
-        }
+public ResponseEntity<?> punch(@RequestBody PunchRequestDTO request) {
+    log.info("POST /api/timesheet/punch - Driver: {}, Type: {}", request.getDriverId(), request.getPunchType());
+    
+    // Validate driverId
+    if (request.getDriverId() == null) {
+        return ResponseEntity.badRequest().body("Driver ID is required");
     }
+    
+    try {
+        TimesheetEntry entry = timesheetService.punch(request);
+        return ResponseEntity.ok(entry);
+    } catch (RuntimeException e) {
+        log.error("Error processing punch: {}", e.getMessage());
+        return ResponseEntity.badRequest().body(e.getMessage());
+    } catch (Exception e) {
+        log.error("Error processing punch: {}", e.getMessage(), e);
+        return ResponseEntity.internalServerError().body("Failed to process punch");
+    }
+}
 
     @GetMapping("/driver/{driverId}")
     public ResponseEntity<List<TimesheetEntry>> getEntriesByDriver(
