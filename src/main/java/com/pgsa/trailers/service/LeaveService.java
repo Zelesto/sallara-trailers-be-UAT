@@ -20,7 +20,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -40,17 +39,14 @@ public class LeaveService {
         LeaveType leaveType = leaveTypeRepository.findById(request.getLeaveTypeId())
                 .orElseThrow(() -> new RuntimeException("Leave type not found"));
 
-        // Calculate duration
         long days = ChronoUnit.DAYS.between(request.getStartDate(), request.getEndDate()) + 1;
 
-        // Check for overlapping leave
         List<LeaveRequest> overlapping = leaveRequestRepository.findOverlappingApprovedLeave(
                 driver.getId(), request.getStartDate(), request.getEndDate());
         if (!overlapping.isEmpty()) {
             throw new RuntimeException("Leave request overlaps with existing approved leave");
         }
 
-        // Check balance
         LeaveBalance balance = leaveBalanceRepository
                 .findByDriverIdAndLeaveTypeIdAndYear(driver.getId(), leaveType.getId(), request.getStartDate().getYear())
                 .orElseThrow(() -> new RuntimeException("Leave balance not found"));
@@ -71,7 +67,6 @@ public class LeaveService {
                 .requestedAt(LocalDateTime.now())
                 .build();
 
-        // Update pending days in balance
         balance.setPendingDays(balance.getPendingDays().add(BigDecimal.valueOf(days)));
         balance.setRemainingDays(balance.getRemainingDays().subtract(BigDecimal.valueOf(days)));
         leaveBalanceRepository.save(balance);
@@ -92,7 +87,6 @@ public class LeaveService {
         leaveRequest.setApprovedBy(approverId);
         leaveRequest.setApprovedAt(LocalDateTime.now());
 
-        // Update balance - move from pending to used
         LeaveBalance balance = leaveBalanceRepository
                 .findByDriverIdAndLeaveTypeIdAndYear(
                         leaveRequest.getDriver().getId(),
@@ -119,7 +113,6 @@ public class LeaveService {
         leaveRequest.setStatus("REJECTED");
         leaveRequest.setRejectionReason(reason);
 
-        // Return days to balance
         LeaveBalance balance = leaveBalanceRepository
                 .findByDriverIdAndLeaveTypeIdAndYear(
                         leaveRequest.getDriver().getId(),
