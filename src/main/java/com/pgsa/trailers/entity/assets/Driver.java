@@ -12,6 +12,7 @@ import org.hibernate.annotations.Type;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Period;
 import java.util.HashMap;
 import java.util.Map;
@@ -25,7 +26,8 @@ import java.util.Map;
         indexes = {
                 @Index(name = "idx_driver_license", columnList = "license_number"),
                 @Index(name = "idx_driver_status", columnList = "status"),
-                @Index(name = "idx_driver_app_user", columnList = "app_user_id")
+                @Index(name = "idx_driver_app_user", columnList = "app_user_id"),
+                @Index(name = "idx_driver_current_status", columnList = "current_status")
         },
         uniqueConstraints = {
                 @UniqueConstraint(name = "uk_driver_license_number", columnNames = {"license_number"}),
@@ -34,7 +36,7 @@ import java.util.Map;
 )
 public class Driver extends BaseEntity {
 
-    // ====== EXPLICIT LOGGER (since @Slf4j may not work) ======
+    // ====== EXPLICIT LOGGER ======
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(Driver.class);
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -75,7 +77,7 @@ public class Driver extends BaseEntity {
     @Column(name = "termination_reason", length = 255)
     private String terminationReason;
 
-    // ====== ADDITIONAL FIELDS FROM DATABASE ======
+    // ====== ADDITIONAL FIELDS ======
     
     @Column(name = "employment_type", length = 50)
     private String employmentType;
@@ -113,7 +115,81 @@ public class Driver extends BaseEntity {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
-    // ====== AUDIT TRAIL WITH HIBERNATE TYPES ======
+    // ====== NEW PUNCH CLOCK FIELDS ======
+    @Column(name = "current_status", length = 20)
+    private String currentStatus = "OFF_DUTY";
+
+    @Column(name = "last_clock_in")
+    private LocalDateTime lastClockIn;
+
+    @Column(name = "last_clock_out")
+    private LocalDateTime lastClockOut;
+
+    @Column(name = "last_trip_date")
+    private LocalDate lastTripDate;
+
+    // ====== NEW PERSONAL INFORMATION FIELDS ======
+    @Column(name = "date_of_birth")
+    private LocalDate dateOfBirth;
+
+    @Column(name = "gender", length = 20)
+    private String gender;
+
+    @Column(name = "country", length = 100)
+    private String country;
+
+    @Column(name = "address", columnDefinition = "TEXT")
+    private String address;
+
+    @Column(name = "emergency_contact_name", length = 200)
+    private String emergencyContactName;
+
+    @Column(name = "emergency_contact_phone", length = 50)
+    private String emergencyContactPhone;
+
+    @Column(name = "bank_name", length = 200)
+    private String bankName;
+
+    @Column(name = "bank_account_number", length = 50)
+    private String bankAccountNumber;
+
+    @Column(name = "bank_branch_code", length = 20)
+    private String bankBranchCode;
+
+    @Column(name = "tax_number", length = 50)
+    private String taxNumber;
+
+    @Column(name = "last_medical_exam_date")
+    private LocalDate lastMedicalExamDate;
+
+    @Column(name = "next_medical_exam_date")
+    private LocalDate nextMedicalExamDate;
+
+    @Column(name = "driver_license_class", length = 50)
+    private String driverLicenseClass;
+
+    @Column(name = "license_issue_date")
+    private LocalDate licenseIssueDate;
+
+    @Column(name = "license_restrictions", columnDefinition = "TEXT")
+    private String licenseRestrictions;
+
+    @Column(name = "endorsements", columnDefinition = "TEXT")
+    private String endorsements;
+
+    @Column(name = "driver_photo_url", length = 500)
+    private String driverPhotoUrl;
+
+    @Column(name = "employee_id", length = 50)
+    private String employeeId;
+
+    @Column(name = "department", length = 100)
+    private String department;
+
+    @Column(name = "supervisor_id")
+    private Long supervisorId;
+
+    // ====== AUDIT TRAIL ======
     @Type(JsonType.class)
     @Column(name = "audit_trail", columnDefinition = "jsonb")
     private Map<String, Object> auditTrail = new HashMap<>();
@@ -125,6 +201,7 @@ public class Driver extends BaseEntity {
         this.incidentsLogged = 0;
         this.totalTrips = 0;
         this.trainingCompleted = false;
+        this.currentStatus = "OFF_DUTY";
         this.auditTrail = new HashMap<>();
         this.setIsActive(true);
         this.setVersion(0);
@@ -136,9 +213,6 @@ public class Driver extends BaseEntity {
         return firstName + " " + lastName;
     }
 
-    /**
-     * Check if driver's license is expired
-     */
     public boolean isLicenseExpired() {
         if (licenseExpiry == null) {
             return false;
@@ -146,9 +220,6 @@ public class Driver extends BaseEntity {
         return licenseExpiry.isBefore(LocalDate.now());
     }
 
-    /**
-     * Check if license expires within given days
-     */
     public boolean isLicenseExpiringWithinDays(int days) {
         if (licenseExpiry == null) {
             return false;
@@ -158,16 +229,10 @@ public class Driver extends BaseEntity {
                 !licenseExpiry.isAfter(warningDate);
     }
 
-    /**
-     * Check if driver is active
-     */
     public boolean isActive() {
         return status == DriverStatus.ACTIVE && super.isActive();
     }
 
-    /**
-     * Check if driver is available for assignment
-     */
     public boolean isAvailableForAssignment() {
         return isActive() && 
                !isLicenseExpired() && 
@@ -176,9 +241,6 @@ public class Driver extends BaseEntity {
                assignedVehicleId == null;
     }
 
-    /**
-     * Get years of service
-     */
     public Integer getYearsOfService() {
         if (hireDate == null) {
             return null;
@@ -186,16 +248,13 @@ public class Driver extends BaseEntity {
         return Period.between(hireDate, LocalDate.now()).getYears();
     }
 
-    /**
-     * Get driver's age (if date of birth is available in AppUser)
-     */
     public Integer getAge() {
-        return null;
+        if (dateOfBirth == null) {
+            return null;
+        }
+        return Period.between(dateOfBirth, LocalDate.now()).getYears();
     }
 
-    /**
-     * Validate required fields
-     */
     public boolean isValid() {
         return firstName != null && !firstName.trim().isEmpty() &&
                 lastName != null && !lastName.trim().isEmpty() &&
@@ -203,9 +262,6 @@ public class Driver extends BaseEntity {
                 appUser != null;
     }
 
-    /**
-     * Get formatted contact information
-     */
     public String getContactInfo() {
         StringBuilder sb = new StringBuilder();
         if (phoneNumber != null && !phoneNumber.trim().isEmpty()) {
@@ -218,9 +274,6 @@ public class Driver extends BaseEntity {
         return sb.length() > 0 ? sb.toString() : "No contact info";
     }
 
-    /**
-     * Get driver summary
-     */
     public String getSummary() {
         return String.format("%s (%s) - %s",
                 getFullName(),
@@ -228,94 +281,100 @@ public class Driver extends BaseEntity {
                 status != null ? status.name() : "Unknown status");
     }
 
+    // ========== PUNCH CLOCK METHODS ==========
+
+    public boolean isClockedIn() {
+        return "CLOCKED_IN".equals(currentStatus) || "ON_BREAK".equals(currentStatus);
+    }
+
+    public boolean isOnBreak() {
+        return "ON_BREAK".equals(currentStatus);
+    }
+
+    public boolean isOffDuty() {
+        return "OFF_DUTY".equals(currentStatus);
+    }
+
+    public void clockIn() {
+        this.currentStatus = "CLOCKED_IN";
+        this.lastClockIn = LocalDateTime.now();
+    }
+
+    public void startBreak() {
+        this.currentStatus = "ON_BREAK";
+    }
+
+    public void endBreak() {
+        this.currentStatus = "CLOCKED_IN";
+    }
+
+    public void clockOut() {
+        this.currentStatus = "OFF_DUTY";
+        this.lastClockOut = LocalDateTime.now();
+    }
+
     // ========== BUSINESS LOGIC METHODS ==========
 
-    /**
-     * Activate driver
-     */
     public void activate() {
         this.status = DriverStatus.ACTIVE;
         this.terminationDate = null;
         this.terminationReason = null;
         this.setIsActive(true);
+        this.currentStatus = "OFF_DUTY";
     }
 
-    /**
-     * Deactivate driver
-     */
     public void deactivate(String reason) {
         this.status = DriverStatus.INACTIVE;
         this.terminationDate = LocalDate.now();
         this.terminationReason = reason;
         this.setIsActive(false);
+        this.currentStatus = "OFF_DUTY";
     }
 
-    /**
-     * Suspend driver
-     */
     public void suspend(String reason) {
         this.status = DriverStatus.SUSPENDED;
         this.terminationReason = reason;
+        this.currentStatus = "OFF_DUTY";
     }
 
-    /**
-     * Reinstate suspended driver
-     */
     public void reinstate() {
         this.status = DriverStatus.ACTIVE;
         this.terminationReason = null;
         this.setIsActive(true);
+        this.currentStatus = "OFF_DUTY";
     }
 
-    /**
-     * Set driver on leave
-     */
     public void setOnLeave() {
         this.status = DriverStatus.ON_LEAVE;
+        this.currentStatus = "OFF_DUTY";
     }
 
-    /**
-     * Check if driver can be assigned to a vehicle
-     */
     public boolean canBeAssigned() {
         return isActive() &&
                 !isLicenseExpired() &&
                 status != DriverStatus.SUSPENDED &&
                 status != DriverStatus.ON_LEAVE &&
-                assignedVehicleId == null;
+                assignedVehicleId == null &&
+                !isClockedIn();
     }
 
-    /**
-     * Assign vehicle to driver
-     */
     public void assignVehicle(Long vehicleId) {
         this.assignedVehicleId = vehicleId;
     }
 
-    /**
-     * Unassign vehicle from driver
-     */
     public void unassignVehicle() {
         this.assignedVehicleId = null;
     }
 
-    /**
-     * Increment trips count
-     */
     public void incrementTrips() {
         this.totalTrips = (totalTrips == null ? 0 : totalTrips) + 1;
+        this.lastTripDate = LocalDate.now();
     }
 
-    /**
-     * Increment incidents count
-     */
     public void incrementIncidents() {
         this.incidentsLogged = (incidentsLogged == null ? 0 : incidentsLogged) + 1;
     }
 
-    /**
-     * Update total kilometers travelled
-     */
     public void addKilometers(BigDecimal km) {
         if (km != null) {
             if (this.totalKmTravelled == null) {
@@ -325,9 +384,6 @@ public class Driver extends BaseEntity {
         }
     }
 
-    /**
-     * Update total hours active
-     */
     public void addActiveHours(BigDecimal hours) {
         if (hours != null) {
             if (this.totalHoursActive == null) {
@@ -337,16 +393,10 @@ public class Driver extends BaseEntity {
         }
     }
 
-    /**
-     * Check if medical clearance is valid
-     */
     public boolean isMedicalClearanceValid() {
         return nextMedicalDue == null || !nextMedicalDue.isBefore(LocalDate.now());
     }
 
-    /**
-     * Check if medical clearance is expiring within given days
-     */
     public boolean isMedicalClearanceExpiringWithinDays(int days) {
         if (nextMedicalDue == null) {
             return false;
@@ -356,10 +406,9 @@ public class Driver extends BaseEntity {
                 !nextMedicalDue.isAfter(warningDate);
     }
 
-    // ========== EXPLICIT GETTERS AND SETTERS (since Lombok may not work) ==========
+    // ========== EXPLICIT GETTERS AND SETTERS ==========
 
     // --- BaseEntity methods ---
-    
     public Boolean getIsActive() {
         return super.isActive();
     }
@@ -381,7 +430,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- AppUser ---
-    
     public AppUser getAppUser() {
         return appUser;
     }
@@ -391,7 +439,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- First Name ---
-    
     public String getFirstName() {
         return firstName;
     }
@@ -401,7 +448,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- Last Name ---
-    
     public String getLastName() {
         return lastName;
     }
@@ -411,7 +457,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- License Number ---
-    
     public String getLicenseNumber() {
         return licenseNumber;
     }
@@ -421,7 +466,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- License Type ---
-    
     public String getLicenseType() {
         return licenseType;
     }
@@ -431,7 +475,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- License Expiry ---
-    
     public LocalDate getLicenseExpiry() {
         return licenseExpiry;
     }
@@ -441,7 +484,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- Hire Date ---
-    
     public LocalDate getHireDate() {
         return hireDate;
     }
@@ -451,7 +493,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- Phone Number ---
-    
     public String getPhoneNumber() {
         return phoneNumber;
     }
@@ -461,7 +502,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- Email ---
-    
     public String getEmail() {
         return email;
     }
@@ -471,7 +511,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- Status ---
-    
     public DriverStatus getStatus() {
         return status;
     }
@@ -481,7 +520,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- Termination Date ---
-    
     public LocalDate getTerminationDate() {
         return terminationDate;
     }
@@ -491,7 +529,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- Termination Reason ---
-    
     public String getTerminationReason() {
         return terminationReason;
     }
@@ -501,7 +538,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- Employment Type ---
-    
     public String getEmploymentType() {
         return employmentType;
     }
@@ -511,7 +547,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- Shift Pattern ---
-    
     public String getShiftPattern() {
         return shiftPattern;
     }
@@ -521,7 +556,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- Assigned Vehicle ID ---
-    
     public Long getAssignedVehicleId() {
         return assignedVehicleId;
     }
@@ -531,7 +565,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- Training Completed ---
-    
     public Boolean getTrainingCompleted() {
         return trainingCompleted;
     }
@@ -541,7 +574,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- Medical Clearance Date ---
-    
     public LocalDate getMedicalClearanceDate() {
         return medicalClearanceDate;
     }
@@ -551,7 +583,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- Next Medical Due ---
-    
     public LocalDate getNextMedicalDue() {
         return nextMedicalDue;
     }
@@ -561,7 +592,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- Incidents Logged ---
-    
     public Integer getIncidentsLogged() {
         return incidentsLogged;
     }
@@ -571,7 +601,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- Total Trips ---
-    
     public Integer getTotalTrips() {
         return totalTrips;
     }
@@ -581,7 +610,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- Total Km Travelled ---
-    
     public BigDecimal getTotalKmTravelled() {
         return totalKmTravelled;
     }
@@ -591,7 +619,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- Total Hours Active ---
-    
     public BigDecimal getTotalHoursActive() {
         return totalHoursActive;
     }
@@ -601,7 +628,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- Performance Score ---
-    
     public BigDecimal getPerformanceScore() {
         return performanceScore;
     }
@@ -611,7 +637,6 @@ public class Driver extends BaseEntity {
     }
 
     // --- Notes ---
-    
     public String getNotes() {
         return notes;
     }
@@ -620,8 +645,223 @@ public class Driver extends BaseEntity {
         this.notes = notes;
     }
 
+    // --- Current Status ---
+    public String getCurrentStatus() {
+        return currentStatus;
+    }
+
+    public void setCurrentStatus(String currentStatus) {
+        this.currentStatus = currentStatus;
+    }
+
+    // --- Last Clock In ---
+    public LocalDateTime getLastClockIn() {
+        return lastClockIn;
+    }
+
+    public void setLastClockIn(LocalDateTime lastClockIn) {
+        this.lastClockIn = lastClockIn;
+    }
+
+    // --- Last Clock Out ---
+    public LocalDateTime getLastClockOut() {
+        return lastClockOut;
+    }
+
+    public void setLastClockOut(LocalDateTime lastClockOut) {
+        this.lastClockOut = lastClockOut;
+    }
+
+    // --- Last Trip Date ---
+    public LocalDate getLastTripDate() {
+        return lastTripDate;
+    }
+
+    public void setLastTripDate(LocalDate lastTripDate) {
+        this.lastTripDate = lastTripDate;
+    }
+
+    // --- Date of Birth ---
+    public LocalDate getDateOfBirth() {
+        return dateOfBirth;
+    }
+
+    public void setDateOfBirth(LocalDate dateOfBirth) {
+        this.dateOfBirth = dateOfBirth;
+    }
+
+    // --- Gender ---
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+    // --- Country ---
+    public String getCountry() {
+        return country;
+    }
+
+    public void setCountry(String country) {
+        this.country = country;
+    }
+
+    // --- Address ---
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    // --- Emergency Contact Name ---
+    public String getEmergencyContactName() {
+        return emergencyContactName;
+    }
+
+    public void setEmergencyContactName(String emergencyContactName) {
+        this.emergencyContactName = emergencyContactName;
+    }
+
+    // --- Emergency Contact Phone ---
+    public String getEmergencyContactPhone() {
+        return emergencyContactPhone;
+    }
+
+    public void setEmergencyContactPhone(String emergencyContactPhone) {
+        this.emergencyContactPhone = emergencyContactPhone;
+    }
+
+    // --- Bank Name ---
+    public String getBankName() {
+        return bankName;
+    }
+
+    public void setBankName(String bankName) {
+        this.bankName = bankName;
+    }
+
+    // --- Bank Account Number ---
+    public String getBankAccountNumber() {
+        return bankAccountNumber;
+    }
+
+    public void setBankAccountNumber(String bankAccountNumber) {
+        this.bankAccountNumber = bankAccountNumber;
+    }
+
+    // --- Bank Branch Code ---
+    public String getBankBranchCode() {
+        return bankBranchCode;
+    }
+
+    public void setBankBranchCode(String bankBranchCode) {
+        this.bankBranchCode = bankBranchCode;
+    }
+
+    // --- Tax Number ---
+    public String getTaxNumber() {
+        return taxNumber;
+    }
+
+    public void setTaxNumber(String taxNumber) {
+        this.taxNumber = taxNumber;
+    }
+
+    // --- Last Medical Exam Date ---
+    public LocalDate getLastMedicalExamDate() {
+        return lastMedicalExamDate;
+    }
+
+    public void setLastMedicalExamDate(LocalDate lastMedicalExamDate) {
+        this.lastMedicalExamDate = lastMedicalExamDate;
+    }
+
+    // --- Next Medical Exam Date ---
+    public LocalDate getNextMedicalExamDate() {
+        return nextMedicalExamDate;
+    }
+
+    public void setNextMedicalExamDate(LocalDate nextMedicalExamDate) {
+        this.nextMedicalExamDate = nextMedicalExamDate;
+    }
+
+    // --- Driver License Class ---
+    public String getDriverLicenseClass() {
+        return driverLicenseClass;
+    }
+
+    public void setDriverLicenseClass(String driverLicenseClass) {
+        this.driverLicenseClass = driverLicenseClass;
+    }
+
+    // --- License Issue Date ---
+    public LocalDate getLicenseIssueDate() {
+        return licenseIssueDate;
+    }
+
+    public void setLicenseIssueDate(LocalDate licenseIssueDate) {
+        this.licenseIssueDate = licenseIssueDate;
+    }
+
+    // --- License Restrictions ---
+    public String getLicenseRestrictions() {
+        return licenseRestrictions;
+    }
+
+    public void setLicenseRestrictions(String licenseRestrictions) {
+        this.licenseRestrictions = licenseRestrictions;
+    }
+
+    // --- Endorsements ---
+    public String getEndorsements() {
+        return endorsements;
+    }
+
+    public void setEndorsements(String endorsements) {
+        this.endorsements = endorsements;
+    }
+
+    // --- Driver Photo URL ---
+    public String getDriverPhotoUrl() {
+        return driverPhotoUrl;
+    }
+
+    public void setDriverPhotoUrl(String driverPhotoUrl) {
+        this.driverPhotoUrl = driverPhotoUrl;
+    }
+
+    // --- Employee ID ---
+    public String getEmployeeId() {
+        return employeeId;
+    }
+
+    public void setEmployeeId(String employeeId) {
+        this.employeeId = employeeId;
+    }
+
+    // --- Department ---
+    public String getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(String department) {
+        this.department = department;
+    }
+
+    // --- Supervisor ID ---
+    public Long getSupervisorId() {
+        return supervisorId;
+    }
+
+    public void setSupervisorId(Long supervisorId) {
+        this.supervisorId = supervisorId;
+    }
+
     // --- Audit Trail ---
-    
     public Map<String, Object> getAuditTrail() {
         return auditTrail;
     }
@@ -663,6 +903,7 @@ public class Driver extends BaseEntity {
                 ", fullName='" + getFullName() + '\'' +
                 ", licenseNumber='" + licenseNumber + '\'' +
                 ", status=" + status +
+                ", currentStatus='" + currentStatus + '\'' +
                 ", appUserId=" + (appUser != null ? appUser.getId() : "null") +
                 ", isActive=" + getIsActive() +
                 '}';
@@ -683,6 +924,9 @@ public class Driver extends BaseEntity {
         }
         if (trainingCompleted == null) {
             trainingCompleted = false;
+        }
+        if (currentStatus == null) {
+            currentStatus = "OFF_DUTY";
         }
         if (auditTrail == null) {
             auditTrail = new HashMap<>();
