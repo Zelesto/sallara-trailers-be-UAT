@@ -40,25 +40,20 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     // JOIN FETCH QUERIES - For single entity only (not paginated)
     // ============================================================
     
-    // ✅ For list - NO JOIN FETCH to avoid duplicate row errors with pagination
     @Query("SELECT t FROM Trip t")
     Page<Trip> findAllWithCustomer(Pageable pageable);
     
-    // ✅ For status filter with pagination - NO JOIN FETCH
     @Query("SELECT t FROM Trip t WHERE t.status IN :statuses")
     Page<Trip> findByStatusIn(@Param("statuses") List<TripStatus> statuses, Pageable pageable);
     
-    // ✅ For customer filter with pagination - NO JOIN FETCH
     @Query("SELECT t FROM Trip t WHERE t.customerId = :customerId")
     Page<Trip> findByCustomerId(@Param("customerId") Long customerId, Pageable pageable);
     
-    // ✅ For single entity - WITH JOIN FETCH
     @Query("SELECT t FROM Trip t " +
            "LEFT JOIN FETCH t.customer c " +
            "WHERE t.id = :id")
     Optional<Trip> findByIdWithCustomer(@Param("id") Long id);
     
-    // ✅ For single entity - WITH JOIN FETCH (all relations)
     @Query("SELECT t FROM Trip t " +
            "LEFT JOIN FETCH t.customer c " +
            "LEFT JOIN FETCH t.vehicle v " +
@@ -70,7 +65,7 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     Optional<Trip> findByIdWithAllRelations(@Param("id") Long id);
     
     // ============================================================
-    // SEARCH WITH JOIN FETCH - For search with pagination (NO JOIN FETCH)
+    // SEARCH WITH JOIN FETCH
     // ============================================================
     
     @Query("SELECT t FROM Trip t WHERE " +
@@ -108,15 +103,8 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     @Query("SELECT t FROM Trip t ORDER BY t.id DESC")
     Page<Trip> findAllOrderByIdDesc(Pageable pageable);
 
-
-    // ============================================================
-    // FIND ALL
-    // ============================================================
-
     @Query("SELECT t FROM Trip t ORDER BY t.id DESC")
     Page<Trip> findAllTrips(Pageable pageable);
-
-    
     
     // ============================================================
     // FIND BY RELATIONSHIPS
@@ -219,7 +207,7 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     List<Trip> searchTripsOrderByIdDesc(@Param("searchTerm") String searchTerm);
     
     // ============================================================
-    // FILTER QUERIES - With pagination (NO JOIN FETCH)
+    // FILTER QUERIES - With pagination
     // ============================================================
     
     @Query("SELECT t FROM Trip t WHERE " +
@@ -312,7 +300,26 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
                                                         @Param("startDate") LocalDateTime startDate,
                                                         @Param("endDate") LocalDateTime endDate);
 
-
+    // ============================================================
+    // DRIVER QUERIES WITH PAGINATION - FIXED SIGNATURES
+    // ============================================================
+    
+    /**
+     * Find trips by driver ID with pagination
+     * Note: This uses the driver relationship (t.driver.id)
+     */
+    @Query("SELECT t FROM Trip t WHERE t.driver.id = :driverId")
+    Page<Trip> findTripsByDriverId(@Param("driverId") Long driverId, Pageable pageable);
+    
+    /**
+     * Find trips by driver ID and status list with pagination
+     */
+    @Query("SELECT t FROM Trip t WHERE t.driver.id = :driverId AND t.status IN :statuses")
+    Page<Trip> findTripsByDriverIdAndStatusIn(
+        @Param("driverId") Long driverId,
+        @Param("statuses") List<TripStatus> statuses,
+        Pageable pageable
+    );
     
     // ============================================================
     // ACTIVE TRIPS
