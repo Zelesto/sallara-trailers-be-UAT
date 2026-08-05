@@ -41,7 +41,7 @@ public class TimesheetEntry {
     private LocalTime endTime;
 
     @Column(name = "break_duration")
-    private Integer breakDuration; // in minutes
+    private Integer breakDuration = 0;// in minutes
 
     @Column(name = "total_hours")
     private BigDecimal totalHours;
