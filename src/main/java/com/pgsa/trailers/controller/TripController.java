@@ -460,7 +460,7 @@ public ResponseEntity<Page<TripResponse>> listTrips(
 public ResponseEntity<?> getTripsByDriver(
         @PathVariable Long driverId,
         @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "100") int size,
+        @RequestParam(defaultValue = "20") int size,
         @RequestParam(required = false) String status
 ) {
     log.info("========================================");
@@ -488,12 +488,12 @@ public ResponseEntity<?> getTripsByDriver(
         if (status != null && !status.trim().isEmpty()) {
             List<TripStatus> statuses = parseStatuses(status);
             if (!statuses.isEmpty()) {
-                trips = tripRepository.findByDriverIdAndStatusIn(driverId, statuses, pageable);
+                trips = tripRepository.findTripsByDriverIdAndStatusIn(driverId, statuses, pageable);
             } else {
-                trips = tripRepository.findByDriverId(driverId, pageable);
+                trips = tripRepository.findTripsByDriverId(driverId, pageable);
             }
         } else {
-            trips = tripRepository.findByDriverId(driverId, pageable);
+            trips = tripRepository.findTripsByDriverId(driverId, pageable);
         }
         
         log.info("✅ Found {} trips for driver {}", trips.getTotalElements(), driverId);
