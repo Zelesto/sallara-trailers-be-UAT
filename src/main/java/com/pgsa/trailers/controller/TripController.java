@@ -454,13 +454,15 @@ public ResponseEntity<Page<TripResponse>> listTrips(
     /* ============================================================
    GET TRIPS BY DRIVER - ADD THIS ENDPOINT
    ============================================================ */
+// In TripController.java - Update getTripsByDriver method
+
 @GetMapping("/driver/{driverId}")
 @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER', 'DRIVER')")
 @Transactional(readOnly = true)
 public ResponseEntity<?> getTripsByDriver(
         @PathVariable Long driverId,
         @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size,
+        @RequestParam(defaultValue = "100") int size,
         @RequestParam(required = false) String status
 ) {
     log.info("========================================");
@@ -484,16 +486,28 @@ public ResponseEntity<?> getTripsByDriver(
         
         Page<Trip> trips;
         
-        // Filter by status if provided
-        if (status != null && !status.trim().isEmpty()) {
-            List<TripStatus> statuses = parseStatuses(status);
-            if (!statuses.isEmpty()) {
-                trips = tripRepository.findTripsByDriverIdAndStatusIn(driverId, statuses, pageable);
+        // Try using native query first
+        try {
+            if (status != null && !status.trim().isEmpty()) {
+                List<String> statuses = Arrays.asList(status.split(","));
+                trips = tripRepository.findTripsByDriverIdAndStatusInNative(driverId, statuses, pageable);
+            } else {
+                trips = tripRepository.findTripsByDriverIdNative(driverId, pageable);
+            }
+            log.info("✅ Native query returned {} trips for driver {}", trips.getTotalElements(), driverId);
+        } catch (Exception e) {
+            log.warn("Native query failed, trying JPQL: {}", e.getMessage());
+            // Fallback to JPQL
+            if (status != null && !status.trim().isEmpty()) {
+                List<TripStatus> statuses = parseStatuses(status);
+                if (!statuses.isEmpty()) {
+                    trips = tripRepository.findTripsByDriverIdAndStatusIn(driverId, statuses, pageable);
+                } else {
+                    trips = tripRepository.findTripsByDriverId(driverId, pageable);
+                }
             } else {
                 trips = tripRepository.findTripsByDriverId(driverId, pageable);
             }
-        } else {
-            trips = tripRepository.findTripsByDriverId(driverId, pageable);
         }
         
         log.info("✅ Found {} trips for driver {}", trips.getTotalElements(), driverId);
