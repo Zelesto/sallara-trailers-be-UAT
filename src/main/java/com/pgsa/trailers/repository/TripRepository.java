@@ -303,23 +303,38 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     // ============================================================
     // DRIVER QUERIES WITH PAGINATION - FIXED SIGNATURES
     // ============================================================
-    
-    /**
-     * Find trips by driver ID with pagination
-     * Note: This uses the driver relationship (t.driver.id)
-     */
-    @Query("SELECT t FROM Trip t WHERE t.driver.id = :driverId")
-    Page<Trip> findTripsByDriverId(@Param("driverId") Long driverId, Pageable pageable);
-    
-    /**
-     * Find trips by driver ID and status list with pagination
-     */
-    @Query("SELECT t FROM Trip t WHERE t.driver.id = :driverId AND t.status IN :statuses")
-    Page<Trip> findTripsByDriverIdAndStatusIn(
-        @Param("driverId") Long driverId,
-        @Param("statuses") List<TripStatus> statuses,
-        Pageable pageable
-    );
+    **
+ * Find trips by driver ID with pagination
+ * Try different approaches
+ */
+@Query("SELECT t FROM Trip t WHERE t.driver.id = :driverId")
+Page<Trip> findTripsByDriverId(@Param("driverId") Long driverId, Pageable pageable);
+
+// Alternative if the above doesn't work - try using driver_id column directly
+@Query(value = "SELECT * FROM trip WHERE driver_id = :driverId ORDER BY id DESC", 
+       countQuery = "SELECT COUNT(*) FROM trip WHERE driver_id = :driverId",
+       nativeQuery = true)
+Page<Trip> findTripsByDriverIdNative(@Param("driverId") Long driverId, Pageable pageable);
+
+/**
+ * Find trips by driver ID and status list with pagination
+ */
+@Query("SELECT t FROM Trip t WHERE t.driver.id = :driverId AND t.status IN :statuses")
+Page<Trip> findTripsByDriverIdAndStatusIn(
+    @Param("driverId") Long driverId,
+    @Param("statuses") List<TripStatus> statuses,
+    Pageable pageable
+);
+
+// Alternative native query
+@Query(value = "SELECT * FROM trip WHERE driver_id = :driverId AND status IN :statuses ORDER BY id DESC",
+       countQuery = "SELECT COUNT(*) FROM trip WHERE driver_id = :driverId AND status IN :statuses",
+       nativeQuery = true)
+Page<Trip> findTripsByDriverIdAndStatusInNative(
+    @Param("driverId") Long driverId,
+    @Param("statuses") List<String> statuses,
+    Pageable pageable
+);
     
     // ============================================================
     // ACTIVE TRIPS
