@@ -449,6 +449,73 @@ public ResponseEntity<Page<TripResponse>> listTrips(
         tripService.deleteTrip(id);
         log.debug("Trip and associated metrics deleted for id: {}", id);
     }
+
+
+    /* ============================================================
+   GET TRIPS BY DRIVER - ADD THIS ENDPOINT
+   ============================================================ */
+@GetMapping("/driver/{driverId}")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER', 'DRIVER')")
+@Transactional(readOnly = true)
+public ResponseEntity<?> getTripsByDriver(
+        @PathVariable Long driverId,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "100") int size,
+        @RequestParam(required = false) String status
+) {
+    log.info("========================================");
+    log.info("📊 getTripsByDriver called");
+    log.info("   Driver ID: {}", driverId);
+    log.info("   Page: {}", page);
+    log.info("   Size: {}", size);
+    log.info("   Status: {}", status);
+    log.info("========================================");
+    
+    try {
+        // Validate driver ID
+        if (driverId == null || driverId <= 0) {
+            log.warn("⚠️ Invalid driver ID: {}", driverId);
+            return ResponseEntity.badRequest()
+                .body(Map.of("error", "Invalid driver ID"));
+        }
+        
+        // Build pageable
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
+        
+        Page<Trip> trips;
+        
+        // Filter by status if provided
+        if (status != null && !status.trim().isEmpty()) {
+            List<TripStatus> statuses = parseStatuses(status);
+            if (!statuses.isEmpty()) {
+                trips = tripRepository.findByDriverIdAndStatusIn(driverId, statuses, pageable);
+            } else {
+                trips = tripRepository.findByDriverId(driverId, pageable);
+            }
+        } else {
+            trips = tripRepository.findByDriverId(driverId, pageable);
+        }
+        
+        log.info("✅ Found {} trips for driver {}", trips.getTotalElements(), driverId);
+        log.info("📄 Page {} of {} (total: {} items)", 
+            page + 1, 
+            trips.getTotalPages(), 
+            trips.getTotalElements());
+        
+        return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
+        
+    } catch (Exception e) {
+        log.error("❌ Error fetching trips for driver {}: {}", driverId, e.getMessage(), e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(Map.of(
+                "error", "Failed to fetch trips for driver",
+                "driverId", driverId,
+                "message", e.getMessage(),
+                "timestamp", java.time.LocalDateTime.now().toString()
+            ));
+    }
+}
+    
     
     /* ============================================================
        HELPER METHODS
