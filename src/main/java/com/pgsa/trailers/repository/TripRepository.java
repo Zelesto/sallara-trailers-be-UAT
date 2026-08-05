@@ -311,6 +311,34 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     List<Trip> findDriverTripsBetweenDatesOrderByIdDesc(@Param("driverId") Long driverId,
                                                         @Param("startDate") LocalDateTime startDate,
                                                         @Param("endDate") LocalDateTime endDate);
+
+
+     /**
+     * Find trips by driver ID with pagination
+     * Note: This uses the driver relationship (t.driver.id)
+     */
+    @Query("SELECT t FROM Trip t WHERE t.driver.id = :driverId")
+    Page<Trip> findByDriverId(@Param("driverId") Long driverId, Pageable pageable);
+    
+    /**
+     * Find trips by driver ID and status list with pagination
+     */
+    @Query("SELECT t FROM Trip t WHERE t.driver.id = :driverId AND t.status IN :statuses")
+    Page<Trip> findByDriverIdAndStatusIn(
+        @Param("driverId") Long driverId,
+        @Param("statuses") List<TripStatus> statuses,
+        Pageable pageable
+    );
+    
+    /**
+     * Alternative: If driverId is stored as a simple column (not relationship)
+     * Uncomment if you use a simple driverId column instead of @ManyToOne
+     */
+    /*
+    Page<Trip> findByDriverId(Long driverId, Pageable pageable);
+    Page<Trip> findByDriverIdAndStatusIn(Long driverId, List<TripStatus> statuses, Pageable pageable);
+    */
+}
     
     // ============================================================
     // ACTIVE TRIPS
