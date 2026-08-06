@@ -27,7 +27,8 @@ public class MaintenanceRecord {
     @JoinColumn(name = "vehicle_id", nullable = false)
     private Vehicle vehicle;
     
-    @Column(name = "type", nullable = false, length = 100)
+    // ✅ FIX: Use maintenance_type (matches database column name)
+    @Column(name = "maintenance_type", nullable = false, length = 100)
     private String type;
     
     @Column(name = "scheduled_date")
@@ -57,6 +58,18 @@ public class MaintenanceRecord {
     @Column(name = "priority", length = 50)
     private String priority = "MEDIUM";
     
+    @Column(name = "reminder_days")
+    private Integer reminderDays;
+    
+    @Column(name = "is_recurring")
+    private Boolean isRecurring = false;
+    
+    @Column(name = "recurrence_interval_days")
+    private Integer recurrenceIntervalDays;
+    
+    @Column(name = "recurrence_interval_km", precision = 12, scale = 2)
+    private BigDecimal recurrenceIntervalKm;
+    
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -65,10 +78,12 @@ public class MaintenanceRecord {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    
     // Add @PrePersist and @PreUpdate methods
     @PrePersist
     protected void onCreate() {
+        if (type == null) {
+            type = "SERVICE";  // Default value
+        }
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }
@@ -76,5 +91,5 @@ public class MaintenanceRecord {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
-}
+    }
 }
