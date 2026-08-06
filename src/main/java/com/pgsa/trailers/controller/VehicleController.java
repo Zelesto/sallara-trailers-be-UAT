@@ -1,31 +1,27 @@
-// src/main/java/com/pgsa/trailers/controller/VehicleController.java
 package com.pgsa.trailers.controller;
 
 import com.pgsa.trailers.dto.VehicleDTO;
 import com.pgsa.trailers.entity.assets.Vehicle;
-import com.pgsa.trailers.entity.vehicle.Certificate;  // <-- ADD THIS
-import com.pgsa.trailers.entity.vehicle.MaintenanceRecord;  // <-- ADD THIS
-import com.pgsa.trailers.repository.VehicleRepository; 
+import com.pgsa.trailers.entity.vehicle.Certificate;
+import com.pgsa.trailers.entity.vehicle.MaintenanceRecord;
 import com.pgsa.trailers.enums.VehicleStatus;
 import com.pgsa.trailers.service.VehicleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-
-import org.springframework.security.access.prepost.PreAuthorize;
 import com.pgsa.trailers.dto.CertificateRequest;
 import com.pgsa.trailers.dto.VehicleCertificateDTO;
 
 import java.math.BigDecimal;
-import java.util.Collections;  // <-- ADD THIS
-import java.util.List;
-
-import java.util.Map;
-import java.util.HashMap;
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -76,41 +72,43 @@ public class VehicleController {
         }
     }
 
-
     @PutMapping("/{id}/fuel-level")
-@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
-public ResponseEntity<?> updateFuelLevel(
-        @PathVariable Long id,
-        @RequestBody Map<String, Double> request
-) {
-    log.info("⛽ Updating fuel level for vehicle: {}", id);
-    try {
-        Double fuelLevel = request.get("fuelLevel");
-        if (fuelLevel == null) {
-            return ResponseEntity.badRequest().body(Map.of(
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
+    public ResponseEntity<?> updateFuelLevel(
+            @PathVariable Long id,
+            @RequestBody Map<String, Double> request
+    ) {
+        log.info("⛽ Updating fuel level for vehicle: {}", id);
+        try {
+            Double fuelLevel = request.get("fuelLevel");
+            if (fuelLevel == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "fuelLevel is required"
+                ));
+            }
+            
+            // Use the service to get and update the vehicle
+            Vehicle vehicle = vehicleService.getVehicleById(id);
+            vehicle.setCurrentFuelLevel(fuelLevel);
+            vehicle.setLastFuelUpdate(LocalDateTime.now());
+            
+            // Use the service to save the vehicle
+            Vehicle saved = vehicleService.updateVehicle(id, VehicleDTO.fromEntity(vehicle));
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Fuel level updated successfully",
+                "vehicle", VehicleDTO.fromEntity(saved)
+            ));
+        } catch (Exception e) {
+            log.error("Error updating fuel level: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of(
                 "success", false,
-                "error", "fuelLevel is required"
+                "error", "Failed to update fuel level: " + e.getMessage()
             ));
         }
-        
-        Vehicle vehicle = vehicleService.getVehicleById(id);
-        vehicle.setCurrentFuelLevel(fuelLevel);
-        vehicle.setLastFuelUpdate(LocalDateTime.now());
-        Vehicle saved = vehicleRepository.save(vehicle);
-        
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "message", "Fuel level updated successfully",
-            "vehicle", VehicleDTO.fromEntity(saved)
-        ));
-    } catch (Exception e) {
-        log.error("Error updating fuel level: {}", e.getMessage(), e);
-        return ResponseEntity.internalServerError().body(Map.of(
-            "success", false,
-            "error", "Failed to update fuel level: " + e.getMessage()
-        ));
     }
-}
     
     @GetMapping("/{id}/certificates")
     public ResponseEntity<?> getCertificates(@PathVariable Long id) {
@@ -136,81 +134,77 @@ public ResponseEntity<?> updateFuelLevel(
         }
     }
 
-    // In VehicleController.java - Add these methods
-
-/**
- * Reset fuel to full for a vehicle
- */
-@PostMapping("/{id}/fuel/reset")
-@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
-public ResponseEntity<?> resetFuelToFull(
-        @PathVariable Long id,
-        @RequestParam(required = false) Integer tankNumber
-) {
-    log.info("⛽ Resetting fuel to full for vehicle: {}, tank: {}", id, tankNumber);
-    try {
-        VehicleDTO updated = vehicleService.resetFuelToFull(id, tankNumber);
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "message", "Fuel reset to full successfully",
-            "vehicle", updated
-        ));
-    } catch (RuntimeException e) {
-        log.error("Error resetting fuel: {}", e.getMessage());
-        return ResponseEntity.badRequest().body(Map.of(
-            "success", false,
-            "error", e.getMessage()
-        ));
-    } catch (Exception e) {
-        log.error("Error resetting fuel: {}", e.getMessage(), e);
-        return ResponseEntity.internalServerError().body(Map.of(
-            "success", false,
-            "error", "Failed to reset fuel: " + e.getMessage()
-        ));
+    /**
+     * Reset fuel to full for a vehicle
+     */
+    @PostMapping("/{id}/fuel/reset")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
+    public ResponseEntity<?> resetFuelToFull(
+            @PathVariable Long id,
+            @RequestParam(required = false) Integer tankNumber
+    ) {
+        log.info("⛽ Resetting fuel to full for vehicle: {}, tank: {}", id, tankNumber);
+        try {
+            VehicleDTO updated = vehicleService.resetFuelToFull(id, tankNumber);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Fuel reset to full successfully",
+                "vehicle", updated
+            ));
+        } catch (RuntimeException e) {
+            log.error("Error resetting fuel: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        } catch (Exception e) {
+            log.error("Error resetting fuel: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                "success", false,
+                "error", "Failed to reset fuel: " + e.getMessage()
+            ));
+        }
     }
-}
 
-/**
- * Add a certificate to a vehicle
- */
-@PostMapping("/{id}/certificates")
-@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
-public ResponseEntity<?> addCertificate(
-        @PathVariable Long id,
-        @RequestBody CertificateRequest request
-) {
-    log.info("📄 Adding certificate to vehicle: {}", id);
-    try {
-        VehicleCertificateDTO certificate = vehicleService.addCertificate(id, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-            "success", true,
-            "message", "Certificate added successfully",
-            "certificate", certificate
-        ));
-    } catch (RuntimeException e) {
-        log.error("Error adding certificate: {}", e.getMessage());
-        return ResponseEntity.badRequest().body(Map.of(
-            "success", false,
-            "error", e.getMessage()
-        ));
-    } catch (Exception e) {
-        log.error("Error adding certificate: {}", e.getMessage(), e);
-        return ResponseEntity.internalServerError().body(Map.of(
-            "success", false,
-            "error", "Failed to add certificate: " + e.getMessage()
-        ));
+    /**
+     * Add a certificate to a vehicle
+     */
+    @PostMapping("/{id}/certificates")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
+    public ResponseEntity<?> addCertificate(
+            @PathVariable Long id,
+            @RequestBody CertificateRequest request
+    ) {
+        log.info("📄 Adding certificate to vehicle: {}", id);
+        try {
+            VehicleCertificateDTO certificate = vehicleService.addCertificate(id, request);
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "success", true,
+                "message", "Certificate added successfully",
+                "certificate", certificate
+            ));
+        } catch (RuntimeException e) {
+            log.error("Error adding certificate: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        } catch (Exception e) {
+            log.error("Error adding certificate: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                "success", false,
+                "error", "Failed to add certificate: " + e.getMessage()
+            ));
+        }
     }
-}
 
     // ====== MOCK DATA METHODS ======
     
     private List<Certificate> getMockCertificates(Long vehicleId) {
-        // Return mock certificates - these will be used when the actual service is not implemented
         return Collections.emptyList();
     }
 
     private List<MaintenanceRecord> getMockMaintenanceRecords(Long vehicleId) {
-        // Return mock maintenance records - these will be used when the actual service is not implemented
         return Collections.emptyList();
     }
 
