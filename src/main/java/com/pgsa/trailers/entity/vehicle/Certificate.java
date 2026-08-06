@@ -26,7 +26,8 @@ public class Certificate {
     @JoinColumn(name = "vehicle_id", nullable = false)
     private Vehicle vehicle;
     
-    @Column(name = "type", length = 100)
+    // ✅ FIX: Change column name from 'type' to 'certificate_type'
+    @Column(name = "certificate_type", nullable = false, length = 100)
     private String type;
     
     @Column(name = "number", length = 100)
@@ -58,8 +59,7 @@ public class Certificate {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    
-    // ====== Explicit Getters and Setters (in case Lombok fails) ======
+    // ====== Explicit Getters and Setters ======
     
     public Long getId() {
         return id;
