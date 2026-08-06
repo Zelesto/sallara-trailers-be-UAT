@@ -3,6 +3,12 @@ package com.pgsa.trailers.service;
 import com.pgsa.trailers.dto.CertificateRequest;
 import com.pgsa.trailers.dto.VehicleCertificateDTO;
 import com.pgsa.trailers.dto.VehicleDTO;
+
+import com.pgsa.trailers.dto.MaintenanceRecordRequest;
+import com.pgsa.trailers.dto.MaintenanceRecordResponse;
+import com.pgsa.trailers.entity.vehicle.MaintenanceRecord;
+import com.pgsa.trailers.repository.MaintenanceRepository;
+
 import com.pgsa.trailers.entity.assets.Driver;
 import com.pgsa.trailers.entity.assets.Vehicle;
 import com.pgsa.trailers.entity.vehicle.Certificate;
@@ -33,6 +39,7 @@ public class VehicleService {
     private final DriverRepository driverRepository;
     private final VehicleMapper vehicleMapper;
     private final CertificateRepository certificateRepository;
+    private final MaintenanceRepository maintenanceRepository;
 
     // ====== Query Methods ======
     
@@ -188,20 +195,29 @@ public MaintenanceRecord addMaintenanceRecord(MaintenanceRecordRequest request) 
     MaintenanceRecord record = new MaintenanceRecord();
     record.setVehicle(vehicle);
     record.setType(request.getType());
-    record.setDate(request.getDate());
-    record.setOdometer(request.getOdometer());
+    record.setDate(request.getDate());  // scheduled_date
+    record.setOdometer(request.getOdometer());  // scheduled_odometer
     record.setCost(request.getCost());
-    record.setDescription(request.getDescription());
-    record.setServiceProvider(request.getServiceProvider());
     record.setStatus(request.getStatus() != null ? request.getStatus() : "SCHEDULED");
+    record.setNotes(request.getDescription());  // notes field for description
+    record.setServiceProvider(request.getServiceProvider());
+    record.setPriority("MEDIUM");  // Default priority
     
     // Update vehicle last maintenance date
-    vehicle.setLastMaintenanceDate(request.getDate());
-    vehicle.setLastServiceDate(request.getDate());
-    
-    // Update vehicle next service due date (e.g., +6 months)
     if (request.getDate() != null) {
-        vehicle.setNextServiceDue(request.getDate().plusMonths(6));
+        vehicle.setLastMaintenanceDate(request.getDate());
+        vehicle.setLastServiceDate(request.getDate());
+        // Update next service due
+        if (vehicle.getServiceIntervalDays() != null) {
+            vehicle.setNextServiceDue(request.getDate().plusDays(vehicle.getServiceIntervalDays()));
+        } else {
+            vehicle.setNextServiceDue(request.getDate().plusMonths(6));
+        }
+    }
+    
+    // Update odometer if provided
+    if (request.getOdometer() != null) {
+        vehicle.setCurrentOdometer(request.getOdometer());
     }
     
     vehicleRepository.save(vehicle);
@@ -209,16 +225,34 @@ public MaintenanceRecord addMaintenanceRecord(MaintenanceRecordRequest request) 
     return maintenanceRepository.save(record);
 }
    
-    public List<Certificate> getCertificatesByVehicleId(Long vehicleId) {
-        log.debug("Fetching certificates for vehicle: {}", vehicleId);
-        return certificateRepository.findByVehicleId(vehicleId);
-    }
+   /**
+ * Get maintenance records for a vehicle
+ */
+public List<MaintenanceRecord> getMaintenanceRecordsByVehicleId(Long vehicleId) {
+    log.debug("Fetching maintenance records for vehicle: {}", vehicleId);
+    return maintenanceRepository.findByVehicleIdOrderByDateDesc(vehicleId);
+}
+
+  /**
+ * Convert MaintenanceRecord to Response DTO
+ */
+public MaintenanceRecordResponse toMaintenanceResponse(MaintenanceRecord record) {
+    if (record == null) return null;
     
-    public List<MaintenanceRecord> getMaintenanceRecordsByVehicleId(Long vehicleId) {
-        // If you have a repository for maintenance, use it
-        // Otherwise, return empty list
-        return Collections.emptyList();
-    }
+    MaintenanceRecordResponse response = new MaintenanceRecordResponse();
+    response.setId(record.getId());
+    response.setVehicleId(record.getVehicle() != null ? record.getVehicle().getId() : null);
+    response.setType(record.getType());
+    response.setDate(record.getDate());
+    response.setOdometer(record.getOdometer());
+    response.setCost(record.getCost());
+    response.setDescription(record.getNotes());
+    response.setServiceProvider(record.getServiceProvider());
+    response.setStatus(record.getStatus());
+    response.setCreatedAt(record.getCreatedAt());  // If you have this field
+    
+    return response;
+}
 
     // ====== Create Methods ======
     
