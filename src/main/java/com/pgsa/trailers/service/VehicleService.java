@@ -1,23 +1,20 @@
 package com.pgsa.trailers.service;
 
 import com.pgsa.trailers.dto.CertificateRequest;
-import com.pgsa.trailers.dto.VehicleCertificateDTO;
-import com.pgsa.trailers.dto.VehicleDTO;
-
 import com.pgsa.trailers.dto.MaintenanceRecordRequest;
 import com.pgsa.trailers.dto.MaintenanceRecordResponse;
-import com.pgsa.trailers.entity.vehicle.MaintenanceRecord;
-import com.pgsa.trailers.repository.MaintenanceRepository;
-
+import com.pgsa.trailers.dto.VehicleCertificateDTO;
+import com.pgsa.trailers.dto.VehicleDTO;
 import com.pgsa.trailers.entity.assets.Driver;
 import com.pgsa.trailers.entity.assets.Vehicle;
+import com.pgsa.trailers.entity.assets.VehicleMapper;
 import com.pgsa.trailers.entity.vehicle.Certificate;
 import com.pgsa.trailers.entity.vehicle.MaintenanceRecord;
 import com.pgsa.trailers.enums.VehicleStatus;
 import com.pgsa.trailers.enums.VehicleType;
-import com.pgsa.trailers.entity.assets.VehicleMapper;
 import com.pgsa.trailers.repository.CertificateRepository;
 import com.pgsa.trailers.repository.DriverRepository;
+import com.pgsa.trailers.repository.MaintenanceRepository;
 import com.pgsa.trailers.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -120,32 +117,12 @@ public class VehicleService {
         return vehicleRepository.findByRoadworthyExpiryBefore(LocalDate.now());
     }
 
-    // ====== Fuel Reset Method ======
-    
-   @Transactional
-public VehicleDTO resetFuelToFull(Long vehicleId, Integer tankNumber) {
-    log.info("⛽ Resetting fuel to full for vehicle: {}, tank: {}", vehicleId, tankNumber);
-    
-    Vehicle vehicle = vehicleRepository.findById(vehicleId)
-        .orElseThrow(() -> new RuntimeException("Vehicle not found with ID: " + vehicleId));
-    
-    // Use the entity's resetFuelToFull method
-    vehicle.resetFuelToFull();
-    
-    // If tankNumber is provided, you could update specific tank logic here
-    if (tankNumber != null && tankNumber > 0) {
-        log.info("📊 Resetting specific tank: {}", tankNumber);
-        // You can add tank-specific logic if needed
-    }
-    
-    Vehicle saved = vehicleRepository.save(vehicle);
-    log.info("✅ Fuel reset to full for vehicle {}: {} L", vehicleId, saved.getCurrentFuelLevel());
-    
-    return VehicleDTO.fromEntity(saved);
-}
-
     // ====== Certificate Methods ======
-    // In VehicleService.java - Updated addCertificate method
+    
+    public List<Certificate> getCertificatesByVehicleId(Long vehicleId) {
+        log.debug("Fetching certificates for vehicle: {}", vehicleId);
+        return certificateRepository.findByVehicleId(vehicleId);
+    }
 
     @Transactional
     public VehicleCertificateDTO addCertificate(Long vehicleId, CertificateRequest request) {
@@ -154,7 +131,6 @@ public VehicleDTO resetFuelToFull(Long vehicleId, Integer tankNumber) {
         Vehicle vehicle = vehicleRepository.findById(vehicleId)
             .orElseThrow(() -> new RuntimeException("Vehicle not found with ID: " + vehicleId));
         
-        // Create and save certificate with all fields
         Certificate certificate = new Certificate();
         certificate.setVehicle(vehicle);
         certificate.setType(request.getType());
@@ -167,7 +143,6 @@ public VehicleDTO resetFuelToFull(Long vehicleId, Integer tankNumber) {
         
         Certificate saved = certificateRepository.save(certificate);
         
-        // Map to DTO
         VehicleCertificateDTO dto = new VehicleCertificateDTO();
         dto.setId(saved.getId());
         dto.setVehicleId(vehicleId);
@@ -184,75 +159,91 @@ public VehicleDTO resetFuelToFull(Long vehicleId, Integer tankNumber) {
         return dto;
     }
 
+    // ====== Maintenance Methods ======
+    
+    public List<MaintenanceRecord> getMaintenanceRecordsByVehicleId(Long vehicleId) {
+        log.debug("Fetching maintenance records for vehicle: {}", vehicleId);
+        return maintenanceRepository.findByVehicleIdOrderByDateDesc(vehicleId);
+    }
 
     @Transactional
-public MaintenanceRecord addMaintenanceRecord(MaintenanceRecordRequest request) {
-    log.info("📋 Adding maintenance record for vehicle: {}", request.getVehicleId());
-    
-    Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
-        .orElseThrow(() -> new RuntimeException("Vehicle not found with ID: " + request.getVehicleId()));
-    
-    MaintenanceRecord record = new MaintenanceRecord();
-    record.setVehicle(vehicle);
-    record.setType(request.getType());
-    record.setDate(request.getDate());  // scheduled_date
-    record.setOdometer(request.getOdometer());  // scheduled_odometer
-    record.setCost(request.getCost());
-    record.setStatus(request.getStatus() != null ? request.getStatus() : "SCHEDULED");
-    record.setNotes(request.getDescription());  // notes field for description
-    record.setServiceProvider(request.getServiceProvider());
-    record.setPriority("MEDIUM");  // Default priority
-    
-    // Update vehicle last maintenance date
-    if (request.getDate() != null) {
-        vehicle.setLastMaintenanceDate(request.getDate());
-        vehicle.setLastServiceDate(request.getDate());
-        // Update next service due
-        if (vehicle.getServiceIntervalDays() != null) {
-            vehicle.setNextServiceDue(request.getDate().plusDays(vehicle.getServiceIntervalDays()));
-        } else {
-            vehicle.setNextServiceDue(request.getDate().plusMonths(6));
+    public MaintenanceRecord addMaintenanceRecord(MaintenanceRecordRequest request) {
+        log.info("📋 Adding maintenance record for vehicle: {}", request.getVehicleId());
+        
+        Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
+            .orElseThrow(() -> new RuntimeException("Vehicle not found with ID: " + request.getVehicleId()));
+        
+        MaintenanceRecord record = new MaintenanceRecord();
+        record.setVehicle(vehicle);
+        record.setType(request.getType());
+        record.setDate(request.getDate());
+        record.setOdometer(request.getOdometer());
+        record.setCost(request.getCost());
+        record.setStatus(request.getStatus() != null ? request.getStatus() : "SCHEDULED");
+        record.setNotes(request.getDescription());
+        record.setServiceProvider(request.getServiceProvider());
+        record.setPriority("MEDIUM");
+        
+        if (request.getDate() != null) {
+            vehicle.setLastMaintenanceDate(request.getDate());
+            vehicle.setLastServiceDate(request.getDate());
+            if (vehicle.getServiceIntervalDays() != null) {
+                vehicle.setNextServiceDue(request.getDate().plusDays(vehicle.getServiceIntervalDays()));
+            } else {
+                vehicle.setNextServiceDue(request.getDate().plusMonths(6));
+            }
         }
+        
+        if (request.getOdometer() != null) {
+            vehicle.setCurrentOdometer(request.getOdometer());
+        }
+        
+        vehicleRepository.save(vehicle);
+        
+        return maintenanceRepository.save(record);
     }
-    
-    // Update odometer if provided
-    if (request.getOdometer() != null) {
-        vehicle.setCurrentOdometer(request.getOdometer());
-    }
-    
-    vehicleRepository.save(vehicle);
-    
-    return maintenanceRepository.save(record);
-}
-   
-   /**
- * Get maintenance records for a vehicle
- */
-public List<MaintenanceRecord> getMaintenanceRecordsByVehicleId(Long vehicleId) {
-    log.debug("Fetching maintenance records for vehicle: {}", vehicleId);
-    return maintenanceRepository.findByVehicleIdOrderByDateDesc(vehicleId);
-}
 
-  /**
- * Convert MaintenanceRecord to Response DTO
- */
-public MaintenanceRecordResponse toMaintenanceResponse(MaintenanceRecord record) {
-    if (record == null) return null;
+    public MaintenanceRecordResponse toMaintenanceResponse(MaintenanceRecord record) {
+        if (record == null) return null;
+        
+        MaintenanceRecordResponse response = new MaintenanceRecordResponse();
+        response.setId(record.getId());
+        response.setVehicleId(record.getVehicle() != null ? record.getVehicle().getId() : null);
+        response.setType(record.getType());
+        response.setDate(record.getDate());
+        response.setOdometer(record.getOdometer());
+        response.setCost(record.getCost());
+        response.setDescription(record.getNotes());
+        response.setServiceProvider(record.getServiceProvider());
+        response.setStatus(record.getStatus());
+        response.setPriority(record.getPriority());
+        response.setCompletedDate(record.getCompletedDate());
+        response.setCompletedOdometer(record.getCompletedOdometer());
+        response.setCreatedAt(record.getCreatedAt());
+        
+        return response;
+    }
+
+    // ====== Fuel Reset Method ======
     
-    MaintenanceRecordResponse response = new MaintenanceRecordResponse();
-    response.setId(record.getId());
-    response.setVehicleId(record.getVehicle() != null ? record.getVehicle().getId() : null);
-    response.setType(record.getType());
-    response.setDate(record.getDate());
-    response.setOdometer(record.getOdometer());
-    response.setCost(record.getCost());
-    response.setDescription(record.getNotes());
-    response.setServiceProvider(record.getServiceProvider());
-    response.setStatus(record.getStatus());
-    response.setCreatedAt(record.getCreatedAt());  // If you have this field
-    
-    return response;
-}
+    @Transactional
+    public VehicleDTO resetFuelToFull(Long vehicleId, Integer tankNumber) {
+        log.info("⛽ Resetting fuel to full for vehicle: {}, tank: {}", vehicleId, tankNumber);
+        
+        Vehicle vehicle = vehicleRepository.findById(vehicleId)
+            .orElseThrow(() -> new RuntimeException("Vehicle not found with ID: " + vehicleId));
+        
+        vehicle.resetFuelToFull();
+        
+        if (tankNumber != null && tankNumber > 0) {
+            log.info("📊 Resetting specific tank: {}", tankNumber);
+        }
+        
+        Vehicle saved = vehicleRepository.save(vehicle);
+        log.info("✅ Fuel reset to full for vehicle {}: {} L", vehicleId, saved.getCurrentFuelLevel());
+        
+        return VehicleDTO.fromEntity(saved);
+    }
 
     // ====== Create Methods ======
     
@@ -260,7 +251,6 @@ public MaintenanceRecordResponse toMaintenanceResponse(MaintenanceRecord record)
     public Vehicle createVehicle(Vehicle vehicle) {
         log.info("Creating vehicle with registration: {}", vehicle.getRegistrationNumber());
 
-        // Check for duplicates
         if (vehicleRepository.findByRegistrationNumber(vehicle.getRegistrationNumber()).isPresent()) {
             throw new RuntimeException("Vehicle with registration " + vehicle.getRegistrationNumber() + " already exists");
         }
@@ -271,7 +261,6 @@ public MaintenanceRecordResponse toMaintenanceResponse(MaintenanceRecord record)
             throw new RuntimeException("Vehicle with fleet number " + vehicle.getFleetNumber() + " already exists");
         }
 
-        // Ensure defaults are set
         if (vehicle.getStatus() == null) {
             vehicle.setStatus(VehicleStatus.ACTIVE);
         }
@@ -299,7 +288,6 @@ public MaintenanceRecordResponse toMaintenanceResponse(MaintenanceRecord record)
         Vehicle vehicle = new Vehicle();
         mapDtoToEntity(dto, vehicle);
         
-        // Check for duplicates
         if (vehicleRepository.findByRegistrationNumber(vehicle.getRegistrationNumber()).isPresent()) {
             throw new RuntimeException("Vehicle with registration " + vehicle.getRegistrationNumber() + " already exists");
         }
@@ -323,11 +311,7 @@ public MaintenanceRecordResponse toMaintenanceResponse(MaintenanceRecord record)
         log.info("Updating vehicle ID: {}", id);
         
         Vehicle vehicle = getVehicleById(id);
-        
-        // Map DTO to Entity
         mapDtoToEntity(dto, vehicle);
-        
-        // Recalculate service
         vehicle.calculateNextService();
 
         log.info("Saving vehicle - registration: {}, make: {}, model: {}, vehicleType: {}, status: {}", 
@@ -418,7 +402,6 @@ public MaintenanceRecordResponse toMaintenanceResponse(MaintenanceRecord record)
     // ====== Helper Methods ======
     
     private void mapDtoToEntity(VehicleDTO dto, Vehicle vehicle) {
-        // Basic fields
         if (dto.getRegistrationNumber() != null) {
             vehicle.setRegistrationNumber(dto.getRegistrationNumber().trim());
         }
@@ -441,11 +424,9 @@ public MaintenanceRecordResponse toMaintenanceResponse(MaintenanceRecord record)
             vehicle.setCurrentMileage(dto.getCurrentMileage());
         }
         
-        // Handle status enum
         if (dto.getStatus() != null && !dto.getStatus().isEmpty()) {
             try {
                 vehicle.setStatus(VehicleStatus.valueOf(dto.getStatus().toUpperCase()));
-                log.info("✅ Set status to: {}", vehicle.getStatus());
             } catch (IllegalArgumentException e) {
                 log.warn("❌ Invalid status: {}, keeping current: {}", dto.getStatus(), vehicle.getStatus());
                 if (vehicle.getStatus() == null) {
@@ -456,12 +437,10 @@ public MaintenanceRecordResponse toMaintenanceResponse(MaintenanceRecord record)
             vehicle.setStatus(VehicleStatus.ACTIVE);
         }
         
-        // Handle vehicle type enum
         if (dto.getVehicleType() != null && !dto.getVehicleType().isEmpty()) {
             try {
                 String vehicleTypeStr = dto.getVehicleType().trim().toUpperCase();
                 vehicle.setVehicleType(VehicleType.valueOf(vehicleTypeStr));
-                log.info("✅ Set vehicle type to: {}", vehicle.getVehicleType());
             } catch (IllegalArgumentException e) {
                 log.error("❌ Invalid vehicle type: '{}', using default TRUCK", dto.getVehicleType());
                 vehicle.setVehicleType(VehicleType.TRUCK);
@@ -470,7 +449,6 @@ public MaintenanceRecordResponse toMaintenanceResponse(MaintenanceRecord record)
             vehicle.setVehicleType(VehicleType.TRUCK);
         }
         
-        // Numeric and date fields
         if (dto.getAvgConsumption() != null) {
             vehicle.setAvgConsumption(dto.getAvgConsumption());
         }
@@ -555,8 +533,7 @@ public MaintenanceRecordResponse toMaintenanceResponse(MaintenanceRecord record)
         if (dto.getInsuranceExpiryDate() != null) {
             vehicle.setInsuranceExpiryDate(dto.getInsuranceExpiryDate());
         }
-
-        // Fuel fields
+        
         if (dto.getCurrentFuelLevel() != null) {
             vehicle.setCurrentFuelLevel(dto.getCurrentFuelLevel());
         }
@@ -570,16 +547,13 @@ public MaintenanceRecordResponse toMaintenanceResponse(MaintenanceRecord record)
             vehicle.setFuelTankType(dto.getFuelTankType());
         }
 
-        // Handle driver assignment
         if (dto.getAssignedDriverId() != null) {
             if (dto.getAssignedDriverId() > 0) {
                 Driver driver = driverRepository.findById(dto.getAssignedDriverId())
                     .orElseThrow(() -> new RuntimeException("Driver not found with id: " + dto.getAssignedDriverId()));
                 vehicle.setAssignedDriver(driver);
-                log.info("Assigned driver: {}", driver.getId());
             } else {
                 vehicle.setAssignedDriver(null);
-                log.info("Unassigned driver");
             }
         }
     }
