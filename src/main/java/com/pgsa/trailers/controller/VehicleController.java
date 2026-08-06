@@ -74,6 +74,42 @@ public class VehicleController {
         }
     }
 
+
+    @PutMapping("/{id}/fuel-level")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
+public ResponseEntity<?> updateFuelLevel(
+        @PathVariable Long id,
+        @RequestBody Map<String, Double> request
+) {
+    log.info("⛽ Updating fuel level for vehicle: {}", id);
+    try {
+        Double fuelLevel = request.get("fuelLevel");
+        if (fuelLevel == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", "fuelLevel is required"
+            ));
+        }
+        
+        Vehicle vehicle = vehicleService.getVehicleById(id);
+        vehicle.setCurrentFuelLevel(fuelLevel);
+        vehicle.setLastFuelUpdate(LocalDateTime.now());
+        Vehicle saved = vehicleRepository.save(vehicle);
+        
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Fuel level updated successfully",
+            "vehicle", VehicleDTO.fromEntity(saved)
+        ));
+    } catch (Exception e) {
+        log.error("Error updating fuel level: {}", e.getMessage(), e);
+        return ResponseEntity.internalServerError().body(Map.of(
+            "success", false,
+            "error", "Failed to update fuel level: " + e.getMessage()
+        ));
+    }
+}
+    
     @GetMapping("/{id}/certificates")
     public ResponseEntity<?> getCertificates(@PathVariable Long id) {
         log.info("GET /api/vehicles/{}/certificates", id);
