@@ -236,6 +236,30 @@ public class VehicleService {
         return response;
     }
 
+    @Transactional
+public MaintenanceRecord updateMaintenanceRecord(Long id, MaintenanceRecordRequest request) {
+    MaintenanceRecord record = maintenanceRepository.findById(id)
+        .orElseThrow(() -> new RuntimeException("Maintenance record not found"));
+    
+    record.setType(request.getType());
+    record.setDate(request.getDate());
+    record.setOdometer(request.getOdometer());
+    record.setCost(request.getCost());
+    record.setStatus(request.getStatus());
+    record.setNotes(request.getDescription());
+    record.setServiceProvider(request.getServiceProvider());
+    
+    return maintenanceRepository.save(record);
+}
+
+@Transactional
+public void deleteMaintenanceRecord(Long id) {
+    if (!maintenanceRepository.existsById(id)) {
+        throw new RuntimeException("Maintenance record not found");
+    }
+    maintenanceRepository.deleteById(id);
+}
+
     // ====== Fuel Reset Method ======
     
     @Transactional
