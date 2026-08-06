@@ -179,62 +179,48 @@ public class VehicleService {
 }
 
     @Transactional
-    public MaintenanceRecord addMaintenanceRecord(MaintenanceRecordRequest request) {
-        log.info("📋 Adding maintenance record for vehicle: {}", request.getVehicleId());
-        
-        Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
-            .orElseThrow(() -> new RuntimeException("Vehicle not found with ID: " + request.getVehicleId()));
-        
-        MaintenanceRecord record = new MaintenanceRecord();
-        record.setVehicle(vehicle);
-        record.setType(request.getType());
-        record.setDate(request.getDate());
-        record.setOdometer(request.getOdometer());
-        record.setCost(request.getCost());
-        record.setStatus(request.getStatus() != null ? request.getStatus() : "SCHEDULED");
-        record.setNotes(request.getDescription());
-        record.setServiceProvider(request.getServiceProvider());
-        record.setPriority("MEDIUM");
-        
-        if (request.getDate() != null) {
-            vehicle.setLastMaintenanceDate(request.getDate());
-            vehicle.setLastServiceDate(request.getDate());
-            if (vehicle.getServiceIntervalDays() != null) {
-                vehicle.setNextServiceDue(request.getDate().plusDays(vehicle.getServiceIntervalDays()));
-            } else {
-                vehicle.setNextServiceDue(request.getDate().plusMonths(6));
-            }
+public MaintenanceRecord addMaintenanceRecord(MaintenanceRecordRequest request) {
+    log.info("📋 Adding maintenance record for vehicle: {}", request.getVehicleId());
+    
+    Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
+        .orElseThrow(() -> new RuntimeException("Vehicle not found with ID: " + request.getVehicleId()));
+    
+    MaintenanceRecord record = new MaintenanceRecord();
+    record.setVehicle(vehicle);
+    
+    // ✅ Ensure type is never null
+    record.setType(request.getType() != null && !request.getType().isEmpty() 
+        ? request.getType() 
+        : "SERVICE");
+    
+    record.setDate(request.getDate());
+    record.setOdometer(request.getOdometer());
+    record.setCost(request.getCost());
+    record.setStatus(request.getStatus() != null ? request.getStatus() : "SCHEDULED");
+    record.setNotes(request.getDescription());
+    record.setServiceProvider(request.getServiceProvider());
+    record.setPriority("MEDIUM");
+    record.setReminderDays(7);
+    record.setIsRecurring(false);
+    
+    if (request.getDate() != null) {
+        vehicle.setLastMaintenanceDate(request.getDate());
+        vehicle.setLastServiceDate(request.getDate());
+        if (vehicle.getServiceIntervalDays() != null) {
+            vehicle.setNextServiceDue(request.getDate().plusDays(vehicle.getServiceIntervalDays()));
+        } else {
+            vehicle.setNextServiceDue(request.getDate().plusMonths(6));
         }
-        
-        if (request.getOdometer() != null) {
-            vehicle.setCurrentOdometer(request.getOdometer());
-        }
-        
-        vehicleRepository.save(vehicle);
-        
-        return maintenanceRepository.save(record);
     }
-
-    public MaintenanceRecordResponse toMaintenanceResponse(MaintenanceRecord record) {
-        if (record == null) return null;
-        
-        MaintenanceRecordResponse response = new MaintenanceRecordResponse();
-        response.setId(record.getId());
-        response.setVehicleId(record.getVehicle() != null ? record.getVehicle().getId() : null);
-        response.setType(record.getType());
-        response.setDate(record.getDate());
-        response.setOdometer(record.getOdometer());
-        response.setCost(record.getCost());
-        response.setDescription(record.getNotes());
-        response.setServiceProvider(record.getServiceProvider());
-        response.setStatus(record.getStatus());
-        response.setPriority(record.getPriority());
-        response.setCompletedDate(record.getCompletedDate());
-        response.setCompletedOdometer(record.getCompletedOdometer());
-        response.setCreatedAt(record.getCreatedAt());
-        
-        return response;
+    
+    if (request.getOdometer() != null) {
+        vehicle.setCurrentOdometer(request.getOdometer());
     }
+    
+    vehicleRepository.save(vehicle);
+    
+    return maintenanceRepository.save(record);
+}
 
     @Transactional
 public MaintenanceRecord updateMaintenanceRecord(Long id, MaintenanceRecordRequest request) {
