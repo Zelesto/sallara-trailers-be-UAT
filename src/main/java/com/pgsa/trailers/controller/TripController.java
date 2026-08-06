@@ -455,6 +455,72 @@ public ResponseEntity<Page<TripResponse>> listTrips(
 
 
     /* ============================================================
+   GET TRIPS BY VEHICLE
+   ============================================================ */
+@GetMapping("/vehicle/{vehicleId}")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER', 'DRIVER')")
+@Transactional(readOnly = true)
+public ResponseEntity<?> getTripsByVehicle(
+        @PathVariable Long vehicleId,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "100") int size,
+        @RequestParam(required = false) String status
+) {
+    log.info("========================================");
+    log.info("📊 getTripsByVehicle called");
+    log.info("   Vehicle ID: {}", vehicleId);
+    log.info("   Page: {}", page);
+    log.info("   Size: {}", size);
+    log.info("   Status: {}", status);
+    log.info("========================================");
+    
+    try {
+        // Validate vehicle ID
+        if (vehicleId == null || vehicleId <= 0) {
+            log.warn("⚠️ Invalid vehicle ID: {}", vehicleId);
+            return ResponseEntity.badRequest()
+                .body(Map.of("error", "Invalid vehicle ID"));
+        }
+        
+        // Build pageable
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
+        
+        Page<Trip> trips;
+        
+        // Filter by status if provided
+        if (status != null && !status.trim().isEmpty()) {
+            List<TripStatus> statuses = parseStatuses(status);
+            if (!statuses.isEmpty()) {
+                trips = tripRepository.findTripsByVehicleIdAndStatusIn(vehicleId, statuses, pageable);
+            } else {
+                trips = tripRepository.findTripsByVehicleId(vehicleId, pageable);
+            }
+        } else {
+            trips = tripRepository.findTripsByVehicleId(vehicleId, pageable);
+        }
+        
+        log.info("✅ Found {} trips for vehicle {}", trips.getTotalElements(), vehicleId);
+        log.info("📄 Page {} of {} (total: {} items)", 
+            page + 1, 
+            trips.getTotalPages(), 
+            trips.getTotalElements());
+        
+        return ResponseEntity.ok(trips.map(tripResponseMapper::toResponse));
+        
+    } catch (Exception e) {
+        log.error("❌ Error fetching trips for vehicle {}: {}", vehicleId, e.getMessage(), e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(Map.of(
+                "error", "Failed to fetch trips for vehicle",
+                "vehicleId", vehicleId,
+                "message", e.getMessage(),
+                "timestamp", java.time.LocalDateTime.now().toString()
+            ));
+    }
+}
+    
+
+    /* ============================================================
    GET TRIPS BY DRIVER - ADD THIS ENDPOINT
    ============================================================ */
 // In TripController.java - Update getTripsByDriver method
