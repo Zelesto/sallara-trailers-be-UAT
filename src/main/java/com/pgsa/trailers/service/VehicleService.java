@@ -109,6 +109,47 @@ public class VehicleService {
         log.debug("Fetching vehicles with expired roadworthy");
         return vehicleRepository.findByRoadworthyExpiryBefore(LocalDate.now());
     }
+    
+        // In VehicleService.java - Add these methods
+    
+    public VehicleDTO resetFuelToFull(Long vehicleId, Integer tankNumber) {
+        Vehicle vehicle = vehicleRepository.findById(vehicleId)
+            .orElseThrow(() -> new RuntimeException("Vehicle not found"));
+        
+        // Reset fuel to full (100%)
+        if (tankNumber != null && tankNumber > 0) {
+            // Reset specific tank
+            vehicle.setFuelLevel(100.0);
+            // Update tank-specific logic here
+        } else {
+            // Reset all tanks
+            vehicle.setFuelLevel(100.0);
+        }
+        
+        Vehicle saved = vehicleRepository.save(vehicle);
+        return vehicleMapper.toDto(saved);
+    }
+    
+    public VehicleCertificateDTO addCertificate(Long vehicleId, CertificateRequest request) {
+        Vehicle vehicle = vehicleRepository.findById(vehicleId)
+            .orElseThrow(() -> new RuntimeException("Vehicle not found"));
+        
+        // Create and save certificate (you'll need to implement this)
+        // This depends on your Certificate entity
+        VehicleCertificate certificate = new VehicleCertificate();
+        certificate.setVehicle(vehicle);
+        certificate.setType(request.getType());
+        certificate.setNumber(request.getNumber());
+        certificate.setIssueDate(request.getIssueDate());
+        certificate.setExpiryDate(request.getExpiryDate());
+        certificate.setIssuer(request.getIssuer());
+        certificate.setDocumentUrl(request.getDocumentUrl());
+        certificate.setStatus("ACTIVE");
+        
+        VehicleCertificate saved = certificateRepository.save(certificate);
+        return certificateMapper.toDto(saved);
+    }
+        
 
     // ====== Certificate & Maintenance Methods ======
     
