@@ -72,6 +72,34 @@ public class VehicleController {
         }
     }
 
+    // In VehicleController.java - Add this method
+
+@PostMapping("/maintenance")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
+public ResponseEntity<?> addMaintenanceRecord(@RequestBody MaintenanceRecordRequest request) {
+    log.info("📋 Adding maintenance record for vehicle: {}", request.getVehicleId());
+    try {
+        MaintenanceRecord record = vehicleService.addMaintenanceRecord(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+            "success", true,
+            "message", "Maintenance record added successfully",
+            "record", record
+        ));
+    } catch (RuntimeException e) {
+        log.error("Error adding maintenance record: {}", e.getMessage());
+        return ResponseEntity.badRequest().body(Map.of(
+            "success", false,
+            "error", e.getMessage()
+        ));
+    } catch (Exception e) {
+        log.error("Error adding maintenance record: {}", e.getMessage(), e);
+        return ResponseEntity.internalServerError().body(Map.of(
+            "success", false,
+            "error", "Failed to add maintenance record: " + e.getMessage()
+        ));
+    }
+}
+    
     @PutMapping("/{id}/fuel-level")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
     public ResponseEntity<?> updateFuelLevel(
