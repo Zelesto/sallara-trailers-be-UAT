@@ -55,4 +55,22 @@ public class MaintenanceRecord {
 
     @Column(name = "priority")
     private String priority;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+    
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+    
+    // Add @PrePersist and @PreUpdate methods
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+    
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+}
 }
