@@ -1,13 +1,16 @@
-// src/main/java/com/pgsa/trailers/service/VehicleService.java
 package com.pgsa.trailers.service;
 
+import com.pgsa.trailers.dto.CertificateRequest;
+import com.pgsa.trailers.dto.VehicleCertificateDTO;
 import com.pgsa.trailers.dto.VehicleDTO;
 import com.pgsa.trailers.entity.assets.Driver;
 import com.pgsa.trailers.entity.assets.Vehicle;
-import com.pgsa.trailers.entity.vehicle.Certificate;  // <-- ADD THIS
-import com.pgsa.trailers.entity.vehicle.MaintenanceRecord;  // <-- ADD THIS
+import com.pgsa.trailers.entity.vehicle.Certificate;
+import com.pgsa.trailers.entity.vehicle.MaintenanceRecord;
 import com.pgsa.trailers.enums.VehicleStatus;
 import com.pgsa.trailers.enums.VehicleType;
+import com.pgsa.trailers.mapper.VehicleMapper;
+import com.pgsa.trailers.repository.CertificateRepository;
 import com.pgsa.trailers.repository.DriverRepository;
 import com.pgsa.trailers.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,16 +18,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.pgsa.trailers.dto.CertificateRequest;
-import com.pgsa.trailers.dto.VehicleCertificateDTO;
-
-import java.time.LocalDateTime;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Collections;  // <-- ADD THIS
+import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
-import java.util.HashMap;
-import java.util.Map; 
 
 @Slf4j
 @Service
@@ -33,6 +31,8 @@ public class VehicleService {
 
     private final VehicleRepository vehicleRepository;
     private final DriverRepository driverRepository;
+    private final VehicleMapper vehicleMapper;
+    private final CertificateRepository certificateRepository;
 
     // ====== Query Methods ======
     
@@ -112,34 +112,34 @@ public class VehicleService {
         log.debug("Fetching vehicles with expired roadworthy");
         return vehicleRepository.findByRoadworthyExpiryBefore(LocalDate.now());
     }
+
+    // ====== Fuel Reset Method ======
     
-        // In VehicleService.java - Add these methods
-    
+    @Transactional
     public VehicleDTO resetFuelToFull(Long vehicleId, Integer tankNumber) {
+        log.info("⛽ Resetting fuel to full for vehicle: {}, tank: {}", vehicleId, tankNumber);
+        
         Vehicle vehicle = vehicleRepository.findById(vehicleId)
-            .orElseThrow(() -> new RuntimeException("Vehicle not found"));
+            .orElseThrow(() -> new RuntimeException("Vehicle not found with ID: " + vehicleId));
         
         // Reset fuel to full (100%)
-        if (tankNumber != null && tankNumber > 0) {
-            // Reset specific tank
-            vehicle.setFuelLevel(100.0);
-            // Update tank-specific logic here
-        } else {
-            // Reset all tanks
-            vehicle.setFuelLevel(100.0);
-        }
+        vehicle.setFuelLevel(100.0);
         
         Vehicle saved = vehicleRepository.save(vehicle);
         return vehicleMapper.toDto(saved);
     }
+
+    // ====== Certificate Methods ======
     
+    @Transactional
     public VehicleCertificateDTO addCertificate(Long vehicleId, CertificateRequest request) {
-        Vehicle vehicle = vehicleRepository.findById(vehicleId)
-            .orElseThrow(() -> new RuntimeException("Vehicle not found"));
+        log.info("📄 Adding certificate to vehicle: {}", vehicleId);
         
-        // Create and save certificate (you'll need to implement this)
-        // This depends on your Certificate entity
-        VehicleCertificate certificate = new VehicleCertificate();
+        Vehicle vehicle = vehicleRepository.findById(vehicleId)
+            .orElseThrow(() -> new RuntimeException("Vehicle not found with ID: " + vehicleId));
+        
+        // Create and save certificate
+        Certificate certificate = new Certificate();
         certificate.setVehicle(vehicle);
         certificate.setType(request.getType());
         certificate.setNumber(request.getNumber());
@@ -149,17 +149,28 @@ public class VehicleService {
         certificate.setDocumentUrl(request.getDocumentUrl());
         certificate.setStatus("ACTIVE");
         
-        VehicleCertificate saved = certificateRepository.save(certificate);
-        return certificateMapper.toDto(saved);
-    }
+        Certificate saved = certificateRepository.save(certificate);
         
-
-    // ====== Certificate & Maintenance Methods ======
+        // Map to DTO
+        VehicleCertificateDTO dto = new VehicleCertificateDTO();
+        dto.setId(saved.getId());
+        dto.setVehicleId(vehicleId);
+        dto.setType(saved.getType());
+        dto.setNumber(saved.getNumber());
+        dto.setIssueDate(saved.getIssueDate());
+        dto.setExpiryDate(saved.getExpiryDate());
+        dto.setIssuer(saved.getIssuer());
+        dto.setDocumentUrl(saved.getDocumentUrl());
+        dto.setStatus(saved.getStatus());
+        dto.setCreatedAt(saved.getCreatedAt());
+        
+        log.info("✅ Certificate added to vehicle {}: {}", vehicleId, dto.getType());
+        return dto;
+    }
     
     public List<Certificate> getCertificatesByVehicleId(Long vehicleId) {
-        // If you have a repository for certificates, use it
-        // Otherwise, return empty list
-        return Collections.emptyList();
+        log.debug("Fetching certificates for vehicle: {}", vehicleId);
+        return certificateRepository.findByVehicleId(vehicleId);
     }
     
     public List<MaintenanceRecord> getMaintenanceRecordsByVehicleId(Long vehicleId) {
@@ -355,7 +366,7 @@ public class VehicleService {
             vehicle.setCurrentMileage(dto.getCurrentMileage());
         }
         
-        // Handle status enum - always set if provided
+        // Handle status enum
         if (dto.getStatus() != null && !dto.getStatus().isEmpty()) {
             try {
                 vehicle.setStatus(VehicleStatus.valueOf(dto.getStatus().toUpperCase()));
@@ -367,11 +378,10 @@ public class VehicleService {
                 }
             }
         } else if (vehicle.getStatus() == null) {
-            // Set default if null
             vehicle.setStatus(VehicleStatus.ACTIVE);
         }
         
-        // Handle vehicle type enum - always set if provided
+        // Handle vehicle type enum
         if (dto.getVehicleType() != null && !dto.getVehicleType().isEmpty()) {
             try {
                 String vehicleTypeStr = dto.getVehicleType().trim().toUpperCase();
@@ -382,7 +392,6 @@ public class VehicleService {
                 vehicle.setVehicleType(VehicleType.TRUCK);
             }
         } else if (vehicle.getVehicleType() == null) {
-            // Set default if null
             vehicle.setVehicleType(VehicleType.TRUCK);
         }
         
@@ -435,7 +444,6 @@ public class VehicleService {
         if (dto.getNotes() != null) {
             vehicle.setNotes(dto.getNotes().trim());
         }
-        
         if (dto.getCategory() != null) {
             vehicle.setCategory(dto.getCategory().trim());
         }
