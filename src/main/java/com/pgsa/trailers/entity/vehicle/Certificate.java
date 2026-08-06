@@ -1,4 +1,5 @@
 // src/main/java/com/pgsa/trailers/entity/vehicle/Certificate.java
+
 package com.pgsa.trailers.entity.vehicle;
 
 import com.pgsa.trailers.entity.assets.Vehicle;
@@ -25,10 +26,10 @@ public class Certificate {
     @JoinColumn(name = "vehicle_id", nullable = false)
     private Vehicle vehicle;
     
-    @Column(name = "type", nullable = false)
+    @Column(name = "type", length = 100)
     private String type;
     
-    @Column(name = "number")
+    @Column(name = "number", length = 100)
     private String number;
     
     @Column(name = "issue_date")
@@ -37,16 +38,16 @@ public class Certificate {
     @Column(name = "expiry_date")
     private LocalDate expiryDate;
     
-    @Column(name = "issuer")
+    @Column(name = "issuer", length = 255)
     private String issuer;
     
-    @Column(name = "document_url")
+    @Column(name = "document_url", columnDefinition = "TEXT")
     private String documentUrl;
     
-    @Column(name = "status")
+    @Column(name = "status", length = 50)
     private String status = "ACTIVE";
     
-    @Column(name = "description")
+    @Column(name = "description", columnDefinition = "TEXT")
     private String description;
     
     @CreationTimestamp
@@ -56,6 +57,7 @@ public class Certificate {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
     
     // ====== Explicit Getters and Setters (in case Lombok fails) ======
     
