@@ -17,5 +17,6 @@ public class VehicleCertificateDTO {
     private String issuer;
     private String documentUrl;
     private String status;
+    private String description;
     private LocalDateTime createdAt;
 }
