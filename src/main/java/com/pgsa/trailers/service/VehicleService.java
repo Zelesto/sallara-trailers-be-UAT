@@ -248,24 +248,28 @@ public void deleteMaintenanceRecord(Long id) {
 
     // ====== Fuel Reset Method ======
     
-    @Transactional
-    public VehicleDTO resetFuelToFull(Long vehicleId, Integer tankNumber) {
-        log.info("⛽ Resetting fuel to full for vehicle: {}, tank: {}", vehicleId, tankNumber);
-        
-        Vehicle vehicle = vehicleRepository.findById(vehicleId)
-            .orElseThrow(() -> new RuntimeException("Vehicle not found with ID: " + vehicleId));
-        
-        vehicle.resetFuelToFull();
-        
-        if (tankNumber != null && tankNumber > 0) {
-            log.info("📊 Resetting specific tank: {}", tankNumber);
-        }
-        
-        Vehicle saved = vehicleRepository.save(vehicle);
-        log.info("✅ Fuel reset to full for vehicle {}: {} L", vehicleId, saved.getCurrentFuelLevel());
-        
-        return VehicleDTO.fromEntity(saved);
+   @Transactional
+public VehicleDTO resetFuelToFull(Long vehicleId, Integer tankNumber) {
+    log.info("⛽ Resetting fuel to full for vehicle: {}, tank: {}", vehicleId, tankNumber);
+    
+    // Fetch the latest version from the database
+    Vehicle vehicle = vehicleRepository.findById(vehicleId)
+        .orElseThrow(() -> new RuntimeException("Vehicle not found with ID: " + vehicleId));
+    
+    // Reset fuel using the entity's method
+    vehicle.resetFuelToFull();
+    
+    if (tankNumber != null && tankNumber > 0) {
+        log.info("📊 Resetting specific tank: {}", tankNumber);
     }
+    
+    // The version will be automatically incremented by @Version
+    Vehicle saved = vehicleRepository.save(vehicle);
+    log.info("✅ Fuel reset to full for vehicle {}: {} L (version: {})", 
+        vehicleId, saved.getCurrentFuelLevel(), saved.getVersion());
+    
+    return VehicleDTO.fromEntity(saved);
+}
 
     // ====== Create Methods ======
     
