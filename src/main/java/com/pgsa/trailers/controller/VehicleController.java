@@ -13,6 +13,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.pgsa.trailers.dto.CertificateRequest;
+import com.pgsa.trailers.dto.VehicleCertificateDTO;
+
 import java.math.BigDecimal;
 import java.util.Collections;  // <-- ADD THIS
 import java.util.List;
