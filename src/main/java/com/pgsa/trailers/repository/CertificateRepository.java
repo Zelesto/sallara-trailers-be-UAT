@@ -1,0 +1,13 @@
+// src/main/java/com/pgsa/trailers/repository/CertificateRepository.java
+package com.pgsa.trailers.repository;
+
+import com.pgsa.trailers.entity.vehicle.Certificate;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface CertificateRepository extends JpaRepository<Certificate, Long> {
+    List<Certificate> findByVehicleId(Long vehicleId);
+}
