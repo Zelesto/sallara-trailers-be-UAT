@@ -1,5 +1,5 @@
 // src/main/java/com/pgsa/trailers/mapper/VehicleMapper.java
-package com.pgsa.trailers.entity.assets;
+package com.pgsa.trailers.entity.asstes;
 
 import com.pgsa.trailers.dto.VehicleDTO;
 import com.pgsa.trailers.entity.assets.Vehicle;
@@ -23,7 +23,13 @@ public class VehicleMapper {
         dto.setStatus(vehicle.getStatus() != null ? vehicle.getStatus().name() : null);
         dto.setCurrentMileage(vehicle.getCurrentMileage());
         dto.setCurrentOdometer(vehicle.getCurrentOdometer());
-        dto.setFuelLevel(vehicle.getFuelLevel());
+        
+        // Fuel fields - using the correct getters
+        dto.setCurrentFuelLevel(vehicle.getCurrentFuelLevel());
+        dto.setFuelCapacity(vehicle.getFuelCapacity());
+        dto.setFuelTankCount(vehicle.getFuelTankCount());
+        dto.setFuelTankType(vehicle.getFuelTankType());
+        
         dto.setAvgConsumption(vehicle.getAvgConsumption());
         dto.setLastServiceDate(vehicle.getLastServiceDate());
         dto.setLastServiceOdometer(vehicle.getLastServiceOdometer());
