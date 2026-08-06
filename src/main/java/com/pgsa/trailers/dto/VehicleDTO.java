@@ -106,7 +106,7 @@ public class VehicleDTO {
     @JsonProperty("category")
     private String category;
     
-    @JsonProperty("vehicle_type")  // ← CRITICAL: Maps snake_case to camelCase
+    @JsonProperty("vehicle_type")  // Maps snake_case to camelCase
     private String vehicleType;
     
     @JsonProperty("is_active")
@@ -141,7 +141,24 @@ public class VehicleDTO {
     
     @JsonProperty("insurance_expiry_date")
     private LocalDate insuranceExpiryDate;
+
+    // ====== FUEL FIELDS - ADD THESE ======
     
+    @JsonProperty("current_fuel_level")
+    private Double currentFuelLevel;
+    
+    @JsonProperty("fuel_capacity")
+    private Double fuelCapacity;
+    
+    @JsonProperty("fuel_tank_count")
+    private Integer fuelTankCount;
+    
+    @JsonProperty("fuel_tank_type")
+    private String fuelTankType;
+    
+    @JsonProperty("last_fuel_update")
+    private LocalDateTime lastFuelUpdate;
+
     // Optional: Add a method to convert from Entity to DTO
     public static VehicleDTO fromEntity(Vehicle vehicle) {
         if (vehicle == null) {
@@ -177,7 +194,6 @@ public class VehicleDTO {
         dto.setNextServiceOdometer(vehicle.getNextServiceOdometer());
         dto.setIncidentsLogged(vehicle.getIncidentsLogged());
         dto.setNotes(vehicle.getNotes());
-        //dto.setAuditTrail(vehicle.getAuditTrail());
         dto.setCategory(vehicle.getCategory());
         dto.setVehicleType(vehicle.getVehicleType() != null ? vehicle.getVehicleType().name() : null);
         dto.setIsActive(vehicle.getIsActive());
@@ -191,6 +207,14 @@ public class VehicleDTO {
         dto.setFuelEfficiency(vehicle.getFuelEfficiency());
         dto.setInsuranceProvider(vehicle.getInsuranceProvider());
         dto.setInsuranceExpiryDate(vehicle.getInsuranceExpiryDate());
+        
+        // ====== FUEL FIELDS - ADD THESE ======
+        dto.setCurrentFuelLevel(vehicle.getCurrentFuelLevel());
+        dto.setFuelCapacity(vehicle.getFuelCapacity());
+        dto.setFuelTankCount(vehicle.getFuelTankCount());
+        dto.setFuelTankType(vehicle.getFuelTankType());
+        dto.setLastFuelUpdate(vehicle.getLastFuelUpdate());
+        
         return dto;
     }
 }
