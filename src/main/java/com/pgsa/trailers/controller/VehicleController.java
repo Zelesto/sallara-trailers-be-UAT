@@ -22,6 +22,9 @@ import java.math.BigDecimal;
 import java.util.Collections;  // <-- ADD THIS
 import java.util.List;
 
+import java.util.Map;
+import java.util.HashMap;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/vehicles")
