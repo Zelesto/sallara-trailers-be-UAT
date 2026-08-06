@@ -339,6 +339,47 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
         @Param("statuses") List<String> statuses,
         Pageable pageable
     );
+
+
+        // ============================================================
+    // VEHICLE QUERIES WITH PAGINATION
+    // ============================================================
+
+    /**
+ * Find trips by vehicle ID with pagination
+ */
+@Query("SELECT t FROM Trip t WHERE t.vehicle.id = :vehicleId")
+Page<Trip> findTripsByVehicleId(@Param("vehicleId") Long vehicleId, Pageable pageable);
+
+/**
+ * Find trips by vehicle ID and status list with pagination
+ */
+@Query("SELECT t FROM Trip t WHERE t.vehicle.id = :vehicleId AND t.status IN :statuses")
+Page<Trip> findTripsByVehicleIdAndStatusIn(
+    @Param("vehicleId") Long vehicleId,
+    @Param("statuses") List<TripStatus> statuses,
+    Pageable pageable
+);
+
+/**
+ * Find trips by vehicle ID with pagination using Native Query
+ */
+@Query(value = "SELECT * FROM trip WHERE vehicle_id = :vehicleId ORDER BY id DESC", 
+       countQuery = "SELECT COUNT(*) FROM trip WHERE vehicle_id = :vehicleId",
+       nativeQuery = true)
+Page<Trip> findTripsByVehicleIdNative(@Param("vehicleId") Long vehicleId, Pageable pageable);
+
+/**
+ * Find trips by vehicle ID and status list with pagination using Native Query
+ */
+@Query(value = "SELECT * FROM trip WHERE vehicle_id = :vehicleId AND status IN :statuses ORDER BY id DESC",
+       countQuery = "SELECT COUNT(*) FROM trip WHERE vehicle_id = :vehicleId AND status IN :statuses",
+       nativeQuery = true)
+Page<Trip> findTripsByVehicleIdAndStatusInNative(
+    @Param("vehicleId") Long vehicleId,
+    @Param("statuses") List<String> statuses,
+    Pageable pageable
+);
     
     // ============================================================
     // ACTIVE TRIPS
