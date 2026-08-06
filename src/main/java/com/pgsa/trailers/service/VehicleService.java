@@ -115,21 +115,27 @@ public class VehicleService {
 
     // ====== Fuel Reset Method ======
     
-    @Transactional
-    public VehicleDTO resetFuelToFull(Long vehicleId, Integer tankNumber) {
-        log.info("⛽ Resetting fuel to full for vehicle: {}, tank: {}", vehicleId, tankNumber);
-        
-        Vehicle vehicle = vehicleRepository.findById(vehicleId)
-            .orElseThrow(() -> new RuntimeException("Vehicle not found with ID: " + vehicleId));
-        
-        // Use the entity's resetFuelToFull method
-        vehicle.resetFuelToFull();
-        
-        Vehicle saved = vehicleRepository.save(vehicle);
-        log.info("✅ Fuel reset to full for vehicle {}: {} L", vehicleId, saved.getCurrentFuelLevel());
-        
-        return vehicleMapper.toDto(saved);
+   @Transactional
+public VehicleDTO resetFuelToFull(Long vehicleId, Integer tankNumber) {
+    log.info("⛽ Resetting fuel to full for vehicle: {}, tank: {}", vehicleId, tankNumber);
+    
+    Vehicle vehicle = vehicleRepository.findById(vehicleId)
+        .orElseThrow(() -> new RuntimeException("Vehicle not found with ID: " + vehicleId));
+    
+    // Use the entity's resetFuelToFull method
+    vehicle.resetFuelToFull();
+    
+    // If tankNumber is provided, you could update specific tank logic here
+    if (tankNumber != null && tankNumber > 0) {
+        log.info("📊 Resetting specific tank: {}", tankNumber);
+        // You can add tank-specific logic if needed
     }
+    
+    Vehicle saved = vehicleRepository.save(vehicle);
+    log.info("✅ Fuel reset to full for vehicle {}: {} L", vehicleId, saved.getCurrentFuelLevel());
+    
+    return VehicleDTO.fromEntity(saved);
+}
 
     // ====== Certificate Methods ======
     
