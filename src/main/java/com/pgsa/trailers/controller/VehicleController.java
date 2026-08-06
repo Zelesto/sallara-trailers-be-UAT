@@ -90,6 +90,72 @@ public class VehicleController {
         }
     }
 
+    // In VehicleController.java - Add these methods
+
+/**
+ * Reset fuel to full for a vehicle
+ */
+@PostMapping("/{id}/fuel/reset")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
+public ResponseEntity<?> resetFuelToFull(
+        @PathVariable Long id,
+        @RequestParam(required = false) Integer tankNumber
+) {
+    log.info("⛽ Resetting fuel to full for vehicle: {}, tank: {}", id, tankNumber);
+    try {
+        VehicleDTO updated = vehicleService.resetFuelToFull(id, tankNumber);
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Fuel reset to full successfully",
+            "vehicle", updated
+        ));
+    } catch (RuntimeException e) {
+        log.error("Error resetting fuel: {}", e.getMessage());
+        return ResponseEntity.badRequest().body(Map.of(
+            "success", false,
+            "error", e.getMessage()
+        ));
+    } catch (Exception e) {
+        log.error("Error resetting fuel: {}", e.getMessage(), e);
+        return ResponseEntity.internalServerError().body(Map.of(
+            "success", false,
+            "error", "Failed to reset fuel: " + e.getMessage()
+        ));
+    }
+}
+
+/**
+ * Add a certificate to a vehicle
+ */
+@PostMapping("/{id}/certificates")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
+public ResponseEntity<?> addCertificate(
+        @PathVariable Long id,
+        @RequestBody CertificateRequest request
+) {
+    log.info("📄 Adding certificate to vehicle: {}", id);
+    try {
+        VehicleCertificateDTO certificate = vehicleService.addCertificate(id, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+            "success", true,
+            "message", "Certificate added successfully",
+            "certificate", certificate
+        ));
+    } catch (RuntimeException e) {
+        log.error("Error adding certificate: {}", e.getMessage());
+        return ResponseEntity.badRequest().body(Map.of(
+            "success", false,
+            "error", e.getMessage()
+        ));
+    } catch (Exception e) {
+        log.error("Error adding certificate: {}", e.getMessage(), e);
+        return ResponseEntity.internalServerError().body(Map.of(
+            "success", false,
+            "error", "Failed to add certificate: " + e.getMessage()
+        ));
+    }
+}
+
     // ====== MOCK DATA METHODS ======
     
     private List<Certificate> getMockCertificates(Long vehicleId) {
