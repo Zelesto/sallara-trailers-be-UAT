@@ -120,9 +120,15 @@ public class VehicleService {
     // ====== Certificate Methods ======
     
     public List<Certificate> getCertificatesByVehicleId(Long vehicleId) {
-        log.debug("Fetching certificates for vehicle: {}", vehicleId);
-        return certificateRepository.findByVehicleId(vehicleId);
+    log.debug("Fetching certificates for vehicle: {}", vehicleId);
+    try {
+        List<Certificate> certificates = certificateRepository.findByVehicleId(vehicleId);
+        return certificates != null ? certificates : Collections.emptyList();
+    } catch (Exception e) {
+        log.error("Error fetching certificates: {}", e.getMessage());
+        return Collections.emptyList();
     }
+}
 
     @Transactional
     public VehicleCertificateDTO addCertificate(Long vehicleId, CertificateRequest request) {
@@ -161,10 +167,16 @@ public class VehicleService {
 
     // ====== Maintenance Methods ======
     
-    public List<MaintenanceRecord> getMaintenanceRecordsByVehicleId(Long vehicleId) {
-        log.debug("Fetching maintenance records for vehicle: {}", vehicleId);
-        return maintenanceRepository.findByVehicleIdOrderByDateDesc(vehicleId);
+   public List<MaintenanceRecord> getMaintenanceRecordsByVehicleId(Long vehicleId) {
+    log.debug("Fetching maintenance records for vehicle: {}", vehicleId);
+    try {
+        List<MaintenanceRecord> records = maintenanceRepository.findByVehicleIdOrderByDateDesc(vehicleId);
+        return records != null ? records : Collections.emptyList();
+    } catch (Exception e) {
+        log.error("Error fetching maintenance records: {}", e.getMessage());
+        return Collections.emptyList();
     }
+}
 
     @Transactional
     public MaintenanceRecord addMaintenanceRecord(MaintenanceRecordRequest request) {
