@@ -9,7 +9,7 @@ import com.pgsa.trailers.entity.vehicle.Certificate;
 import com.pgsa.trailers.entity.vehicle.MaintenanceRecord;
 import com.pgsa.trailers.enums.VehicleStatus;
 import com.pgsa.trailers.enums.VehicleType;
-import com.pgsa.trailers.entity.assets.VehicleMapper;
+import com.pgsa.trailers.mapper.VehicleMapper;
 import com.pgsa.trailers.repository.CertificateRepository;
 import com.pgsa.trailers.repository.DriverRepository;
 import com.pgsa.trailers.repository.VehicleRepository;
@@ -122,10 +122,12 @@ public class VehicleService {
         Vehicle vehicle = vehicleRepository.findById(vehicleId)
             .orElseThrow(() -> new RuntimeException("Vehicle not found with ID: " + vehicleId));
         
-        // Reset fuel to full (100%)
-        vehicle.setFuelLevel(100.0);
+        // Use the entity's resetFuelToFull method
+        vehicle.resetFuelToFull();
         
         Vehicle saved = vehicleRepository.save(vehicle);
+        log.info("✅ Fuel reset to full for vehicle {}: {} L", vehicleId, saved.getCurrentFuelLevel());
+        
         return vehicleMapper.toDto(saved);
     }
 
@@ -479,6 +481,20 @@ public class VehicleService {
         }
         if (dto.getInsuranceExpiryDate() != null) {
             vehicle.setInsuranceExpiryDate(dto.getInsuranceExpiryDate());
+        }
+
+        // Fuel fields
+        if (dto.getCurrentFuelLevel() != null) {
+            vehicle.setCurrentFuelLevel(dto.getCurrentFuelLevel());
+        }
+        if (dto.getFuelCapacity() != null) {
+            vehicle.setFuelCapacity(dto.getFuelCapacity());
+        }
+        if (dto.getFuelTankCount() != null) {
+            vehicle.setFuelTankCount(dto.getFuelTankCount());
+        }
+        if (dto.getFuelTankType() != null) {
+            vehicle.setFuelTankType(dto.getFuelTankType());
         }
 
         // Handle driver assignment
