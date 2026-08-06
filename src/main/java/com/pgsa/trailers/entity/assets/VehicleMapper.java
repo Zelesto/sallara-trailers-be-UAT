@@ -1,5 +1,5 @@
 // src/main/java/com/pgsa/trailers/mapper/VehicleMapper.java
-package com.pgsa.trailers.entity.asstes;
+package com.pgsa.trailers.entity.assets;
 
 import com.pgsa.trailers.dto.VehicleDTO;
 import com.pgsa.trailers.entity.assets.Vehicle;
