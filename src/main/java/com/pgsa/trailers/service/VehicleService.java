@@ -9,7 +9,7 @@ import com.pgsa.trailers.entity.vehicle.Certificate;
 import com.pgsa.trailers.entity.vehicle.MaintenanceRecord;
 import com.pgsa.trailers.enums.VehicleStatus;
 import com.pgsa.trailers.enums.VehicleType;
-import com.pgsa.trailers.mapper.VehicleMapper;
+import com.pgsa.trailers.entity.assets.VehicleMapper;
 import com.pgsa.trailers.repository.CertificateRepository;
 import com.pgsa.trailers.repository.DriverRepository;
 import com.pgsa.trailers.repository.VehicleRepository;
