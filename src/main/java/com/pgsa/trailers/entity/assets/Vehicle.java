@@ -156,6 +156,24 @@ public class Vehicle extends BaseEntity {
     @Column(name = "insurance_expiry_date")
     private LocalDate insuranceExpiryDate;
 
+        @Column(name = "current_fuel_level")
+        private Double currentFuelLevel = 0.0;
+        
+        @Column(name = "fuel_capacity")
+        private Double fuelCapacity = 400.0;
+        
+        @Column(name = "fuel_tank_count")
+        private Integer fuelTankCount = 1;
+        
+        @Column(name = "fuel_tank_type")
+        private String fuelTankType = "SINGLE";
+        
+        @Column(name = "last_fuel_update")
+        private LocalDateTime lastFuelUpdate;
+
+
+        
+
     // ====== Constructors ======
     public Vehicle() {
         this.status = VehicleStatus.ACTIVE;
@@ -262,6 +280,27 @@ public class Vehicle extends BaseEntity {
 
     // ====== Explicit Getters/Setters for BaseEntity fields ======
     // These ensure the methods exist and are accessible
+
+
+        public Double getCurrentFuelLevel() { return currentFuelLevel; }
+        public void setCurrentFuelLevel(Double currentFuelLevel) { this.currentFuelLevel = currentFuelLevel; }
+        
+        public Double getFuelCapacity() { return fuelCapacity; }
+        public void setFuelCapacity(Double fuelCapacity) { this.fuelCapacity = fuelCapacity; }
+        
+        public Integer getFuelTankCount() { return fuelTankCount; }
+        public void setFuelTankCount(Integer fuelTankCount) { this.fuelTankCount = fuelTankCount; }
+        
+        public String getFuelTankType() { return fuelTankType; }
+        public void setFuelTankType(String fuelTankType) { this.fuelTankType = fuelTankType; }
+        
+        public LocalDateTime getLastFuelUpdate() { return lastFuelUpdate; }
+        public void setLastFuelUpdate(LocalDateTime lastFuelUpdate) { this.lastFuelUpdate = lastFuelUpdate; }
+
+        public void resetFuelToFull() {
+            this.currentFuelLevel = this.fuelCapacity != null ? this.fuelCapacity : 400.0;
+            this.lastFuelUpdate = LocalDateTime.now();
+        }
     
     public Boolean getIsActive() {
         return super.isActive();
