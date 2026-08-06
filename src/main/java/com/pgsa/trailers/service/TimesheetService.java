@@ -104,13 +104,18 @@ public class TimesheetService {
                 breakEntry.setBreakEndTime(LocalDateTime.now());
                 breakEntry.setPunchStatus("CLOCKED_IN");
                 
+                // Calculate break duration
                 long breakDuration = ChronoUnit.MINUTES.between(breakEntry.getBreakStartTime(), LocalDateTime.now());
-                breakEntry.setBreakDuration(breakEntry.getBreakDuration() + (int) breakDuration);
+                
+                // ✅ FIX: Handle null breakDuration safely
+                int currentBreak = breakEntry.getBreakDuration() != null ? breakEntry.getBreakDuration() : 0;
+                breakEntry.setBreakDuration(currentBreak + (int) breakDuration);
                 
                 // Use the driver's endBreak method
                 driver.endBreak();
                 
-                log.info("✅ Driver {} ended break after {} minutes", driver.getFullName(), breakDuration);
+                log.info("✅ Driver {} ended break after {} minutes (total break: {} minutes)", 
+                    driver.getFullName(), breakDuration, breakEntry.getBreakDuration());
                 return timesheetEntryRepository.save(breakEntry);
 
             case "CLOCK_OUT":
@@ -125,6 +130,7 @@ public class TimesheetService {
                 clockOutEntry.setEndTime(LocalTime.now());
                 clockOutEntry.setClockOutTime(LocalDateTime.now());
                 clockOutEntry.setPunchStatus("CLOCKED_OUT");
+                clockOutEntry.setIsActive(false);
                 
                 if (clockOutEntry.getClockInTime() != null) {
                     long hours = ChronoUnit.HOURS.between(clockOutEntry.getClockInTime(), LocalDateTime.now());
