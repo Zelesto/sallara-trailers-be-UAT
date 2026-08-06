@@ -5,6 +5,7 @@ import com.pgsa.trailers.dto.VehicleDTO;
 import com.pgsa.trailers.entity.assets.Vehicle;
 import com.pgsa.trailers.entity.vehicle.Certificate;  // <-- ADD THIS
 import com.pgsa.trailers.entity.vehicle.MaintenanceRecord;  // <-- ADD THIS
+import com.pgsa.trailers.repository.VehicleRepository; 
 import com.pgsa.trailers.enums.VehicleStatus;
 import com.pgsa.trailers.service.VehicleService;
 import lombok.RequiredArgsConstructor;
