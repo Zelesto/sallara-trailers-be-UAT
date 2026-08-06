@@ -1,8 +1,10 @@
-// Create VehicleCertificateDTO.java
+// src/main/java/com/pgsa/trailers/dto/VehicleCertificateDTO.java
 package com.pgsa.trailers.dto;
 
 import lombok.Data;
+
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 public class VehicleCertificateDTO {
@@ -15,5 +17,5 @@ public class VehicleCertificateDTO {
     private String issuer;
     private String documentUrl;
     private String status;
-    private LocalDate createdAt;
+    private LocalDateTime createdAt;
 }
