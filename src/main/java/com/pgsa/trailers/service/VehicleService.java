@@ -176,7 +176,38 @@ public VehicleDTO resetFuelToFull(Long vehicleId, Integer tankNumber) {
         log.info("✅ Certificate added to vehicle {}: {}", vehicleId, dto.getType());
         return dto;
     }
+
+
+    @Transactional
+public MaintenanceRecord addMaintenanceRecord(MaintenanceRecordRequest request) {
+    log.info("📋 Adding maintenance record for vehicle: {}", request.getVehicleId());
     
+    Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
+        .orElseThrow(() -> new RuntimeException("Vehicle not found with ID: " + request.getVehicleId()));
+    
+    MaintenanceRecord record = new MaintenanceRecord();
+    record.setVehicle(vehicle);
+    record.setType(request.getType());
+    record.setDate(request.getDate());
+    record.setOdometer(request.getOdometer());
+    record.setCost(request.getCost());
+    record.setDescription(request.getDescription());
+    record.setServiceProvider(request.getServiceProvider());
+    record.setStatus(request.getStatus() != null ? request.getStatus() : "SCHEDULED");
+    
+    // Update vehicle last maintenance date
+    vehicle.setLastMaintenanceDate(request.getDate());
+    vehicle.setLastServiceDate(request.getDate());
+    
+    // Update vehicle next service due date (e.g., +6 months)
+    if (request.getDate() != null) {
+        vehicle.setNextServiceDue(request.getDate().plusMonths(6));
+    }
+    
+    vehicleRepository.save(vehicle);
+    
+    return maintenanceRepository.save(record);
+}
    
     public List<Certificate> getCertificatesByVehicleId(Long vehicleId) {
         log.debug("Fetching certificates for vehicle: {}", vehicleId);
