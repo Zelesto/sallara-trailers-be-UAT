@@ -1,5 +1,9 @@
 package com.pgsa.trailers.controller;
 
+import com.pgsa.trailers.dto.CertificateRequest;
+import com.pgsa.trailers.dto.MaintenanceRecordRequest;
+import com.pgsa.trailers.dto.MaintenanceRecordResponse;
+import com.pgsa.trailers.dto.VehicleCertificateDTO;
 import com.pgsa.trailers.dto.VehicleDTO;
 import com.pgsa.trailers.entity.assets.Vehicle;
 import com.pgsa.trailers.entity.vehicle.Certificate;
