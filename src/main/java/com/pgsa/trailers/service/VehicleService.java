@@ -138,41 +138,44 @@ public VehicleDTO resetFuelToFull(Long vehicleId, Integer tankNumber) {
 }
 
     // ====== Certificate Methods ======
+    // In VehicleService.java - Updated addCertificate method
+
     @Transactional
-public VehicleCertificateDTO addCertificate(Long vehicleId, CertificateRequest request) {
-    log.info("📄 Adding certificate to vehicle: {}", vehicleId);
-    
-    Vehicle vehicle = vehicleRepository.findById(vehicleId)
-        .orElseThrow(() -> new RuntimeException("Vehicle not found with ID: " + vehicleId));
-    
-    Certificate certificate = new Certificate();
-    certificate.setVehicle(vehicle);
-    certificate.setType(request.getType());
-    certificate.setNumber(request.getNumber());
-    certificate.setIssueDate(request.getIssueDate());
-    certificate.setExpiryDate(request.getExpiryDate());
-    certificate.setIssuer(request.getIssuer());
-    certificate.setDocumentUrl(request.getDocumentUrl());
-    certificate.setStatus("ACTIVE");
-    
-    Certificate saved = certificateRepository.save(certificate);
-    
-    // Map to DTO
-    VehicleCertificateDTO dto = new VehicleCertificateDTO();
-    dto.setId(saved.getId());
-    dto.setVehicleId(vehicleId);
-    dto.setType(saved.getType());
-    dto.setNumber(saved.getNumber());
-    dto.setIssueDate(saved.getIssueDate());
-    dto.setExpiryDate(saved.getExpiryDate());
-    dto.setIssuer(saved.getIssuer());
-    dto.setDocumentUrl(saved.getDocumentUrl());
-    dto.setStatus(saved.getStatus());
-    dto.setCreatedAt(saved.getCreatedAt());
-    
-    log.info("✅ Certificate added to vehicle {}: {}", vehicleId, dto.getType());
-    return dto;
-}
+    public VehicleCertificateDTO addCertificate(Long vehicleId, CertificateRequest request) {
+        log.info("📄 Adding certificate to vehicle: {}", vehicleId);
+        
+        Vehicle vehicle = vehicleRepository.findById(vehicleId)
+            .orElseThrow(() -> new RuntimeException("Vehicle not found with ID: " + vehicleId));
+        
+        // Create and save certificate with all fields
+        Certificate certificate = new Certificate();
+        certificate.setVehicle(vehicle);
+        certificate.setType(request.getType());
+        certificate.setNumber(request.getNumber());
+        certificate.setIssueDate(request.getIssueDate());
+        certificate.setExpiryDate(request.getExpiryDate());
+        certificate.setIssuer(request.getIssuer());
+        certificate.setDocumentUrl(request.getDocumentUrl());
+        certificate.setStatus("ACTIVE");
+        
+        Certificate saved = certificateRepository.save(certificate);
+        
+        // Map to DTO
+        VehicleCertificateDTO dto = new VehicleCertificateDTO();
+        dto.setId(saved.getId());
+        dto.setVehicleId(vehicleId);
+        dto.setType(saved.getType());
+        dto.setNumber(saved.getNumber());
+        dto.setIssueDate(saved.getIssueDate());
+        dto.setExpiryDate(saved.getExpiryDate());
+        dto.setIssuer(saved.getIssuer());
+        dto.setDocumentUrl(saved.getDocumentUrl());
+        dto.setStatus(saved.getStatus());
+        dto.setCreatedAt(saved.getCreatedAt());
+        
+        log.info("✅ Certificate added to vehicle {}: {}", vehicleId, dto.getType());
+        return dto;
+    }
     
    
     public List<Certificate> getCertificatesByVehicleId(Long vehicleId) {
