@@ -15,6 +15,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.pgsa.trailers.dto.CertificateRequest;
+import com.pgsa.trailers.dto.VehicleCertificateDTO;
+
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
 import java.time.LocalDate;
