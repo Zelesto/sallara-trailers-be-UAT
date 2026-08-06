@@ -103,6 +103,48 @@ public ResponseEntity<?> addMaintenanceRecord(@RequestBody MaintenanceRecordRequ
         ));
     }
 }
+
+    @PutMapping("/maintenance/{id}")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
+public ResponseEntity<?> updateMaintenanceRecord(
+        @PathVariable Long id,
+        @RequestBody MaintenanceRecordRequest request
+) {
+    log.info("📋 Updating maintenance record: {}", id);
+    try {
+        MaintenanceRecord updated = vehicleService.updateMaintenanceRecord(id, request);
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Maintenance record updated successfully",
+            "record", updated
+        ));
+    } catch (Exception e) {
+        log.error("Error updating maintenance record: {}", e.getMessage(), e);
+        return ResponseEntity.internalServerError().body(Map.of(
+            "success", false,
+            "error", "Failed to update maintenance record: " + e.getMessage()
+        ));
+    }
+}
+
+@DeleteMapping("/maintenance/{id}")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
+public ResponseEntity<?> deleteMaintenanceRecord(@PathVariable Long id) {
+    log.info("🗑️ Deleting maintenance record: {}", id);
+    try {
+        vehicleService.deleteMaintenanceRecord(id);
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Maintenance record deleted successfully"
+        ));
+    } catch (Exception e) {
+        log.error("Error deleting maintenance record: {}", e.getMessage(), e);
+        return ResponseEntity.internalServerError().body(Map.of(
+            "success", false,
+            "error", "Failed to delete maintenance record: " + e.getMessage()
+        ));
+    }
+}
     
     @PutMapping("/{id}/fuel-level")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DISPATCHER', 'MANAGER')")
