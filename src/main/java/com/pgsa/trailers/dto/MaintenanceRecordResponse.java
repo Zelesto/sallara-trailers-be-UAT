@@ -2,6 +2,7 @@
 package com.pgsa.trailers.dto;
 
 import lombok.Data;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -17,5 +18,8 @@ public class MaintenanceRecordResponse {
     private String description;
     private String serviceProvider;
     private String status;
+    private String priority;
+    private LocalDate completedDate;
+    private BigDecimal completedOdometer;
     private LocalDateTime createdAt;
 }
