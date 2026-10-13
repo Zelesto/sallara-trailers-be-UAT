@@ -4,285 +4,277 @@ import com.pgsa.trailers.dto.*;
 import com.pgsa.trailers.entity.inventory.*;
 import com.pgsa.trailers.repository.*;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Issue / return / swap of inventory items to drivers.
+ *
+ * Invariants enforced here:
+ *  - quantities are positive whole numbers (inventory stock is an Integer)
+ *  - stock can never go negative, also under concurrent requests (rows are locked)
+ *  - a driver can never return more than is outstanding
+ *  - closed issues (RETURNED / CANCELLED) cannot be returned against
+ *  - one line per item per issue (duplicate lines in a request are merged)
+ */
 @Service
 @RequiredArgsConstructor
-@Slf4j
 @Transactional
 public class DriverIssueService {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DriverIssueService.class);
+
+    private static final String ISSUE_NUMBER_PREFIX = "DI-";
+    private static final String STATUS_ISSUED = "ISSUED";
+    private static final String STATUS_PARTIALLY_RETURNED = "PARTIALLY_RETURNED";
+    private static final String STATUS_RETURNED = "RETURNED";
+    private static final String STATUS_CANCELLED = "CANCELLED";
 
     private final DriverIssueRepository driverIssueRepository;
     private final DriverIssueItemRepository driverIssueItemRepository;
     private final InventoryItemRepository inventoryItemRepository;
     private final StockMovementRepository stockMovementRepository;
 
-    private static final String ISSUE_NUMBER_PREFIX = "DI-";
+    // ============================================================
+    // ISSUE
+    // ============================================================
 
-    /**
-     * Issue items to a driver
-     */
     public DriverIssueResponseDTO issueItemsToDriver(DriverIssueRequestDTO request, Long userId) {
+        if (request == null || request.getDriverId() == null) {
+            throw new IllegalArgumentException("driverId is required");
+        }
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new IllegalArgumentException("At least one item is required");
+        }
         log.info("👤 Issuing items to driver: {}", request.getDriverId());
 
-        // Validate items
-        for (DriverIssueItemRequestDTO itemReq : request.getItems()) {
-            InventoryItem item = inventoryItemRepository.findById(itemReq.getItemId())
-                    .orElseThrow(() -> new RuntimeException("Item not found: " + itemReq.getItemId()));
+        // Merge duplicate lines for the same item (keeps first line's condition/notes)
+        Map<Long, DriverIssueItemRequestDTO> firstLine = new LinkedHashMap<>();
+        Map<Long, Integer> qtyByItem = new LinkedHashMap<>();
+        for (DriverIssueItemRequestDTO line : request.getItems()) {
+            if (line.getItemId() == null) {
+                throw new IllegalArgumentException("itemId is required on every line");
+            }
+            int qty = wholePositive(line.getQuantity(), "Issue quantity for item " + line.getItemId());
+            firstLine.putIfAbsent(line.getItemId(), line);
+            qtyByItem.merge(line.getItemId(), qty, Integer::sum);
+        }
 
-            if (item.getQuantity() < itemReq.getQuantity().intValue()) {
+        // Lock items (sorted to avoid deadlocks) and validate stock BEFORE writing anything
+        Map<Long, InventoryItem> locked = lockItems(qtyByItem.keySet());
+        for (Map.Entry<Long, Integer> e : qtyByItem.entrySet()) {
+            InventoryItem item = locked.get(e.getKey());
+            int available = item.getQuantity() != null ? item.getQuantity() : 0;
+            if (available < e.getValue()) {
                 throw new RuntimeException("Insufficient stock for item: " + item.getName() +
-                        ". Available: " + item.getQuantity() + ", Requested: " + itemReq.getQuantity());
+                        ". Available: " + available + ", Requested: " + e.getValue());
             }
         }
 
-        // Create Driver Issue
         DriverIssue issue = DriverIssue.builder()
                 .issueNumber(generateIssueNumber())
                 .driverId(request.getDriverId())
                 .issueDate(request.getIssueDate() != null ? request.getIssueDate() : LocalDateTime.now())
-                .status("ISSUED")
+                .status(STATUS_ISSUED)
                 .notes(request.getNotes())
                 .createdBy(userId)
                 .updatedBy(userId)
                 .build();
-
         driverIssueRepository.save(issue);
 
-        // Process items
-        for (DriverIssueItemRequestDTO itemReq : request.getItems()) {
-            // Create issue item
-            DriverIssueItem issueItem = DriverIssueItem.builder()
+        for (Map.Entry<Long, Integer> e : qtyByItem.entrySet()) {
+            Long itemId = e.getKey();
+            int qty = e.getValue();
+            DriverIssueItemRequestDTO src = firstLine.get(itemId);
+
+            driverIssueItemRepository.save(DriverIssueItem.builder()
                     .issue(issue)
-                    .itemId(itemReq.getItemId())
-                    .quantityIssued(itemReq.getQuantity())
+                    .itemId(itemId)
+                    .quantityIssued(BigDecimal.valueOf(qty))
                     .quantityReturned(BigDecimal.ZERO)
-                    .conditionIssued(itemReq.getCondition())
-                    .notes(itemReq.getNotes())
-                    .build();
+                    .conditionIssued(src.getCondition())
+                    .notes(src.getNotes())
+                    .build());
 
-            driverIssueItemRepository.save(issueItem);
-
-            // Update inventory (deduct from main stock)
-            InventoryItem item = inventoryItemRepository.findById(itemReq.getItemId())
-                    .orElseThrow(() -> new RuntimeException("Item not found: " + itemReq.getItemId()));
-            
-            int newQuantity = item.getQuantity() - itemReq.getQuantity().intValue();
-            item.setQuantity(newQuantity);
+            InventoryItem item = locked.get(itemId);
+            item.setQuantity((item.getQuantity() != null ? item.getQuantity() : 0) - qty);
             inventoryItemRepository.save(item);
 
-            // Create stock movement
-            StockMovement movement = StockMovement.builder()
-        .itemId(itemReq.getItemId())
-        .quantity(itemReq.getQuantity().intValue())
-        .movementType("OUT")
-        .reason("Driver Issue")
-        .notes("Issued to driver: " + request.getDriverId())
-        .referenceNumber(issue.getIssueNumber())
-        .performedBy(String.valueOf(userId))
-        .referenceType("DRIVER_ISSUE")
-        .requiresApproval(false)
-        .approvalStatus("APPROVED")
-        .build();
-
-        // ✅ Set driverId separately
-        movement.setDriverId(request.getDriverId());
-        
-        stockMovementRepository.save(movement);
+            saveMovement(itemId, qty, "OUT", "Driver Issue",
+                    "Issued to driver: " + request.getDriverId(),
+                    issue.getIssueNumber(), "DRIVER_ISSUE", userId, request.getDriverId());
         }
 
         log.info("✅ Items issued to driver successfully. Issue Number: {}", issue.getIssueNumber());
         return mapToResponseDTO(issue);
     }
 
+    // ============================================================
+    // RETURN
+    // ============================================================
 
-    
-    /**
-     * Return items from driver
-     */
     public DriverIssueResponseDTO returnItemsFromDriver(Long issueId, List<ReturnItemRequestDTO> returns, Long userId) {
+        if (returns == null || returns.isEmpty()) {
+            throw new IllegalArgumentException("At least one return line is required");
+        }
         log.info("🔄 Returning items from driver issue: {}", issueId);
 
         DriverIssue issue = driverIssueRepository.findById(issueId)
                 .orElseThrow(() -> new RuntimeException("Driver issue not found: " + issueId));
+        assertOpen(issue);
 
-        for (ReturnItemRequestDTO returnReq : returns) {
-            DriverIssueItem issueItem = driverIssueItemRepository
-                    .findByIssueIdAndItemId(issueId, returnReq.getItemId())
-                    .orElseThrow(() -> new RuntimeException("Item not found in issue: " + returnReq.getItemId()));
-
-            // Update return quantity
-            BigDecimal newReturned = issueItem.getQuantityReturned().add(returnReq.getQuantity());
-            issueItem.setQuantityReturned(newReturned);
-            issueItem.setConditionReturned(returnReq.getCondition());
-            issueItem.setUpdatedAt(LocalDateTime.now());
-            driverIssueItemRepository.save(issueItem);
-
-            // Return to inventory
-            InventoryItem item = inventoryItemRepository.findById(returnReq.getItemId())
-                    .orElseThrow(() -> new RuntimeException("Item not found: " + returnReq.getItemId()));
-            
-            int newQuantity = item.getQuantity() + returnReq.getQuantity().intValue();
-            item.setQuantity(newQuantity);
-            inventoryItemRepository.save(item);
-
-            // Create stock movement
-            StockMovement movement = StockMovement.builder()
-        .itemId(returnReq.getItemId())
-        .quantity(returnReq.getQuantity().intValue())
-        .movementType("IN")
-        .reason("Driver Return")
-        .notes("Returned from driver: " + issue.getDriverId())
-        .referenceNumber(issue.getIssueNumber())
-        .performedBy(String.valueOf(userId))
-        .referenceType("DRIVER_RETURN")
-        .requiresApproval(false)
-        .approvalStatus("APPROVED")
-        .build();
-
-        // ✅ Set driverId separately
-        movement.setDriverId(issue.getDriverId());
-        
-        stockMovementRepository.save(movement);
+        // Validate totals per item against what is outstanding, before writing anything
+        Map<Long, Integer> qtyByItem = new LinkedHashMap<>();
+        for (ReturnItemRequestDTO r : returns) {
+            if (r.getItemId() == null) {
+                throw new IllegalArgumentException("itemId is required on every return line");
+            }
+            int qty = wholePositive(r.getQuantity(), "Return quantity for item " + r.getItemId());
+            qtyByItem.merge(r.getItemId(), qty, Integer::sum);
+        }
+        Map<Long, DriverIssueItem> issueLines = new HashMap<>();
+        for (Map.Entry<Long, Integer> e : qtyByItem.entrySet()) {
+            DriverIssueItem line = driverIssueItemRepository.findByIssueIdAndItemId(issueId, e.getKey())
+                    .orElseThrow(() -> new RuntimeException("Item not found in issue: " + e.getKey()));
+            BigDecimal outstanding = outstanding(line);
+            if (BigDecimal.valueOf(e.getValue()).compareTo(outstanding) > 0) {
+                throw new IllegalArgumentException("Cannot return " + e.getValue() + " of item " + e.getKey()
+                        + " on issue " + issue.getIssueNumber() + ": only " + outstanding.toPlainString()
+                        + " outstanding");
+            }
+            issueLines.put(e.getKey(), line);
         }
 
-        // Update issue status
-        updateIssueStatus(issue);
+        Map<Long, InventoryItem> locked = lockItems(qtyByItem.keySet());
 
+        for (ReturnItemRequestDTO r : returns) {
+            int qty = r.getQuantity().intValueExact();
+            DriverIssueItem line = issueLines.get(r.getItemId());
+            line.setQuantityReturned(nz(line.getQuantityReturned()).add(BigDecimal.valueOf(qty)));
+            line.setConditionReturned(r.getCondition());
+            line.setUpdatedAt(LocalDateTime.now());
+            driverIssueItemRepository.save(line);
+
+            InventoryItem item = locked.get(r.getItemId());
+            item.setQuantity((item.getQuantity() != null ? item.getQuantity() : 0) + qty);
+            inventoryItemRepository.save(item);
+
+            saveMovement(r.getItemId(), qty, "IN", "Driver Return",
+                    "Returned from driver: " + issue.getDriverId(),
+                    issue.getIssueNumber(), "DRIVER_RETURN", userId, issue.getDriverId());
+        }
+
+        updateIssueStatus(issue);
         log.info("✅ Items returned from driver successfully. Issue Number: {}", issue.getIssueNumber());
         return mapToResponseDTO(issue);
     }
 
-    /**
-     * Swap an item - return damaged and issue replacement for driver
-     */
-    @Transactional
+    // ============================================================
+    // SWAP (return damaged + issue replacement)
+    // ============================================================
+
     public DriverIssueResponseDTO swapItem(Long oldIssueId, SwapItemRequestDTO swapRequest, Long userId) {
         log.info("🔄 Swapping item from driver issue: {}", oldIssueId);
-        
-        // 1. Find the existing issue
+
         DriverIssue oldIssue = driverIssueRepository.findById(oldIssueId)
                 .orElseThrow(() -> new RuntimeException("Driver issue not found: " + oldIssueId));
-        
-        // 2. Find the specific item in the issue
+        assertOpen(oldIssue);
+
         DriverIssueItem oldItem = driverIssueItemRepository
                 .findByIssueIdAndItemId(oldIssueId, swapRequest.getOldItemId())
                 .orElseThrow(() -> new RuntimeException("Item not found in issue: " + swapRequest.getOldItemId()));
-        
-        // 3. Validate old item is not already returned
-        if (oldItem.getQuantityReturned().compareTo(oldItem.getQuantityIssued()) >= 0) {
+
+        BigDecimal outstanding = outstanding(oldItem);
+        if (outstanding.compareTo(BigDecimal.ZERO) <= 0) {
             throw new RuntimeException("Item already returned, cannot swap");
         }
-        
-        // 4. Validate new item has sufficient stock
-        InventoryItem newItem = inventoryItemRepository.findById(swapRequest.getNewItemId())
-                .orElseThrow(() -> new RuntimeException("New item not found: " + swapRequest.getNewItemId()));
-        
-        if (newItem.getQuantity() < swapRequest.getNewQuantity()) {
-            throw new RuntimeException("Insufficient stock for new item: " + newItem.getName() +
-                    ". Available: " + newItem.getQuantity() + ", Requested: " + swapRequest.getNewQuantity());
+
+        // Default = everything still outstanding (was: full issued qty, which over-returned
+        // when part had already been returned)
+        int returnQty = swapRequest.getReturnQuantity() != null
+                ? wholePositive(swapRequest.getReturnQuantity(), "Swap return quantity")
+                : wholePositive(outstanding, "Swap return quantity");
+        if (BigDecimal.valueOf(returnQty).compareTo(outstanding) > 0) {
+            throw new IllegalArgumentException("Cannot return " + returnQty + ": only "
+                    + outstanding.toPlainString() + " outstanding");
         }
-        
-        // 5. Process the old item return
-        BigDecimal returnQuantity = swapRequest.getReturnQuantity() != null ? 
-                swapRequest.getReturnQuantity() : oldItem.getQuantityIssued();
-        
-        // Mark old item as returned
-        oldItem.setQuantityReturned(oldItem.getQuantityReturned().add(returnQuantity));
+        Object newQty = swapRequest.getNewQuantity(); // works whether the DTO uses int, Integer, long or Long
+        if (swapRequest.getNewItemId() == null || newQty == null || ((Number) newQty).longValue() <= 0) {
+            throw new IllegalArgumentException("newItemId and a positive newQuantity are required");
+        }
+
+        // 1. Return the old item
+        oldItem.setQuantityReturned(nz(oldItem.getQuantityReturned()).add(BigDecimal.valueOf(returnQty)));
         oldItem.setConditionReturned(swapRequest.getDamagedCondition());
         oldItem.setIsSwap(true);
         oldItem.setSwapReason(swapRequest.getDamagedCondition());
         oldItem.setUpdatedAt(LocalDateTime.now());
         driverIssueItemRepository.save(oldItem);
-        
-        // 6. Create hold/damage record on the old item
-        InventoryItem inventoryItem = inventoryItemRepository.findById(swapRequest.getOldItemId())
-                .orElseThrow(() -> new RuntimeException("Inventory item not found"));
-        
+
+        // 2. Hold record + put back into stock.
+        // OPEN QUESTION (unchanged behaviour): the damaged units are added back to the item's
+        // available quantity, and the hold is set on the whole item (all units). Confirm the rule.
+        InventoryItem inventoryItem = lockItems(Set.of(swapRequest.getOldItemId())).get(swapRequest.getOldItemId());
         inventoryItem.setHoldCode(swapRequest.getDamagedCondition());
         inventoryItem.setHoldReason(swapRequest.getDamageNotes());
         inventoryItem.setHoldDate(LocalDateTime.now());
         inventoryItem.setHeldBy(String.valueOf(userId));
+        int current = inventoryItem.getQuantity() != null ? inventoryItem.getQuantity() : 0;
+        inventoryItem.setQuantity(current + returnQty);
         inventoryItemRepository.save(inventoryItem);
-        
-        // 7. Return old item to inventory with hold status
-        int currentQuantity = inventoryItem.getQuantity() != null ? inventoryItem.getQuantity() : 0;
-        inventoryItem.setQuantity(currentQuantity + returnQuantity.intValue());
-        inventoryItemRepository.save(inventoryItem);
-        
-        // 8. Create stock movement for return
-        StockMovement returnMovement = StockMovement.builder()
-                .itemId(swapRequest.getOldItemId())
-                .quantity(returnQuantity.intValue())
-                .movementType("IN")
-                .reason("Driver Swap Return - " + swapRequest.getDamagedCondition())
-                .notes("Damaged item returned from driver. Hold code: " + swapRequest.getDamagedCondition())
-                .referenceNumber(oldIssue.getIssueNumber())
-                .performedBy(String.valueOf(userId))
-                .referenceType("DRIVER_SWAP_RETURN")
-                .requiresApproval(false)
-                .approvalStatus("APPROVED")
-                .build();
-        stockMovementRepository.save(returnMovement);
-        
-        // 9. Create new issue for the replacement item
+
+        saveMovement(swapRequest.getOldItemId(), returnQty, "IN",
+                "Driver Swap Return - " + swapRequest.getDamagedCondition(),
+                "Damaged item returned from driver. Hold code: " + swapRequest.getDamagedCondition(),
+                oldIssue.getIssueNumber(), "DRIVER_SWAP_RETURN", userId, oldIssue.getDriverId());
+
+        updateIssueStatus(oldIssue);
+
+        // 3. Issue the replacement (stock is locked & validated inside)
         DriverIssueRequestDTO newIssueRequest = new DriverIssueRequestDTO();
         newIssueRequest.setDriverId(oldIssue.getDriverId());
         newIssueRequest.setIssueDate(LocalDateTime.now());
         newIssueRequest.setNotes("SWAP: Replacing damaged item. Original Issue: " + oldIssue.getIssueNumber());
-        
+
         DriverIssueItemRequestDTO newItemRequest = new DriverIssueItemRequestDTO();
         newItemRequest.setItemId(swapRequest.getNewItemId());
         newItemRequest.setQuantity(BigDecimal.valueOf(swapRequest.getNewQuantity()));
         newItemRequest.setCondition("NEW");
         newItemRequest.setNotes("Swap replacement for " + swapRequest.getDamagedCondition());
-        
         newIssueRequest.setItems(List.of(newItemRequest));
-        
-        // 10. Create the new issue
+
         DriverIssueResponseDTO newIssue = issueItemsToDriver(newIssueRequest, userId);
-        
-        // 11. Link the new issue to the old one
+
         oldItem.setSwapIssueId(newIssue.getId());
         driverIssueItemRepository.save(oldItem);
-        
+
         log.info("✅ Driver swap completed: Old issue {} returned, New issue {} created", oldIssueId, newIssue.getId());
-        
         return newIssue;
     }
+
+    // ============================================================
+    // QUERIES
+    // ============================================================
 
     @Transactional(readOnly = true)
     public List<DriverIssueResponseDTO> getAllDriverIssues() {
         log.info("📋 Fetching all driver issues");
-        try {
-            List<DriverIssue> issues = driverIssueRepository.findAllByOrderByIssueDateDesc();
-            log.info("📋 Found {} driver issues in database", issues.size());
-            return issues.stream()
-                    .map(this::mapToResponseDTO)
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            log.error("❌ Error fetching driver issues: {}", e.getMessage(), e);
-            return new ArrayList<>();
-        }
+        // Errors are no longer swallowed into an empty list.
+        List<DriverIssue> issues = driverIssueRepository.findAllByOrderByIssueDateDesc();
+        log.info("📋 Found {} driver issues in database", issues.size());
+        return issues.stream().map(this::mapToResponseDTO).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<DriverIssueResponseDTO> getIssuesByDriver(Long driverId) {
         log.info("👤 Fetching issues for driver: {}", driverId);
         return driverIssueRepository.findByDriverIdOrderByIssueDateDesc(driverId)
-                .stream()
-                .map(this::mapToResponseDTO)
-                .collect(Collectors.toList());
+                .stream().map(this::mapToResponseDTO).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
@@ -293,8 +285,67 @@ public class DriverIssueService {
         return mapToResponseDTO(issue);
     }
 
-    // ==================== Helper Methods ====================
+    // ============================================================
+    // HELPERS
+    // ============================================================
 
+    /** Locks inventory rows (SELECT ... FOR UPDATE) in id order to prevent overselling and deadlocks. */
+    private Map<Long, InventoryItem> lockItems(Collection<Long> itemIds) {
+        Map<Long, InventoryItem> locked = new HashMap<>();
+        for (Long id : new TreeSet<>(itemIds)) {
+            locked.put(id, inventoryItemRepository.findByIdForUpdate(id)
+                    .orElseThrow(() -> new RuntimeException("Item not found: " + id)));
+        }
+        return locked;
+    }
+
+    private void assertOpen(DriverIssue issue) {
+        if (STATUS_RETURNED.equals(issue.getStatus()) || STATUS_CANCELLED.equals(issue.getStatus())) {
+            throw new IllegalStateException("Issue " + issue.getIssueNumber() + " is " + issue.getStatus()
+                    + " and cannot be changed");
+        }
+    }
+
+    /** Inventory quantity is an Integer, so issue/return quantities must be whole and positive. */
+    private static int wholePositive(BigDecimal qty, String label) {
+        if (qty == null || qty.signum() <= 0) {
+            throw new IllegalArgumentException(label + " must be greater than 0");
+        }
+        try {
+            return qty.stripTrailingZeros().intValueExact();
+        } catch (ArithmeticException e) {
+            throw new IllegalArgumentException(label + " must be a whole number (got " + qty.toPlainString() + ")");
+        }
+    }
+
+    private static BigDecimal outstanding(DriverIssueItem line) {
+        return nz(line.getQuantityIssued()).subtract(nz(line.getQuantityReturned()));
+    }
+
+    private static BigDecimal nz(BigDecimal v) {
+        return v != null ? v : BigDecimal.ZERO;
+    }
+
+    private void saveMovement(Long itemId, int qty, String type, String reason, String notes,
+                              String referenceNumber, String referenceType, Long userId, Long driverId) {
+        StockMovement movement = StockMovement.builder()
+                .itemId(itemId)
+                .quantity(qty)
+                .movementType(type)
+                .reason(reason)
+                .notes(notes)
+                .referenceNumber(referenceNumber)
+                .performedBy(String.valueOf(userId))
+                .referenceType(referenceType)
+                .requiresApproval(false)
+                .approvalStatus("APPROVED")
+                .build();
+        movement.setDriverId(driverId);
+        stockMovementRepository.save(movement);
+    }
+
+    // KNOWN ISSUE (open): last 8 digits of epoch millis -> repeats every ~27.7 hours.
+    // Left unchanged pending column length / SequenceService confirmation.
     private String generateIssueNumber() {
         String timestamp = String.valueOf(System.currentTimeMillis()).substring(5);
         return ISSUE_NUMBER_PREFIX + timestamp;
@@ -302,38 +353,42 @@ public class DriverIssueService {
 
     private void updateIssueStatus(DriverIssue issue) {
         List<DriverIssueItem> items = driverIssueItemRepository.findByIssueId(issue.getId());
-        
-        boolean allReturned = true;
+
+        boolean allReturned = !items.isEmpty();
         boolean anyReturned = false;
-        
         for (DriverIssueItem item : items) {
-            if (item.getQuantityReturned().compareTo(item.getQuantityIssued()) < 0) {
+            if (nz(item.getQuantityReturned()).compareTo(nz(item.getQuantityIssued())) < 0) {
                 allReturned = false;
             }
-            if (item.getQuantityReturned().compareTo(BigDecimal.ZERO) > 0) {
+            if (nz(item.getQuantityReturned()).compareTo(BigDecimal.ZERO) > 0) {
                 anyReturned = true;
             }
         }
-        
+
         if (allReturned) {
-            issue.setStatus("RETURNED");
+            issue.setStatus(STATUS_RETURNED);
         } else if (anyReturned) {
-            issue.setStatus("PARTIALLY_RETURNED");
+            issue.setStatus(STATUS_PARTIALLY_RETURNED);
         } else {
-            issue.setStatus("ISSUED");
+            issue.setStatus(STATUS_ISSUED);
         }
-        
         issue.setUpdatedAt(LocalDateTime.now());
         driverIssueRepository.save(issue);
     }
 
     private DriverIssueResponseDTO mapToResponseDTO(DriverIssue issue) {
         List<DriverIssueItem> items = driverIssueItemRepository.findByIssueId(issue.getId());
-        
+
+        Set<Long> itemIds = items.stream().map(DriverIssueItem::getItemId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, InventoryItem> inv = itemIds.isEmpty() ? Map.of()
+                : inventoryItemRepository.findAllById(itemIds).stream()
+                        .collect(Collectors.toMap(InventoryItem::getId, i -> i));
+
         List<DriverIssueItemResponseDTO> itemDTOs = items.stream()
-                .map(this::mapItemToResponseDTO)
+                .map(i -> mapItemToResponseDTO(i, inv.get(i.getItemId())))
                 .collect(Collectors.toList());
-        
+
         return DriverIssueResponseDTO.builder()
                 .id(issue.getId())
                 .issueNumber(issue.getIssueNumber())
@@ -347,9 +402,7 @@ public class DriverIssueService {
                 .build();
     }
 
-    private DriverIssueItemResponseDTO mapItemToResponseDTO(DriverIssueItem item) {
-        InventoryItem inventoryItem = inventoryItemRepository.findById(item.getItemId()).orElse(null);
-        
+    private DriverIssueItemResponseDTO mapItemToResponseDTO(DriverIssueItem item, InventoryItem inventoryItem) {
         return DriverIssueItemResponseDTO.builder()
                 .id(item.getId())
                 .itemId(item.getItemId())
@@ -357,7 +410,7 @@ public class DriverIssueService {
                 .itemCategory(inventoryItem != null ? inventoryItem.getCategory() : null)
                 .quantityIssued(item.getQuantityIssued())
                 .quantityReturned(item.getQuantityReturned())
-                .quantityOutstanding(item.getQuantityIssued().subtract(item.getQuantityReturned()))
+                .quantityOutstanding(outstanding(item))
                 .conditionIssued(item.getConditionIssued())
                 .conditionReturned(item.getConditionReturned())
                 .notes(item.getNotes())
