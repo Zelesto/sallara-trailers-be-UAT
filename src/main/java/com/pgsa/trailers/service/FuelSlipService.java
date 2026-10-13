@@ -353,15 +353,13 @@ public class FuelSlipService {
     }
 
 
-        @Transactional
-    
-            log.info("updateFuelSlip id={} requestedDate={} currentDate={}",
-                id, request.getTransactionDate(), existing.getTransactionDate());
-
-    
+         @Transactional
     public FuelSlipDTO updateFuelSlip(Long id, FuelSlipRequest request) {
         FuelSlip existing = fuelSlipRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Fuel slip not found with id: " + id));
+
+        log.info("updateFuelSlip id={} requestedDate={} currentDate={}",
+                id, request.getTransactionDate(), existing.getTransactionDate());
 
         if (Boolean.TRUE.equals(existing.getFinalized())) {
             throw new RuntimeException("Cannot update a finalized fuel slip");
