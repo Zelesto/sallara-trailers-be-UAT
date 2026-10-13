@@ -3,7 +3,7 @@ package com.pgsa.trailers.controller.inventory;
 import com.pgsa.trailers.dto.*;
 import com.pgsa.trailers.entity.security.AppUser;
 import com.pgsa.trailers.repository.AppUserRepository;
-import com.pgsa.trailers.service.inventory.DriverIssueService;
+import com.pgsa.trailers.service.DriverIssueService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
