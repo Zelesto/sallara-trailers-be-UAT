@@ -1,4 +1,4 @@
-package com.pgsa.trailers.controller.inventory;
+package com.pgsa.trailers.controller;
 
 import com.pgsa.trailers.dto.*;
 import com.pgsa.trailers.entity.security.AppUser;
