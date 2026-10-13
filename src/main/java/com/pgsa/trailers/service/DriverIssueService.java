@@ -3,6 +3,8 @@ package com.pgsa.trailers.service;
 import com.pgsa.trailers.dto.*;
 import com.pgsa.trailers.entity.inventory.*;
 import com.pgsa.trailers.repository.*;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +41,8 @@ public class DriverIssueService {
     private final DriverIssueItemRepository driverIssueItemRepository;
     private final InventoryItemRepository inventoryItemRepository;
     private final StockMovementRepository stockMovementRepository;
+    // Used to lock inventory rows (SELECT ... FOR UPDATE) without needing a custom repository method
+    private final EntityManager entityManager;
 
     // ============================================================
     // ISSUE
@@ -293,8 +297,11 @@ public class DriverIssueService {
     private Map<Long, InventoryItem> lockItems(Collection<Long> itemIds) {
         Map<Long, InventoryItem> locked = new HashMap<>();
         for (Long id : new TreeSet<>(itemIds)) {
-            locked.put(id, inventoryItemRepository.findByIdForUpdate(id)
-                    .orElseThrow(() -> new RuntimeException("Item not found: " + id)));
+            InventoryItem item = entityManager.find(InventoryItem.class, id, LockModeType.PESSIMISTIC_WRITE);
+            if (item == null) {
+                throw new RuntimeException("Item not found: " + id);
+            }
+            locked.put(id, item);
         }
         return locked;
     }
