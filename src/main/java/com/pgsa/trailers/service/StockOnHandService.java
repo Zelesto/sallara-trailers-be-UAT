@@ -1,9 +1,7 @@
 package com.pgsa.trailers.service;
 
 import com.pgsa.trailers.dto.StockOnHandDTO;
-import com.pgsa.trailers.dto.DriverDTO;
 import com.pgsa.trailers.dto.StockOnHandFilterDTO;
-import com.pgsa.trailers.entity.assets.Driver;
 import com.pgsa.trailers.entity.inventory.DriverIssue;
 import com.pgsa.trailers.entity.inventory.DriverIssueItem;
 import com.pgsa.trailers.entity.inventory.InventoryItem;
@@ -231,7 +229,10 @@ public class StockOnHandService {
         try {
             var driver = driverService.getDriverById(id);
             if (driver == null) return new Holder(HOLDER_DRIVER, id, fallback, fallback, "");
-            String name = driver.getFullName() != null ? driver.getFullName() : fallback;
+            // DriverDTO has no getFullName(); build it from first + last name
+            String full = ((driver.getFirstName() != null ? driver.getFirstName() : "") + " "
+                    + (driver.getLastName() != null ? driver.getLastName() : "")).trim();
+            String name = !full.isEmpty() ? full : fallback;
             String details = driver.getEmployeeId() != null ? "Employee #" + driver.getEmployeeId() : "";
             return new Holder(HOLDER_DRIVER, id, name, name, details);
         } catch (RuntimeException e) {
