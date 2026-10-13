@@ -352,7 +352,13 @@ public class FuelSlipService {
                 .collect(Collectors.toList());
     }
 
+
         @Transactional
+    
+            log.info("updateFuelSlip id={} requestedDate={} currentDate={}",
+                id, request.getTransactionDate(), existing.getTransactionDate());
+
+    
     public FuelSlipDTO updateFuelSlip(Long id, FuelSlipRequest request) {
         FuelSlip existing = fuelSlipRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Fuel slip not found with id: " + id));
