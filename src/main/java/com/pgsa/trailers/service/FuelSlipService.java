@@ -394,6 +394,15 @@ public class FuelSlipService {
         if (request.getPaymentMethod() != null) {
             existing.setPaymentMethod(request.getPaymentMethod());
         }
+        if (request.getTransactionDate() != null) {
+            existing.setTransactionDate(request.getTransactionDate());
+        }
+        if (request.getPumpNumber() != null) {
+            existing.setPumpNumber(request.getPumpNumber());
+        }
+        if (request.getReceiptNumber() != null) {
+            existing.setReceiptNumber(request.getReceiptNumber());
+        }
 
         Map<String, Object> auditTrail = existing.getAuditTrail() != null ? existing.getAuditTrail() : new HashMap<>();
         auditTrail.put("lastUpdated", LocalDateTime.now().toString());
