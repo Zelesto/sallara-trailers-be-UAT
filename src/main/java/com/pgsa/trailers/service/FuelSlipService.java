@@ -352,13 +352,38 @@ public class FuelSlipService {
                 .collect(Collectors.toList());
     }
 
-    @Transactional
+        @Transactional
     public FuelSlipDTO updateFuelSlip(Long id, FuelSlipRequest request) {
         FuelSlip existing = fuelSlipRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Fuel slip not found with id: " + id));
 
-        if (existing.isFinalized()) {
+        if (Boolean.TRUE.equals(existing.getFinalized())) {
             throw new RuntimeException("Cannot update a finalized fuel slip");
+        }
+
+        Map<String, Object> auditTrail = existing.getAuditTrail() != null ? existing.getAuditTrail() : new HashMap<>();
+
+        // Vehicle / driver: only by ID on update (never auto-create records from free text here)
+        if (request.getVehicleId() != null
+                && (existing.getVehicle() == null || !request.getVehicleId().equals(existing.getVehicle().getId()))) {
+            Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
+                    .orElseThrow(() -> new RuntimeException("Vehicle not found with id: " + request.getVehicleId()));
+            auditTrail.put("previousVehicleId", existing.getVehicle() != null ? existing.getVehicle().getId() : null);
+            existing.setVehicle(vehicle);
+        }
+        if (request.getDriverId() != null
+                && (existing.getDriver() == null || !request.getDriverId().equals(existing.getDriver().getId()))) {
+            Driver driver = driverRepository.findById(request.getDriverId())
+                    .orElseThrow(() -> new RuntimeException("Driver not found with id: " + request.getDriverId()));
+            auditTrail.put("previousDriverId", existing.getDriver() != null ? existing.getDriver().getId() : null);
+            existing.setDriver(driver);
+        }
+        if (request.getTripId() != null && !request.getTripId().equals(existing.getTripId())) {
+            auditTrail.put("previousTripId", existing.getTripId());
+            existing.setTripId(request.getTripId());
+        }
+        if (request.getLoadId() != null) {
+            existing.setLoadId(request.getLoadId());
         }
 
         if (request.getQuantity() != null) {
@@ -367,16 +392,13 @@ public class FuelSlipService {
         if (request.getUnitPrice() != null) {
             existing.setUnitPrice(new BigDecimal(request.getUnitPrice().toString()));
         }
-        if (request.getQuantity() != null && request.getUnitPrice() != null) {
-            BigDecimal total = new BigDecimal(request.getQuantity().toString())
-                    .multiply(new BigDecimal(request.getUnitPrice().toString()));
-            existing.setTotalAmount(total);
+        if (request.getQuantity() != null || request.getUnitPrice() != null) {
+            existing.setTotalAmount(existing.calculateTotalAmount()); // uses stored value for whichever wasn't sent
         }
 
         if (request.getOdometerReading() != null) {
             existing.setOdometerReading(new BigDecimal(request.getOdometerReading().toString()));
         }
-
         if (request.getLocation() != null) {
             existing.setLocation(request.getLocation());
         }
@@ -386,15 +408,15 @@ public class FuelSlipService {
         if (request.getNotes() != null) {
             existing.setNotes(request.getNotes());
         }
-
         if (request.getFuelType() != null) {
             existing.setFuelType(request.getFuelType());
         }
-
         if (request.getPaymentMethod() != null) {
             existing.setPaymentMethod(request.getPaymentMethod());
         }
-        if (request.getTransactionDate() != null) {
+        if (request.getTransactionDate() != null
+                && !request.getTransactionDate().equals(existing.getTransactionDate())) {
+            auditTrail.put("previousTransactionDate", String.valueOf(existing.getTransactionDate()));
             existing.setTransactionDate(request.getTransactionDate());
         }
         if (request.getPumpNumber() != null) {
@@ -404,7 +426,6 @@ public class FuelSlipService {
             existing.setReceiptNumber(request.getReceiptNumber());
         }
 
-        Map<String, Object> auditTrail = existing.getAuditTrail() != null ? existing.getAuditTrail() : new HashMap<>();
         auditTrail.put("lastUpdated", LocalDateTime.now().toString());
         auditTrail.put("updateAction", "UPDATED");
         existing.setAuditTrail(auditTrail);
@@ -415,6 +436,7 @@ public class FuelSlipService {
         FuelSlip updated = fuelSlipRepository.save(existing);
         return FuelSlipDTO.fromEntity(updated);
     }
+
 
     @Transactional
     public void deleteFuelSlip(Long id) {
