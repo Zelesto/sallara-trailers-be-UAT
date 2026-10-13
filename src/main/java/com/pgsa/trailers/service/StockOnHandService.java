@@ -1,8 +1,9 @@
 package com.pgsa.trailers.service;
 
 import com.pgsa.trailers.dto.StockOnHandDTO;
-import com.pgsa.trailers.dto.Driver;
+import com.pgsa.trailers.dto.DriverDTO;
 import com.pgsa.trailers.dto.StockOnHandFilterDTO;
+import com.pgsa.trailers.entity.Driver;
 import com.pgsa.trailers.entity.inventory.DriverIssue;
 import com.pgsa.trailers.entity.inventory.DriverIssueItem;
 import com.pgsa.trailers.entity.inventory.InventoryItem;
