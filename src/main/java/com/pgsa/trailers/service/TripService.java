@@ -15,7 +15,6 @@ import com.pgsa.trailers.entity.ops.auto.TripCompletedEvent;
 import com.pgsa.trailers.entity.ops.auto.TripPlannedEvent;
 import com.pgsa.trailers.entity.ops.auto.TripStartedEvent;
 import com.pgsa.trailers.entity.suppliers.TripValidationException;
-import com.pgsa.trailers.entity.billing.TripBilling;
 import com.pgsa.trailers.repository.CustomerRepository;
 import com.pgsa.trailers.repository.DriverRepository;
 import com.pgsa.trailers.repository.LoadRepository;
@@ -29,6 +28,7 @@ import com.pgsa.trailers.service.util.TripNumberGenerator;
 import com.pgsa.trailers.service.util.TripValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -80,6 +80,14 @@ public class TripService {
 
     @PersistenceContext
     private EntityManager entityManager;
+
+    /**
+     * Feature flag for trip billing. Defaults to OFF until the billing tables exist.
+     * Enable with app.billing.enabled=true (or env APP_BILLING_ENABLED=true).
+     * Non-final so Lombok's @RequiredArgsConstructor leaves it to field injection.
+     */
+    @Value("${app.billing.enabled:false}")
+    private boolean billingEnabled;
 
     private static final String LOAD_REF_SEQUENCE_NAME = "loadref";
     private static final String TRIP_SEQUENCE_NAME = "trip";
@@ -655,13 +663,20 @@ public CompletableFuture<Trip> calculateTripDistance(Long tripId) {
         log.info("💾 Saving trip to database...");
         Trip saved = tripRepository.save(trip);
     
-        // ✅ Calculate estimated billing immediately after creation
-        try {
-            billingCalculatorService.calculateTripBilling(saved.getId(), userId);
-            log.info("💰 Estimated billing calculated for trip {}", saved.getId());
-        } catch (Exception e) {
-            log.error("❌ Failed to calculate estimated billing: {}", e.getMessage(), e);
-            // Don't fail trip creation
+        // ✅ Calculate estimated billing immediately after creation (only when enabled).
+        // NOTE: a try/catch here does NOT protect the trip if billing SQL fails inside this
+        // transaction (PostgreSQL aborts the tx / Spring marks it rollback-only), so the
+        // call must be skipped entirely while billing tables are absent.
+        if (billingEnabled) {
+            try {
+                billingCalculatorService.calculateTripBilling(saved.getId(), userId);
+                log.info("💰 Estimated billing calculated for trip {}", saved.getId());
+            } catch (Exception e) {
+                log.error("❌ Failed to calculate estimated billing: {}", e.getMessage(), e);
+                // Don't fail trip creation
+            }
+        } else {
+            log.debug("⏭️ Trip billing disabled (app.billing.enabled=false); skipping estimate for trip {}", saved.getId());
         }
     
         if (load != null && load.getId() != null) {
@@ -752,14 +767,18 @@ public TripResponse endTrip(Long tripId, BigDecimal actualEndOdometer, Long user
     eventPublisher.publishEvent(new TripCompletedEvent(tripId));
     log.info("Trip {} completed. Distance: {} km", tripId, trip.getActualDistanceKm());
 
-    // ✅ Calculate billing in a separate transaction to avoid rollback issues
-    try {
-        // Use a new transaction for billing calculation
-        billingCalculatorService.calculateTripBillingInNewTransaction(tripId, userId);
-        log.info("💰 Billing calculated for trip {}", tripId);
-    } catch (Exception e) {
-        // ✅ Log error but don't rollback the trip transaction
-        log.error("❌ Failed to calculate billing for trip {}: {}", tripId, e.getMessage(), e);
+    // ✅ Calculate billing in a separate transaction to avoid rollback issues (only when enabled)
+    if (billingEnabled) {
+        try {
+            // Use a new transaction for billing calculation
+            billingCalculatorService.calculateTripBillingInNewTransaction(tripId, userId);
+            log.info("💰 Billing calculated for trip {}", tripId);
+        } catch (Exception e) {
+            // ✅ Log error but don't rollback the trip transaction
+            log.error("❌ Failed to calculate billing for trip {}: {}", tripId, e.getMessage(), e);
+        }
+    } else {
+        log.debug("⏭️ Trip billing disabled (app.billing.enabled=false); skipping billing for trip {}", tripId);
     }
 
     return tripResponseMapper.toResponse(updated);
