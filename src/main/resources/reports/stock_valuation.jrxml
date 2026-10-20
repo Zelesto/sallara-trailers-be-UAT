@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xmlns:jr="http://jasperreports.sourceforge.net/jasperreports/components"
+              xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd http://jasperreports.sourceforge.net/jasperreports/components http://jasperreports.sourceforge.net/xsd/components.xsd"
+              name="Stock Valuation" language="groovy"
+              pageWidth="842" pageHeight="595" orientation="Landscape"
+              columnWidth="802" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20">
+
+    <parameter name="companyName" class="java.lang.String"/>
+    <parameter name="reportTitle" class="java.lang.String"/>
+    <parameter name="logoUrl" class="java.lang.String"/>
+    <parameter name="groupBy" class="java.lang.String"/>
+    <parameter name="locationName" class="java.lang.String"/>
+    <parameter name="categoryFilter" class="java.lang.String"/>
+    <parameter name="grandTotal" class="java.lang.Double"/>
+    <parameter name="totalItems" class="java.lang.Integer"/>
+    <parameter name="totalQuantity" class="java.lang.Integer"/>
+    <parameter name="groups" class="java.util.List"/>
+    <parameter name="reportGenerated" class="java.lang.String"/>
+
+    <subDataset name="groupsDataset">
+        <field name="groupKey" class="java.lang.String"/>
+        <field name="groupLabel" class="java.lang.String"/>
+        <field name="itemCount" class="java.lang.Integer"/>
+        <field name="totalQuantity" class="java.lang.Integer"/>
+        <field name="totalValue" class="java.lang.Double"/>
+        <field name="sharePercent" class="java.lang.Double"/>
+    </subDataset>
+
+    <style name="Title" fontName="Arial" fontSize="18" isBold="true" forecolor="#111827"/>
+    <style name="Subtitle" fontName="Arial" fontSize="13" isBold="true" forecolor="#115E59"/>
+    <style name="Label" fontName="Arial" fontSize="8" forecolor="#6B7280"/>
+    <style name="Footer" fontName="Arial" fontSize="8" forecolor="#9CA3AF"/>
+    <style name="StatValue" fontName="Arial" fontSize="14" isBold="true"/>
+    <style name="StatLabel" fontName="Arial" fontSize="7" forecolor="#6B7280"/>
+
+    <title>
+        <band height="160">
+            <rectangle>
+                <reportElement x="0" y="0" width="802" height="100" backcolor="#F0FDFA" mode="Opaque"/>
+                <graphicElement><pen lineWidth="0"/></graphicElement>
+            </rectangle>
+
+            <image>
+                <reportElement x="20" y="15" width="60" height="60"/>
+                <imageExpression><![CDATA[$P{logoUrl}]]></imageExpression>
+            </image>
+
+            <textField>
+                <reportElement x="100" y="18" width="500" height="25"/>
+                <textElement style="Title"/>
+                <textFieldExpression><![CDATA[$P{companyName} + " Trailers"]]></textFieldExpression>
+            </textField>
+
+            <textField>
+                <reportElement x="100" y="42" width="500" height="20"/>
+                <textElement style="Subtitle"/>
+                <textFieldExpression><![CDATA[$P{reportTitle}]]></textFieldExpression>
+            </textField>
+
+            <textField>
+                <reportElement x="100" y="68" width="602" height="14"/>
+                <textElement style="Label"/>
+                <textFieldExpression><![CDATA["Location: " + $P{locationName} + "   •   Category: " + $P{categoryFilter} + "   •   Group By: " + $P{groupBy}]]></textFieldExpression>
+            </textField>
+
+            <textField>
+                <reportElement x="602" y="82" width="200" height="12"/>
+                <textElement textAlignment="Right" style="Footer"/>
+                <textFieldExpression><![CDATA["Generated: " + $P{reportGenerated}]]></textFieldExpression>
+            </textField>
+
+            <!-- Stats row -->
+            <rectangle>
+                <reportElement x="20" y="110" width="200" height="42" backcolor="#CCFBF1" mode="Opaque"/>
+                <graphicElement><pen lineWidth="0"/></graphicElement>
+            </rectangle>
+            <textField>
+                <reportElement x="20" y="114" width="200" height="20"/>
+                <textElement textAlignment="Center" style="StatValue"><font forecolor="#115E59"/></textElement>
+                <textFieldExpression><![CDATA[String.format("R %.2f", $P{grandTotal})]]></textFieldExpression>
+            </textField>
+            <staticText>
+                <reportElement x="20" y="134" width="200" height="12"/>
+                <textElement textAlignment="Center" style="StatLabel"><font forecolor="#115E59"/></textElement>
+                <text><![CDATA[GRAND TOTAL]]></text>
+            </staticText>
+
+            <rectangle>
+                <reportElement x="230" y="110" width="180" height="42" backcolor="#DBEAFE" mode="Opaque"/>
+                <graphicElement><pen lineWidth="0"/></graphicElement>
+            </rectangle>
+            <textField>
+                <reportElement x="230" y="114" width="180" height="20"/>
+                <textElement textAlignment="Center" style="StatValue"><font forecolor="#1E40AF"/></textElement>
+                <textFieldExpression><![CDATA[$P{totalItems}]]></textFieldExpression>
+            </textField>
+            <staticText>
+                <reportElement x="230" y="134" width="180" height="12"/>
+                <textElement textAlignment="Center" style="StatLabel"><font forecolor="#1E40AF"/></textElement>
+                <text><![CDATA[TOTAL ITEMS]]></text>
+            </staticText>
+
+            <rectangle>
+                <reportElement x="420" y="110" width="180" height="42" backcolor="#E0E7FF" mode="Opaque"/>
+                <graphicElement><pen lineWidth="0"/></graphicElement>
+            </rectangle>
+            <textField>
+                <reportElement x="420" y="114" width="180" height="20"/>
+                <textElement textAlignment="Center" style="StatValue"><font forecolor="#3730A3"/></textElement>
+                <textFieldExpression><![CDATA[$P{totalQuantity}]]></textFieldExpression>
+            </textField>
+            <staticText>
+                <reportElement x="420" y="134" width="180" height="12"/>
+                <textElement textAlignment="Center" style="StatLabel"><font forecolor="#3730A3"/></textElement>
+                <text><![CDATA[TOTAL QUANTITY]]></text>
+            </staticText>
+
+            <rectangle>
+                <reportElement x="610" y="110" width="180" height="42" backcolor="#F1F5F9" mode="Opaque"/>
+                <graphicElement><pen lineWidth="0"/></graphicElement>
+            </rectangle>
+            <textField>
+                <reportElement x="610" y="114" width="180" height="20"/>
+                <textElement textAlignment="Center" style="StatValue"><font forecolor="#334155"/></textElement>
+                <textFieldExpression><![CDATA[$P{groupBy}]]></textFieldExpression>
+            </textField>
+            <staticText>
+                <reportElement x="610" y="134" width="180" height="12"/>
+                <textElement textAlignment="Center" style="StatLabel"><font forecolor="#334155"/></textElement>
+                <text><![CDATA[GROUPED BY]]></text>
+            </staticText>
+        </band>
+    </title>
+
+    <detail>
+        <band height="20">
+            <componentElement>
+                <reportElement x="0" y="0" width="802" height="20"/>
+                <jr:table xmlns:jr="http://jasperreports.sourceforge.net/jasperreports/components">
+                    <datasetRun subDataset="groupsDataset">
+                        <dataSourceExpression><![CDATA[new net.sf.jasperreports.engine.data.JRMapCollectionDataSource($P{groups})]]></dataSourceExpression>
+                    </datasetRun>
+
+                    <jr:column width="302">
+                        <jr:columnHeader height="22" rowSpan="1">
+                            <staticText>
+                                <reportElement x="0" y="0" width="302" height="22" backcolor="#F3F4F6" mode="Opaque"/>
+                                <box><bottomPen lineWidth="1" lineColor="#E5E7EB"/></box>
+                                <textElement fontSize="8" isBold="true" verticalAlignment="Middle" forecolor="#374151"/>
+                                <text><![CDATA[Group]]></text>
+                            </staticText>
+                        </jr:columnHeader>
+                        <jr:detailCell height="18">
+                            <textField>
+                                <reportElement x="0" y="0" width="302" height="18"/>
+                                <box><bottomPen lineWidth="0.5" lineColor="#F3F4F6"/></box>
+                                <textElement fontSize="8" verticalAlignment="Middle" isBold="true"/>
+                                <textFieldExpression><![CDATA[$F{groupLabel}]]></textFieldExpression>
+                            </textField>
+                        </jr:detailCell>
+                    </jr:column>
+
+                    <jr:column width="100">
+                        <jr:columnHeader height="22" rowSpan="1">
+                            <staticText>
+                                <reportElement x="0" y="0" width="100" height="22" backcolor="#F3F4F6" mode="Opaque"/>
+                                <box><bottomPen lineWidth="1" lineColor="#E5E7EB"/></box>
+                                <textElement fontSize="8" isBold="true" verticalAlignment="Middle" textAlignment="Right" forecolor="#374151"/>
+                                <text><![CDATA[Items]]></text>
+                            </staticText>
+                        </jr:columnHeader>
+                        <jr:detailCell height="18">
+                            <textField>
+                                <reportElement x="0" y="0" width="100" height="18"/>
+                                <box><bottomPen lineWidth="0.5" lineColor="#F3F4F6"/></box>
+                                <textElement fontSize="8" verticalAlignment="Middle" textAlignment="Right"/>
+                                <textFieldExpression><![CDATA[$F{itemCount}]]></textFieldExpression>
+                            </textField>
+                        </jr:detailCell>
+                    </jr:column>
+
+                    <jr:column width="120">
+                        <jr:columnHeader height="22" rowSpan="1">
+                            <staticText>
+                                <reportElement x="0" y="0" width="120" height="22" backcolor="#F3F4F6" mode="Opaque"/>
+                                <box><bottomPen lineWidth="1" lineColor="#E5E7EB"/></box>
+                                <textElement fontSize="8" isBold="true" verticalAlignment="Middle" textAlignment="Right" forecolor="#374151"/>
+                                <text><![CDATA[Quantity]]></text>
+                            </staticText>
+                        </jr:columnHeader>
+                        <jr:detailCell height="18">
+                            <textField>
+                                <reportElement x="0" y="0" width="120" height="18"/>
+                                <box><bottomPen lineWidth="0.5" lineColor="#F3F4F6"/></box>
+                                <textElement fontSize="8" verticalAlignment="Middle" textAlignment="Right"/>
+                                <textFieldExpression><![CDATA[$F{totalQuantity}]]></textFieldExpression>
+                            </textField>
+                        </jr:detailCell>
+                    </jr:column>
+
+                    <jr:column width="160">
+                        <jr:columnHeader height="22" rowSpan="1">
+                            <staticText>
+                                <reportElement x="0" y="0" width="160" height="22" backcolor="#F3F4F6" mode="Opaque"/>
+                                <box><bottomPen lineWidth="1" lineColor="#E5E7EB"/></box>
+                                <textElement fontSize="8" isBold="true" verticalAlignment="Middle" textAlignment="Right" forecolor="#374151"/>
+                                <text><![CDATA[Value]]></text>
+                            </staticText>
+                        </jr:columnHeader>
+                        <jr:detailCell height="18">
+                            <textField pattern="R #,##0.00">
+                                <reportElement x="0" y="0" width="160" height="18"/>
+                                <box><bottomPen lineWidth="0.5" lineColor="#F3F4F6"/></box>
+                                <textElement fontSize="8" verticalAlignment="Middle" textAlignment="Right" isBold="true"/>
+                                <textFieldExpression><![CDATA[$F{totalValue}]]></textFieldExpression>
+                            </textField>
+                        </jr:detailCell>
+                    </jr:column>
+
+                    <jr:column width="120">
+                        <jr:columnHeader height="22" rowSpan="1">
+                            <staticText>
+                                <reportElement x="0" y="0" width="120" height="22" backcolor="#F3F4F6" mode="Opaque"/>
+                                <box><bottomPen lineWidth="1" lineColor="#E5E7EB"/></box>
+                                <textElement fontSize="8" isBold="true" verticalAlignment="Middle" textAlignment="Right" forecolor="#374151"/>
+                                <text><![CDATA[Share]]></text>
+                            </staticText>
+                        </jr:columnHeader>
+                        <jr:detailCell height="18">
+                            <textField pattern="#,##0.0'%'">
+                                <reportElement x="0" y="0" width="120" height="18"/>
+                                <box><bottomPen lineWidth="0.5" lineColor="#F3F4F6"/></box>
+                                <textElement fontSize="8" verticalAlignment="Middle" textAlignment="Right"/>
+                                <textFieldExpression><![CDATA[$F{sharePercent}]]></textFieldExpression>
+                            </textField>
+                        </jr:detailCell>
+                    </jr:column>
+
+                    <jr:noData>
+                        <staticText>
+                            <reportElement x="0" y="0" width="802" height="40"/>
+                            <textElement textAlignment="Center" verticalAlignment="Middle" fontSize="10" forecolor="#6B7280"/>
+                            <text><![CDATA[No items found for valuation]]></text>
+                        </staticText>
+                    </jr:noData>
+                </jr:table>
+            </componentElement>
+        </band>
+    </detail>
+
+    <pageFooter>
+        <band height="25">
+            <textField>
+                <reportElement x="20" y="8" width="200" height="12"/>
+                <textElement style="Footer"/>
+                <textFieldExpression><![CDATA["Page " + $V{PAGE_NUMBER}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="602" y="8" width="200" height="12"/>
+                <textElement textAlignment="Right" style="Footer"/>
+                <textFieldExpression><![CDATA[$P{reportGenerated}]]></textFieldExpression>
+            </textField>
+        </band>
+    </pageFooter>
+</jasperReport>
