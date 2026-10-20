@@ -1037,7 +1037,10 @@ private String generateLoadHTML(LoadReportDTO load) {
             Map<String, Object> r = new HashMap<>();
             r.put("createdAt", m.getCreatedAt() != null
                     ? m.getCreatedAt().format(TIME_FORMATTER) : "—");
-            r.put("itemName", safe(m.getItemName()));
+            Object _iid = m.getItemId();
+r.put("itemName", _iid instanceof Number
+        ? inventoryItemRepository.findById(((Number) _iid).longValue()).map(InventoryItem::getName).orElse("—")
+        : "—");
             r.put("movementType", type);
             r.put("quantity", qty);
             r.put("reason", safe(m.getReason()));
@@ -1293,7 +1296,7 @@ private String generateLoadHTML(LoadReportDTO load) {
                 if (!matchesStatus(v.getStatus(), status)) continue;
                 Map<String, Object> row = baseIssueRow(v.getId(), v.getIssueNumber(), "Vehicle",
                         v.getVehicleId(), null, v.getDriverId(), v.getStatus(),
-                        v.getIssueDate(), v.getNotes(), v.getItems());
+                        v.getIssueDate(), v.getNotes(), v.getIssueItems());
                 issueRows.add(row);
             }
         }
@@ -1304,7 +1307,7 @@ private String generateLoadHTML(LoadReportDTO load) {
                 if (!matchesStatus(d.getStatus(), status)) continue;
                 Map<String, Object> row = baseIssueRow(d.getId(), d.getIssueNumber(), "Driver",
                         null, null, d.getDriverId(), d.getStatus(),
-                        d.getIssueDate(), d.getNotes(), d.getItems());
+                        d.getIssueDate(), d.getNotes(), d.getIssueItems());
                 issueRows.add(row);
             }
         }
@@ -1490,9 +1493,10 @@ private String generateLoadHTML(LoadReportDTO load) {
         List<Map<String, Object>> issueRows = new ArrayList<>();
         int totalIssued = 0, totalReturned = 0;
         for (VehicleIssue v : vehicleIssueRepository.findAll()) {
-            if (v.getItems() == null) continue;
-            Map<String, Object> line = findItemLine(v.getItems(), itemId);
-            if (line == null) continue;
+    List<?> vItems = getIssueItems(v);
+    if (vItems.isEmpty()) continue;
+    Map<String, Object> line = findItemLine(vItems, itemId);
+    if (line == null) continue;
             int issued = intOf(line.get("quantityIssued"));
             int returned = intOf(line.get("quantityReturned"));
             totalIssued += issued;
@@ -1513,9 +1517,10 @@ private String generateLoadHTML(LoadReportDTO load) {
             issueRows.add(r);
         }
         for (DriverIssue d : driverIssueRepository.findAll()) {
-            if (d.getItems() == null) continue;
-            Map<String, Object> line = findItemLine(d.getItems(), itemId);
-            if (line == null) continue;
+    List<?> dItems = getIssueItems(d);
+    if (dItems.isEmpty()) continue;
+    Map<String, Object> line = findItemLine(dItems, itemId);
+    if (line == null) continue;
             int issued = intOf(line.get("quantityIssued"));
             int returned = intOf(line.get("quantityReturned"));
             totalIssued += issued;
@@ -1687,12 +1692,20 @@ private String generateLoadHTML(LoadReportDTO load) {
     // ============================================================
 
     private Map<Long, String> loadLocationNames() {
-        Map<Long, String> map = new HashMap<>();
-        for (Location l : locationRepository.findAll()) {
-            map.put(l.getId(), l.getName());
+    Map<Long, String> map = new HashMap<>();
+    try {
+        for (Object l : locationRepository.findAll()) {
+            Object id = invokeGetter(l, "getId");
+            Object name = invokeGetter(l, "getName");
+            if (id instanceof Number n && name != null) {
+                map.put(n.longValue(), name.toString());
+            }
         }
-        return map;
+    } catch (Exception e) {
+        log.warn("Failed to load location names: {}", e.getMessage());
     }
+    return map;
+}
 
     private boolean matchesStatusFilter(InventoryItem i, String status) {
         int qty = intOf(i.getQuantity());
@@ -2019,6 +2032,19 @@ private String generateLoadHTML(LoadReportDTO load) {
             default -> "#F3F4F6";
         };
     }
+
+    /**
+ * Resolves the items collection on a VehicleIssue / DriverIssue using reflection,
+ * so this code doesn't break if the entity method name changes.
+ */
+private List<?> getIssueItems(Object issue) {
+    if (issue == null) return java.util.Collections.emptyList();
+    for (String name : new String[]{"getItems", "getIssueItems", "getIssueLines", "getLines"}) {
+        Object v = invokeGetter(issue, name);
+        if (v instanceof List<?> list) return list;
+    }
+    return java.util.Collections.emptyList();
+}
 
     private String getStatusTextColor(String status) {
         if (status == null) return "#6B7280";
