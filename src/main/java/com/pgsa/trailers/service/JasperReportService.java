@@ -16,22 +16,25 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
 @Slf4j
 public class JasperReportService {
 
-    private static final DateTimeFormatter DATE_FORMATTER = 
+    private static final DateTimeFormatter DATE_FORMATTER =
         DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm");
 
-    private static final String LOGO_URL = 
+    private static final String LOGO_URL =
         "https://trailers-backend.onrender.com/logo.png";
 
-    /**
-     * Generate Trip Report PDF
-     */
+    // ============================================================
+    // EXISTING REPORTS — trips / loads / fuel
+    // ============================================================
+
     public byte[] generateTripReportPDF(Map<String, Object> data) {
         try {
             log.info("📄 Generating PDF trip report");
@@ -42,9 +45,6 @@ public class JasperReportService {
         }
     }
 
-    /**
-     * Generate Load Report PDF
-     */
     public byte[] generateLoadReportPDF(Map<String, Object> data) {
         try {
             log.info("📄 Generating PDF load report");
@@ -55,9 +55,6 @@ public class JasperReportService {
         }
     }
 
-    /**
-     * Generate Fuel Report PDF
-     */
     public byte[] generateFuelReportPDF(Map<String, Object> data) {
         try {
             log.info("📄 Generating PDF fuel report");
@@ -68,23 +65,84 @@ public class JasperReportService {
         }
     }
 
-    /**
-     * Generic PDF generation method
-     * 
-     * @throws JRException if Jasper report generation fails
-     * @throws IOException if template file cannot be read
-     */
-    private byte[] generatePDF(String templateName, Map<String, Object> params) 
+    // ============================================================
+    // INVENTORY REPORTS (NEW)
+    // ============================================================
+
+    public byte[] generateStockOnHandReportPDF(Map<String, Object> data) {
+        try {
+            log.info("📄 Generating PDF stock-on-hand report");
+            return generatePDF("stock_on_hand.jrxml", buildStockOnHandParams(data));
+        } catch (JRException | IOException e) {
+            log.error("❌ Error generating PDF stock-on-hand report: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to generate PDF stock-on-hand report", e);
+        }
+    }
+
+    public byte[] generateLowStockReportPDF(Map<String, Object> data) {
+        try {
+            log.info("📄 Generating PDF low-stock report");
+            return generatePDF("low_stock.jrxml", buildLowStockParams(data));
+        } catch (JRException | IOException e) {
+            log.error("❌ Error generating PDF low-stock report: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to generate PDF low-stock report", e);
+        }
+    }
+
+    public byte[] generateInventoryMovementsReportPDF(Map<String, Object> data) {
+        try {
+            log.info("📄 Generating PDF inventory movements report");
+            return generatePDF("inventory_movements.jrxml", buildInventoryMovementsParams(data));
+        } catch (JRException | IOException e) {
+            log.error("❌ Error generating PDF inventory movements report: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to generate PDF inventory movements report", e);
+        }
+    }
+
+    public byte[] generateStockValuationReportPDF(Map<String, Object> data) {
+        try {
+            log.info("📄 Generating PDF stock valuation report");
+            return generatePDF("stock_valuation.jrxml", buildStockValuationParams(data));
+        } catch (JRException | IOException e) {
+            log.error("❌ Error generating PDF stock valuation report: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to generate PDF stock valuation report", e);
+        }
+    }
+
+    public byte[] generateInventoryIssuesReportPDF(Map<String, Object> data) {
+        try {
+            log.info("📄 Generating PDF inventory issues report");
+            return generatePDF("inventory_issues.jrxml", buildInventoryIssuesParams(data));
+        } catch (JRException | IOException e) {
+            log.error("❌ Error generating PDF inventory issues report: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to generate PDF inventory issues report", e);
+        }
+    }
+
+    public byte[] generateInventoryItemReportPDF(Map<String, Object> data) {
+        try {
+            log.info("📄 Generating PDF inventory item report");
+            return generatePDF("inventory_item.jrxml", buildInventoryItemParams(data));
+        } catch (JRException | IOException e) {
+            log.error("❌ Error generating PDF inventory item report: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to generate PDF inventory item report", e);
+        }
+    }
+
+    // ============================================================
+    // GENERIC PDF GENERATION (unchanged)
+    // ============================================================
+
+    private byte[] generatePDF(String templateName, Map<String, Object> params)
             throws JRException, IOException {
-        
-        // ✅ This can throw IOException - we declare it in the method signature
+
         InputStream templateStream = new ClassPathResource("reports/" + templateName).getInputStream();
-        
+
         JasperReport jasperReport = JasperCompileManager.compileReport(templateStream);
-        
+
         JasperPrint jasperPrint = JasperFillManager.fillReport(
-            jasperReport, 
-            params, 
+            jasperReport,
+            params,
             new JREmptyDataSource()
         );
 
@@ -103,7 +161,7 @@ public class JasperReportService {
     }
 
     // ============================================================
-    // PARAMETER BUILDERS
+    // PARAMETER BUILDERS — trips / loads / fuel (unchanged)
     // ============================================================
 
     private Map<String, Object> buildTripParams(Map<String, Object> data) {
@@ -175,12 +233,174 @@ public class JasperReportService {
     }
 
     // ============================================================
+    // PARAMETER BUILDERS — INVENTORY (NEW)
+    // ============================================================
+
+    private Map<String, Object> buildStockOnHandParams(Map<String, Object> data) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("companyName", "Trailers");
+        params.put("reportTitle", "Stock on Hand");
+        params.put("logoUrl", LOGO_URL);
+
+        // Filters shown in the header
+        params.put("locationName", getStringOr(data, "locationName", "All Locations"));
+        params.put("categoryFilter", getStringOr(data, "categoryFilter", "All Categories"));
+        params.put("statusFilter", getStringOr(data, "statusFilter", "All Statuses"));
+        params.put("searchTerm", getStringOr(data, "searchTerm", ""));
+        params.put("issueableTo", getStringOr(data, "issueableTo", "All"));
+        params.put("includeHeld", getYesNo(data, "includeHeld"));
+
+        // Summary band
+        params.put("totalItems", getInt(data, "totalItems"));
+        params.put("totalQuantity", getInt(data, "totalQuantity"));
+        params.put("totalValue", getDouble(data, "totalValue"));
+        params.put("lowStockCount", getInt(data, "lowStockCount"));
+        params.put("outOfStockCount", getInt(data, "outOfStockCount"));
+
+        // Detail band
+        params.put("items", getList(data, "items"));
+        params.put("reportGenerated", LocalDateTime.now().format(DATE_FORMATTER));
+        return params;
+    }
+
+    private Map<String, Object> buildLowStockParams(Map<String, Object> data) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("companyName", "Trailers");
+        params.put("reportTitle", "Low Stock / Reorder Report");
+        params.put("logoUrl", LOGO_URL);
+
+        params.put("locationName", getStringOr(data, "locationName", "All Locations"));
+        params.put("categoryFilter", getStringOr(data, "categoryFilter", "All Categories"));
+
+        params.put("totalItems", getInt(data, "totalItems"));
+        params.put("totalReorderValue", getDouble(data, "totalReorderValue"));
+
+        params.put("items", getList(data, "items"));
+        params.put("reportGenerated", LocalDateTime.now().format(DATE_FORMATTER));
+        return params;
+    }
+
+    private Map<String, Object> buildInventoryMovementsParams(Map<String, Object> data) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("companyName", "Trailers");
+        params.put("reportTitle", "Inventory Movements");
+        params.put("logoUrl", LOGO_URL);
+
+        params.put("startDate", getStringOr(data, "startDate", "Beginning"));
+        params.put("endDate", getStringOr(data, "endDate", "Today"));
+        params.put("movementType", getStringOr(data, "movementType", "All Types"));
+        params.put("approvalStatus", getStringOr(data, "approvalStatus", "All Statuses"));
+        params.put("itemName", getStringOr(data, "itemName", "All Items"));
+
+        params.put("totalMovements", getInt(data, "totalMovements"));
+        params.put("totalIn", getInt(data, "totalIn"));
+        params.put("totalOut", getInt(data, "totalOut"));
+        params.put("totalAdjustments", getInt(data, "totalAdjustments"));
+        params.put("totalPending", getInt(data, "totalPending"));
+        params.put("totalApproved", getInt(data, "totalApproved"));
+        params.put("totalRejected", getInt(data, "totalRejected"));
+
+        params.put("movements", getList(data, "movements"));
+        params.put("reportGenerated", LocalDateTime.now().format(DATE_FORMATTER));
+        return params;
+    }
+
+    private Map<String, Object> buildStockValuationParams(Map<String, Object> data) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("companyName", "Trailers");
+        params.put("reportTitle", "Stock Valuation");
+        params.put("logoUrl", LOGO_URL);
+
+        params.put("groupBy", getStringOr(data, "groupBy", "Category"));
+        params.put("locationName", getStringOr(data, "locationName", "All Locations"));
+        params.put("categoryFilter", getStringOr(data, "categoryFilter", "All Categories"));
+
+        params.put("grandTotal", getDouble(data, "grandTotal"));
+        params.put("totalItems", getInt(data, "totalItems"));
+        params.put("totalQuantity", getInt(data, "totalQuantity"));
+
+        params.put("groups", getList(data, "groups"));
+        params.put("reportGenerated", LocalDateTime.now().format(DATE_FORMATTER));
+        return params;
+    }
+
+    private Map<String, Object> buildInventoryIssuesParams(Map<String, Object> data) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("companyName", "Trailers");
+        params.put("reportTitle", "Inventory Issues Register");
+        params.put("logoUrl", LOGO_URL);
+
+        params.put("issueType", getStringOr(data, "issueType", "All Types"));
+        params.put("statusFilter", getStringOr(data, "statusFilter", "All Statuses"));
+        params.put("vehicleRegistration", getStringOr(data, "vehicleRegistration", "All Vehicles"));
+        params.put("driverName", getStringOr(data, "driverName", "All Drivers"));
+        params.put("startDate", getStringOr(data, "startDate", "Beginning"));
+        params.put("endDate", getStringOr(data, "endDate", "Today"));
+
+        params.put("totalIssues", getInt(data, "totalIssues"));
+        params.put("openIssues", getInt(data, "openIssues"));
+        params.put("partiallyReturnedIssues", getInt(data, "partiallyReturnedIssues"));
+        params.put("returnedIssues", getInt(data, "returnedIssues"));
+
+        params.put("issues", getList(data, "issues"));
+        params.put("reportGenerated", LocalDateTime.now().format(DATE_FORMATTER));
+        return params;
+    }
+
+    private Map<String, Object> buildInventoryItemParams(Map<String, Object> data) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("companyName", "Trailers");
+        params.put("reportTitle", "Inventory Item Detail");
+        params.put("logoUrl", LOGO_URL);
+
+        // Identity
+        params.put("sku", getString(data, "sku"));
+        params.put("name", getString(data, "name"));
+        params.put("category", getString(data, "category"));
+        params.put("unitOfMeasure", getString(data, "unitOfMeasure"));
+        params.put("locationName", getString(data, "locationName"));
+
+        // Stock levels
+        params.put("quantity", getInt(data, "quantity"));
+        params.put("minLevel", getInt(data, "minLevel"));
+        params.put("reorderLevel", getInt(data, "reorderLevel"));
+        params.put("unitCost", getDouble(data, "unitCost"));
+        params.put("currentValue", getDouble(data, "currentValue"));
+        params.put("statusLabel", getString(data, "statusLabel"));
+
+        // Flags (rendered as Yes / No)
+        params.put("isConsumable", getYesNo(data, "isConsumable"));
+        params.put("isDriverIssuable", getYesNo(data, "isDriverIssuable"));
+        params.put("isVehicleIssuable", getYesNo(data, "isVehicleIssuable"));
+        params.put("isHeld", getYesNo(data, "isHeld"));
+        params.put("isActive", getYesNo(data, "isActive"));
+
+        // Counters
+        params.put("totalMovements", getInt(data, "totalMovements"));
+        params.put("totalIssued", getInt(data, "totalIssued"));
+        params.put("totalReturned", getInt(data, "totalReturned"));
+        params.put("totalOutstanding", getInt(data, "totalOutstanding"));
+
+        // Notes + collections
+        params.put("notes", getStringOr(data, "notes", ""));
+        params.put("movements", getList(data, "movements"));
+        params.put("issues", getList(data, "issues"));
+
+        params.put("reportGenerated", LocalDateTime.now().format(DATE_FORMATTER));
+        return params;
+    }
+
+    // ============================================================
     // HELPER METHODS
     // ============================================================
 
     private String getString(Map<String, Object> data, String key) {
+        return getStringOr(data, key, "N/A");
+    }
+
+    private String getStringOr(Map<String, Object> data, String key, String defaultValue) {
         Object value = data.get(key);
-        return value != null ? value.toString() : "N/A";
+        return value != null ? value.toString() : defaultValue;
     }
 
     private Double getDouble(Map<String, Object> data, String key) {
@@ -197,5 +417,25 @@ public class JasperReportService {
             return ((Number) value).intValue();
         }
         return 0;
+    }
+
+    /** Formats a Boolean / "true" / "false" as "Yes" / "No" for PDF display. */
+    private String getYesNo(Map<String, Object> data, String key) {
+        Object value = data.get(key);
+        boolean flag;
+        if (value instanceof Boolean) {
+            flag = (Boolean) value;
+        } else if (value instanceof String) {
+            flag = Boolean.parseBoolean((String) value);
+        } else {
+            flag = false;
+        }
+        return flag ? "Yes" : "No";
+    }
+
+    /** Returns a List or an empty list — safe for Jasper detail bands that iterate. */
+    private List<?> getList(Map<String, Object> data, String key) {
+        Object value = data.get(key);
+        return value instanceof List ? (List<?>) value : Collections.emptyList();
     }
 }
