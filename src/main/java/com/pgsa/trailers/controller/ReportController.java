@@ -151,7 +151,7 @@ public class ReportController {
         value = "/inventory/movements",
         produces = MediaType.APPLICATION_JSON_VALUE
     )
-    public ResponseEntity<Map<String, Object>> generateInventoryMovementsReportHTML(
+    public ResponseEntity<Map<String, Object>> generateStockMovementsReportHTML(
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
             @RequestParam(required = false) String movementType,
@@ -163,7 +163,7 @@ public class ReportController {
                 startDate, endDate, itemId);
 
         try {
-            String rawHtml = reportService.generateInventoryMovementsReportHTML(
+            String rawHtml = reportService.generateStockMovementsReportHTML(
                     startDate, endDate, movementType, approvalStatus, itemId);
             return buildSuccessResponse(rawHtml);
 
@@ -372,7 +372,7 @@ public class ReportController {
         value = "/inventory/movements/pdf",
         produces = MediaType.APPLICATION_PDF_VALUE
     )
-    public ResponseEntity<byte[]> generateInventoryMovementsReportPDF(
+    public ResponseEntity<byte[]> generateStockMovementsReportPDF(
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
             @RequestParam(required = false) String movementType,
@@ -383,9 +383,9 @@ public class ReportController {
                 startDate, endDate, itemId);
 
         try {
-            Map<String, Object> data = reportService.getInventoryMovementsReportData(
+            Map<String, Object> data = reportService.getStockMovementsReportData(
                     startDate, endDate, movementType, approvalStatus, itemId);
-            byte[] pdf = jasperReportService.generateInventoryMovementsReportPDF(data);
+            byte[] pdf = jasperReportService.generateStockMovementsReportPDF(data);
             return buildPdfResponse(pdf, "inventory-movements.pdf");
 
         } catch (Exception e) {
