@@ -89,10 +89,10 @@ public class JasperReportService {
         }
     }
 
-    public byte[] generateInventoryMovementsReportPDF(Map<String, Object> data) {
+    public byte[] generateStockMovementsReportPDF(Map<String, Object> data) {
         try {
             log.info("📄 Generating PDF inventory movements report");
-            return generatePDF("inventory_movements.jrxml", buildInventoryMovementsParams(data));
+            return generatePDF("inventory_movements.jrxml", buildStockMovementsParams(data));
         } catch (JRException | IOException e) {
             log.error("❌ Error generating PDF inventory movements report: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to generate PDF inventory movements report", e);
@@ -280,7 +280,7 @@ public class JasperReportService {
         return params;
     }
 
-    private Map<String, Object> buildInventoryMovementsParams(Map<String, Object> data) {
+    private Map<String, Object> buildStockMovementsParams(Map<String, Object> data) {
         Map<String, Object> params = new HashMap<>();
         params.put("companyName", "Trailers");
         params.put("reportTitle", "Inventory Movements");
