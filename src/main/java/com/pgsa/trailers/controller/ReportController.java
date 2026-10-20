@@ -26,11 +26,11 @@ public class ReportController {
     private final ReportService reportService;
     private final JasperReportService jasperReportService;
 
-    private static final DateTimeFormatter DATE_FORMATTER = 
+    private static final DateTimeFormatter DATE_FORMATTER =
         DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm");
 
     // ============================================================
-    // HTML REPORTS
+    // HTML REPORTS — TRIPS / LOADS / FUEL
     // ============================================================
 
     @PostMapping(
@@ -45,16 +45,7 @@ public class ReportController {
 
         try {
             String rawHtml = reportService.generateTripReportHTML(tripNumber);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("format", "html");
-            response.put("content", rawHtml);
-            response.put("timestamp", LocalDateTime.now().format(DATE_FORMATTER));
-
-            return ResponseEntity.ok()
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(response);
+            return buildSuccessResponse(rawHtml);
 
         } catch (Exception e) {
             log.error("❌ Error generating trip report: {}", e.getMessage(), e);
@@ -74,16 +65,7 @@ public class ReportController {
 
         try {
             String rawHtml = reportService.generateLoadReportHTML(loadNumber);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("format", "html");
-            response.put("content", rawHtml);
-            response.put("timestamp", LocalDateTime.now().format(DATE_FORMATTER));
-
-            return ResponseEntity.ok()
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(response);
+            return buildSuccessResponse(rawHtml);
 
         } catch (Exception e) {
             log.error("❌ Error generating load report: {}", e.getMessage(), e);
@@ -105,16 +87,7 @@ public class ReportController {
 
         try {
             String rawHtml = reportService.generateFuelReportHTML(vehicleId, startDate, endDate);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("format", "html");
-            response.put("content", rawHtml);
-            response.put("timestamp", LocalDateTime.now().format(DATE_FORMATTER));
-
-            return ResponseEntity.ok()
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(response);
+            return buildSuccessResponse(rawHtml);
 
         } catch (Exception e) {
             log.error("❌ Error generating fuel report: {}", e.getMessage(), e);
@@ -123,7 +96,153 @@ public class ReportController {
     }
 
     // ============================================================
-    // PDF REPORTS (Jasper)
+    // INVENTORY — HTML REPORTS
+    // ============================================================
+
+    @PostMapping(
+        value = "/inventory/stock-on-hand",
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<Map<String, Object>> generateStockOnHandReportHTML(
+            @RequestParam(required = false) Long locationId,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String issueableTo,
+            @RequestParam(required = false) Boolean includeHeld,
+            @RequestParam(defaultValue = "html") String format) {
+
+        log.info("📊 Generating stock-on-hand report — location={}, category={}, status={}",
+                locationId, category, status);
+
+        try {
+            String rawHtml = reportService.generateStockOnHandReportHTML(
+                    locationId, category, status, search, issueableTo, includeHeld);
+            return buildSuccessResponse(rawHtml);
+
+        } catch (Exception e) {
+            log.error("❌ Error generating stock-on-hand report: {}", e.getMessage(), e);
+            return buildErrorResponse(e.getMessage());
+        }
+    }
+
+    @PostMapping(
+        value = "/inventory/low-stock",
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<Map<String, Object>> generateLowStockReportHTML(
+            @RequestParam(required = false) Long locationId,
+            @RequestParam(required = false) String category,
+            @RequestParam(defaultValue = "html") String format) {
+
+        log.info("📊 Generating low-stock report — location={}, category={}", locationId, category);
+
+        try {
+            String rawHtml = reportService.generateLowStockReportHTML(locationId, category);
+            return buildSuccessResponse(rawHtml);
+
+        } catch (Exception e) {
+            log.error("❌ Error generating low-stock report: {}", e.getMessage(), e);
+            return buildErrorResponse(e.getMessage());
+        }
+    }
+
+    @PostMapping(
+        value = "/inventory/movements",
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<Map<String, Object>> generateInventoryMovementsReportHTML(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) String movementType,
+            @RequestParam(required = false) String approvalStatus,
+            @RequestParam(required = false) Long itemId,
+            @RequestParam(defaultValue = "html") String format) {
+
+        log.info("📊 Generating inventory movements report — {} → {}, item={}",
+                startDate, endDate, itemId);
+
+        try {
+            String rawHtml = reportService.generateInventoryMovementsReportHTML(
+                    startDate, endDate, movementType, approvalStatus, itemId);
+            return buildSuccessResponse(rawHtml);
+
+        } catch (Exception e) {
+            log.error("❌ Error generating inventory movements report: {}", e.getMessage(), e);
+            return buildErrorResponse(e.getMessage());
+        }
+    }
+
+    @PostMapping(
+        value = "/inventory/valuation",
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<Map<String, Object>> generateStockValuationReportHTML(
+            @RequestParam(required = false) String groupBy,
+            @RequestParam(required = false) Long locationId,
+            @RequestParam(required = false) String category,
+            @RequestParam(defaultValue = "html") String format) {
+
+        log.info("📊 Generating stock valuation report — groupBy={}", groupBy);
+
+        try {
+            String rawHtml = reportService.generateStockValuationReportHTML(groupBy, locationId, category);
+            return buildSuccessResponse(rawHtml);
+
+        } catch (Exception e) {
+            log.error("❌ Error generating stock valuation report: {}", e.getMessage(), e);
+            return buildErrorResponse(e.getMessage());
+        }
+    }
+
+    @PostMapping(
+        value = "/inventory/issues",
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<Map<String, Object>> generateInventoryIssuesReportHTML(
+            @RequestParam(required = false) String issueType,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long vehicleId,
+            @RequestParam(required = false) Long driverId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(defaultValue = "html") String format) {
+
+        log.info("📊 Generating inventory issues report — type={}, status={}", issueType, status);
+
+        try {
+            String rawHtml = reportService.generateInventoryIssuesReportHTML(
+                    issueType, status, vehicleId, driverId, startDate, endDate);
+            return buildSuccessResponse(rawHtml);
+
+        } catch (Exception e) {
+            log.error("❌ Error generating inventory issues report: {}", e.getMessage(), e);
+            return buildErrorResponse(e.getMessage());
+        }
+    }
+
+    @PostMapping(
+        value = "/inventory/item/{itemId}",
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<Map<String, Object>> generateInventoryItemReportHTML(
+            @PathVariable Long itemId,
+            @RequestParam(defaultValue = "html") String format) {
+
+        log.info("📊 Generating inventory item report for item: {}", itemId);
+
+        try {
+            String rawHtml = reportService.generateInventoryItemReportHTML(itemId);
+            return buildSuccessResponse(rawHtml);
+
+        } catch (Exception e) {
+            log.error("❌ Error generating inventory item report: {}", e.getMessage(), e);
+            return buildErrorResponse(e.getMessage());
+        }
+    }
+
+    // ============================================================
+    // PDF REPORTS — TRIPS / LOADS / FUEL
     // ============================================================
 
     @PostMapping(
@@ -138,15 +257,7 @@ public class ReportController {
         try {
             Map<String, Object> data = reportService.getTripReportData(tripNumber);
             byte[] pdf = jasperReportService.generateTripReportPDF(data);
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentDispositionFormData("attachment", 
-                "trip-report-" + tripNumber + ".pdf");
-
-            return ResponseEntity.ok()
-                    .headers(headers)
-                    .body(pdf);
+            return buildPdfResponse(pdf, "trip-report-" + tripNumber + ".pdf");
 
         } catch (Exception e) {
             log.error("❌ Error generating PDF report: {}", e.getMessage(), e);
@@ -166,15 +277,7 @@ public class ReportController {
         try {
             Map<String, Object> data = reportService.getLoadReportData(loadNumber);
             byte[] pdf = jasperReportService.generateLoadReportPDF(data);
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentDispositionFormData("attachment", 
-                "load-report-" + loadNumber + ".pdf");
-
-            return ResponseEntity.ok()
-                    .headers(headers)
-                    .body(pdf);
+            return buildPdfResponse(pdf, "load-report-" + loadNumber + ".pdf");
 
         } catch (Exception e) {
             log.error("❌ Error generating PDF report: {}", e.getMessage(), e);
@@ -196,15 +299,8 @@ public class ReportController {
         try {
             Map<String, Object> data = reportService.getFuelReportData(vehicleId, startDate, endDate);
             byte[] pdf = jasperReportService.generateFuelReportPDF(data);
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentDispositionFormData("attachment", 
-                "fuel-report-" + (vehicleId != null ? vehicleId : "all") + ".pdf");
-
-            return ResponseEntity.ok()
-                    .headers(headers)
-                    .body(pdf);
+            return buildPdfResponse(pdf,
+                    "fuel-report-" + (vehicleId != null ? vehicleId : "all") + ".pdf");
 
         } catch (Exception e) {
             log.error("❌ Error generating PDF report: {}", e.getMessage(), e);
@@ -213,8 +309,185 @@ public class ReportController {
     }
 
     // ============================================================
+    // INVENTORY — PDF REPORTS
+    // ============================================================
+
+    @PostMapping(
+        value = "/inventory/stock-on-hand/pdf",
+        produces = MediaType.APPLICATION_PDF_VALUE
+    )
+    public ResponseEntity<byte[]> generateStockOnHandReportPDF(
+            @RequestParam(required = false) Long locationId,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String issueableTo,
+            @RequestParam(required = false) Boolean includeHeld) {
+
+        log.info("📄 Generating stock-on-hand PDF — location={}, category={}",
+                locationId, category);
+
+        try {
+            Map<String, Object> data = reportService.getStockOnHandReportData(
+                    locationId, category, status, search, issueableTo, includeHeld);
+            byte[] pdf = jasperReportService.generateStockOnHandReportPDF(data);
+
+            String filename = "stock-on-hand"
+                    + (locationId != null ? "-loc-" + locationId : "")
+                    + ".pdf";
+            return buildPdfResponse(pdf, filename);
+
+        } catch (Exception e) {
+            log.error("❌ Error generating stock-on-hand PDF: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @PostMapping(
+        value = "/inventory/low-stock/pdf",
+        produces = MediaType.APPLICATION_PDF_VALUE
+    )
+    public ResponseEntity<byte[]> generateLowStockReportPDF(
+            @RequestParam(required = false) Long locationId,
+            @RequestParam(required = false) String category) {
+
+        log.info("📄 Generating low-stock PDF — location={}, category={}", locationId, category);
+
+        try {
+            Map<String, Object> data = reportService.getLowStockReportData(locationId, category);
+            byte[] pdf = jasperReportService.generateLowStockReportPDF(data);
+
+            String filename = "low-stock"
+                    + (locationId != null ? "-loc-" + locationId : "")
+                    + ".pdf";
+            return buildPdfResponse(pdf, filename);
+
+        } catch (Exception e) {
+            log.error("❌ Error generating low-stock PDF: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @PostMapping(
+        value = "/inventory/movements/pdf",
+        produces = MediaType.APPLICATION_PDF_VALUE
+    )
+    public ResponseEntity<byte[]> generateInventoryMovementsReportPDF(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) String movementType,
+            @RequestParam(required = false) String approvalStatus,
+            @RequestParam(required = false) Long itemId) {
+
+        log.info("📄 Generating inventory movements PDF — {} → {}, item={}",
+                startDate, endDate, itemId);
+
+        try {
+            Map<String, Object> data = reportService.getInventoryMovementsReportData(
+                    startDate, endDate, movementType, approvalStatus, itemId);
+            byte[] pdf = jasperReportService.generateInventoryMovementsReportPDF(data);
+            return buildPdfResponse(pdf, "inventory-movements.pdf");
+
+        } catch (Exception e) {
+            log.error("❌ Error generating inventory movements PDF: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @PostMapping(
+        value = "/inventory/valuation/pdf",
+        produces = MediaType.APPLICATION_PDF_VALUE
+    )
+    public ResponseEntity<byte[]> generateStockValuationReportPDF(
+            @RequestParam(required = false) String groupBy,
+            @RequestParam(required = false) Long locationId,
+            @RequestParam(required = false) String category) {
+
+        log.info("📄 Generating stock valuation PDF — groupBy={}", groupBy);
+
+        try {
+            Map<String, Object> data = reportService.getStockValuationReportData(
+                    groupBy, locationId, category);
+            byte[] pdf = jasperReportService.generateStockValuationReportPDF(data);
+
+            String filename = "stock-valuation"
+                    + (groupBy != null && !groupBy.isBlank() ? "-by-" + groupBy : "")
+                    + ".pdf";
+            return buildPdfResponse(pdf, filename);
+
+        } catch (Exception e) {
+            log.error("❌ Error generating stock valuation PDF: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @PostMapping(
+        value = "/inventory/issues/pdf",
+        produces = MediaType.APPLICATION_PDF_VALUE
+    )
+    public ResponseEntity<byte[]> generateInventoryIssuesReportPDF(
+            @RequestParam(required = false) String issueType,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long vehicleId,
+            @RequestParam(required = false) Long driverId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+
+        log.info("📄 Generating inventory issues PDF — type={}, status={}", issueType, status);
+
+        try {
+            Map<String, Object> data = reportService.getInventoryIssuesReportData(
+                    issueType, status, vehicleId, driverId, startDate, endDate);
+            byte[] pdf = jasperReportService.generateInventoryIssuesReportPDF(data);
+
+            String filename = "inventory-issues"
+                    + (issueType != null && !issueType.isBlank() && !"both".equals(issueType)
+                        ? "-" + issueType
+                        : "")
+                    + ".pdf";
+            return buildPdfResponse(pdf, filename);
+
+        } catch (Exception e) {
+            log.error("❌ Error generating inventory issues PDF: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @PostMapping(
+        value = "/inventory/item/{itemId}/pdf",
+        produces = MediaType.APPLICATION_PDF_VALUE
+    )
+    public ResponseEntity<byte[]> generateInventoryItemReportPDF(
+            @PathVariable Long itemId) {
+
+        log.info("📄 Generating inventory item PDF for item: {}", itemId);
+
+        try {
+            Map<String, Object> data = reportService.getInventoryItemReportData(itemId);
+            byte[] pdf = jasperReportService.generateInventoryItemReportPDF(data);
+            return buildPdfResponse(pdf, "inventory-item-" + itemId + ".pdf");
+
+        } catch (Exception e) {
+            log.error("❌ Error generating inventory item PDF: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    // ============================================================
     // HELPER METHODS
     // ============================================================
+
+    private ResponseEntity<Map<String, Object>> buildSuccessResponse(String rawHtml) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("format", "html");
+        response.put("content", rawHtml);
+        response.put("timestamp", LocalDateTime.now().format(DATE_FORMATTER));
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(response);
+    }
 
     private ResponseEntity<Map<String, Object>> buildErrorResponse(String message) {
         Map<String, Object> errorResponse = new HashMap<>();
@@ -227,6 +500,15 @@ public class ReportController {
                 .body(errorResponse);
     }
 
+    private ResponseEntity<byte[]> buildPdfResponse(byte[] pdf, String filename) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData("attachment", filename);
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(pdf);
+    }
+
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> healthCheck() {
         Map<String, Object> response = new HashMap<>();
@@ -234,6 +516,7 @@ public class ReportController {
         response.put("birtAvailable", false);
         response.put("reportsAvailable", true);
         response.put("pdfReportsAvailable", true);
+        response.put("inventoryReportsAvailable", true);
         response.put("timestamp", LocalDateTime.now().format(DATE_FORMATTER));
         return ResponseEntity.ok(response);
     }
