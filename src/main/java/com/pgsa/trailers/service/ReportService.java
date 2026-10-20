@@ -50,8 +50,8 @@ public class ReportService {
 
     // ── New repos (inventory) ──────────────────────────────────
     private final InventoryItemRepository inventoryItemRepository;
-    private final LocationRepository locationRepository;
-    private final InventoryMovementRepository inventoryMovementRepository;
+    private final InventoryLocationRepository locationRepository;
+    private final StockMovementRepository inventoryMovementRepository;
     private final VehicleIssueRepository vehicleIssueRepository;
     private final DriverIssueRepository driverIssueRepository;
     private final DriverRepository driverRepository;
