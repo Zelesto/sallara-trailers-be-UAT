@@ -51,7 +51,7 @@ public class ReportService {
     // ── New repos (inventory) ──────────────────────────────────
     private final InventoryItemRepository inventoryItemRepository;
     private final InventoryLocationRepository locationRepository;
-    private final StockMovementRepository inventoryMovementRepository;
+    private final StockMovementRepository StockMovementRepository;
     private final VehicleIssueRepository vehicleIssueRepository;
     private final DriverIssueRepository driverIssueRepository;
     private final DriverRepository driverRepository;
@@ -550,11 +550,11 @@ public class ReportService {
     // INVENTORY — MOVEMENTS
     // ============================================================
     @Transactional(readOnly = true)
-    public String generateInventoryMovementsReportHTML(String startDate, String endDate,
+    public String generateStockMovementsReportHTML(String startDate, String endDate,
                                                        String movementType, String approvalStatus,
                                                        Long itemId) {
         try {
-            return generateInventoryMovementsHTML(getInventoryMovementsReportData(
+            return generateStockMovementsHTML(getStockMovementsReportData(
                     startDate, endDate, movementType, approvalStatus, itemId));
         } catch (Exception e) {
             log.error("Error generating inventory movements report: {}", e.getMessage(), e);
@@ -563,14 +563,14 @@ public class ReportService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getInventoryMovementsReportData(String startDate, String endDate,
+    public Map<String, Object> getStockMovementsReportData(String startDate, String endDate,
                                                                String movementType, String approvalStatus,
                                                                Long itemId) {
         LocalDate from = parseDate(startDate);
         LocalDate to = parseDate(endDate);
 
-        List<InventoryMovement> all = inventoryMovementRepository.findAll();
-        List<InventoryMovement> filtered = all.stream()
+        List<StockMovement> all = StockMovementRepository.findAll();
+        List<StockMovement> filtered = all.stream()
                 .filter(m -> from == null || (m.getCreatedAt() != null
                         && !m.getCreatedAt().toLocalDate().isBefore(from)))
                 .filter(m -> to == null || (m.getCreatedAt() != null
@@ -580,14 +580,14 @@ public class ReportService {
                 .filter(m -> approvalStatus == null || approvalStatus.isBlank()
                         || approvalStatus.equalsIgnoreCase(m.getApprovalStatus()))
                 .filter(m -> itemId == null || Objects.equals(m.getItemId(), itemId))
-                .sorted(Comparator.comparing(InventoryMovement::getCreatedAt,
+                .sorted(Comparator.comparing(StockMovement::getCreatedAt,
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 .collect(Collectors.toList());
 
         int totalIn = 0, totalOut = 0, totalAdj = 0;
         int pending = 0, approved = 0, rejected = 0;
         List<Map<String, Object>> rows = new ArrayList<>();
-        for (InventoryMovement m : filtered) {
+        for (StockMovement m : filtered) {
             String type = m.getMovementType() != null ? m.getMovementType() : "";
             int qty = intOf(m.getQuantity());
             if ("IN".equalsIgnoreCase(type)) totalIn += qty;
@@ -635,7 +635,7 @@ public class ReportService {
         return data;
     }
 
-    private String generateInventoryMovementsHTML(Map<String, Object> data) {
+    private String generateStockMovementsHTML(Map<String, Object> data) {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> movements = (List<Map<String, Object>>) data.get("movements");
 
@@ -1031,15 +1031,15 @@ public class ReportService {
         Map<Long, String> locationNames = loadLocationNames();
 
         // Movements for this item (last 50)
-        List<InventoryMovement> movements = inventoryMovementRepository.findAll().stream()
+        List<StockMovement> movements = StockMovementRepository.findAll().stream()
                 .filter(m -> Objects.equals(m.getItemId(), itemId))
-                .sorted(Comparator.comparing(InventoryMovement::getCreatedAt,
+                .sorted(Comparator.comparing(StockMovement::getCreatedAt,
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 .limit(50)
                 .toList();
 
         List<Map<String, Object>> movementRows = new ArrayList<>();
-        for (InventoryMovement m : movements) {
+        for (StockMovement m : movements) {
             Map<String, Object> r = new HashMap<>();
             r.put("createdAt", m.getCreatedAt() != null ? m.getCreatedAt().format(TIME_FORMATTER) : "—");
             r.put("movementType", safe(m.getMovementType()));
