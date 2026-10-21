@@ -500,6 +500,31 @@ public ResponseEntity<Map<String, Object>> generatePivotReportHTML(
         }
     }
 
+
+    @PostMapping(
+    value = "/analytics/pivot/pdf",
+    produces = MediaType.APPLICATION_PDF_VALUE
+)
+public ResponseEntity<byte[]> generatePivotReportPDF(
+        @RequestParam(required = false) String entity,
+        @RequestParam(required = false) String groupBy,
+        @RequestParam(required = false) String pivotBy,
+        @RequestParam(required = false) String metric,
+        @RequestParam(required = false) String startDate,
+        @RequestParam(required = false) String endDate) {
+
+    log.info("📄 Generating PDF pivot report — {} by {} × {}", entity, groupBy, pivotBy);
+
+    try {
+        Map<String, Object> data = pivotReportService.buildPivotData(
+                entity, groupBy, pivotBy, metric, startDate, endDate);
+        byte[] pdf = jasperReportService.generatePivotReportPDF(data);
+        return buildPdfResponse(pdf, "pivot-report.pdf");
+    } catch (Exception e) {
+        log.error("❌ Error generating PDF pivot report: {}", e.getMessage(), e);
+        return ResponseEntity.internalServerError().build();
+    }
+}
     // ============================================================
     // HELPER METHODS
     // ============================================================
