@@ -15,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.lang.reflect.Method;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -71,7 +70,6 @@ public class PivotReportService {
 
         List<Map<String, Object>> records = fetchRecords(ent, from, to);
 
-        // Aggregate
         Map<String, Map<String, Double>> matrix = new LinkedHashMap<>();
         Map<String, Double> rowTotals = new LinkedHashMap<>();
         Map<String, Double> colTotals = new LinkedHashMap<>();
@@ -92,7 +90,6 @@ public class PivotReportService {
             grandTotal += value;
         }
 
-        // Column keys
         List<String> pivotKeys = new ArrayList<>(colTotals.keySet());
         if (p != null) {
             if ("MONTH".equals(p) || "YEAR".equals(p)) {
@@ -104,7 +101,6 @@ public class PivotReportService {
             pivotKeys = List.of("Value");
         }
 
-        // Row ordering
         List<String> rowKeys = new ArrayList<>(matrix.keySet());
         if ("MONTH".equals(g) || "YEAR".equals(g)) {
             rowKeys.sort(Comparator.comparing(this::sortableDateKey));
@@ -116,7 +112,6 @@ public class PivotReportService {
             rowKeys.sort(String.CASE_INSENSITIVE_ORDER);
         }
 
-        // Build rows
         List<Map<String, Object>> rows = new ArrayList<>();
         for (String rk : rowKeys) {
             Map<String, Double> cells = matrix.get(rk);
@@ -196,7 +191,6 @@ public class PivotReportService {
         String pivotLabel = data.get("pivotLabel") == null ? "" : esc(data.get("pivotLabel"));
         String metricLabel = esc(data.get("metricLabel"));
 
-        // Header
         StringBuilder thead = new StringBuilder("<tr>");
         thead.append("<th style='text-align:left;min-width:180px'>").append(groupLabel).append("</th>");
         if (hasPivot) {
@@ -209,7 +203,6 @@ public class PivotReportService {
         thead.append("<th style='text-align:right;font-weight:700;background:#EEF2FF;color:#3730A3'>Total</th>");
         thead.append("</tr>");
 
-        // Body
         StringBuilder tbody = new StringBuilder();
         if (rows.isEmpty()) {
             tbody.append("<tr><td colspan='")
@@ -231,7 +224,6 @@ public class PivotReportService {
             }
         }
 
-        // Column totals row
         StringBuilder tfoot = new StringBuilder("<tr style='background:#EEF2FF'>");
         tfoot.append("<td style='font-weight:700;color:#3730A3'>Grand Total</td>");
         if (hasPivot) {
