@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xmlns:jr="http://jasperreports.sourceforge.net/jasperreports/components"
+              xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd http://jasperreports.sourceforge.net/jasperreports/components http://jasperreports.sourceforge.net/xsd/components.xsd"
+              name="Pivot Report" language="groovy"
+              pageWidth="842" pageHeight="595" orientation="Landscape"
+              columnWidth="802" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20">
+
+    <parameter name="companyName" class="java.lang.String"/>
+    <parameter name="reportTitle" class="java.lang.String"/>
+    <parameter name="logoUrl" class="java.lang.String"/>
+    <parameter name="subtitle" class="java.lang.String"/>
+    <parameter name="groupLabel" class="java.lang.String"/>
+    <parameter name="pivotLabel" class="java.lang.String"/>
+    <parameter name="metricLabel" class="java.lang.String"/>
+    <parameter name="hasPivot" class="java.lang.Boolean"/>
+    <parameter name="recordCount" class="java.lang.Integer"/>
+    <parameter name="rowCount" class="java.lang.Integer"/>
+    <parameter name="grandTotal" class="java.lang.String"/>
+    <parameter name="reportGenerated" class="java.lang.String"/>
+    <parameter name="rows" class="java.util.List"/>
+
+    <subDataset name="pivotDataset">
+        <field name="groupLabel" class="java.lang.String"/>
+        <field name="subGroupLabel" class="java.lang.String"/>
+        <field name="formattedValue" class="java.lang.String"/>
+        <field name="rowType" class="java.lang.String"/>
+    </subDataset>
+
+    <style name="Title" fontName="Arial" fontSize="18" isBold="true" forecolor="#111827"/>
+    <style name="Subtitle" fontName="Arial" fontSize="13" isBold="true" forecolor="#4F46E5"/>
+    <style name="Label" fontName="Arial" fontSize="8" forecolor="#6B7280"/>
+    <style name="Footer" fontName="Arial" fontSize="8" forecolor="#9CA3AF"/>
+    <style name="StatValue" fontName="Arial" fontSize="14" isBold="true"/>
+    <style name="StatLabel" fontName="Arial" fontSize="7" forecolor="#6B7280"/>
+
+    <title>
+        <band height="140">
+            <rectangle>
+                <reportElement x="0" y="0" width="802" height="90" backcolor="#EEF2FF" mode="Opaque"/>
+                <graphicElement><pen lineWidth="0"/></graphicElement>
+            </rectangle>
+
+            <image>
+                <reportElement x="20" y="15" width="55" height="55"/>
+                <imageExpression><![CDATA[$P{logoUrl}]]></imageExpression>
+            </image>
+
+            <textField>
+                <reportElement x="90" y="15" width="500" height="22"/>
+                <textElement style="Title"/>
+                <textFieldExpression><![CDATA[$P{companyName} + " Trailers"]]></textFieldExpression>
+            </textField>
+
+            <textField>
+                <reportElement x="90" y="40" width="500" height="18"/>
+                <textElement style="Subtitle"/>
+                <textFieldExpression><![CDATA[$P{reportTitle}]]></textFieldExpression>
+            </textField>
+
+            <textField>
+                <reportElement x="90" y="60" width="602" height="14"/>
+                <textElement style="Label"/>
+                <textFieldExpression><![CDATA[$P{subtitle} + " • " + $P{recordCount} + " records • Generated: " + $P{reportGenerated}]]></textFieldExpression>
+            </textField>
+
+            <textField>
+                <reportElement x="602" y="75" width="200" height="12"/>
+                <textElement textAlignment="Right" style="Footer"/>
+                <textFieldExpression><![CDATA["Grand Total: " + $P{grandTotal}]]></textFieldExpression>
+            </textField>
+
+            <!-- Column headers -->
+            <rectangle>
+                <reportElement x="0" y="100" width="802" height="22" backcolor="#F3F4F6" mode="Opaque"/>
+                <graphicElement><pen lineWidth="0"/></graphicElement>
+            </rectangle>
+            <textField>
+                <reportElement x="10" y="102" width="240" height="18"/>
+                <textElement fontSize="9" isBold="true" forecolor="#374151"/>
+                <textFieldExpression><![CDATA[$P{groupLabel}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="260" y="102" width="240" height="18"/>
+                <textElement fontSize="9" isBold="true" forecolor="#374151"/>
+                <textFieldExpression><![CDATA[$P{hasPivot} ? $P{pivotLabel} : "—"]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="510" y="102" width="290" height="18"/>
+                <textElement fontSize="9" isBold="true" forecolor="#374151" textAlignment="Right"/>
+                <textFieldExpression><![CDATA[$P{metricLabel}]]></textFieldExpression>
+            </textField>
+        </band>
+    </title>
+
+    <detail>
+        <band height="18">
+            <componentElement>
+                <reportElement x="0" y="0" width="802" height="18"/>
+                <jr:list xmlns:jr="http://jasperreports.sourceforge.net/jasperreports/components">
+                    <datasetRun subDataset="pivotDataset">
+                        <dataSourceExpression><![CDATA[new net.sf.jasperreports.engine.data.JRMapCollectionDataSource($P{rows})]]></dataSourceExpression>
+                    </datasetRun>
+                    <jr:listContents height="18" width="802">
+                        <textField>
+                            <reportElement x="10" y="0" width="240" height="18">
+                                <printWhenExpression><![CDATA[!$F{rowType}.equals("subtotal")]]></printWhenExpression>
+                            </reportElement>
+                            <textElement fontSize="8" verticalAlignment="Middle"/>
+                            <textFieldExpression><![CDATA[$F{groupLabel}]]></textFieldExpression>
+                        </textField>
+                        <textField>
+                            <reportElement x="10" y="0" width="240" height="18" isBold="true">
+                                <printWhenExpression><![CDATA[$F{rowType}.equals("subtotal")]]></printWhenExpression>
+                            </reportElement>
+                            <textElement fontSize="8" verticalAlignment="Middle" isBold="true"/>
+                            <textFieldExpression><![CDATA[$F{groupLabel} + " — Total"]]></textFieldExpression>
+                        </textField>
+                        <textField>
+                            <reportElement x="260" y="0" width="240" height="18"/>
+                            <textElement fontSize="8" verticalAlignment="Middle"/>
+                            <textFieldExpression><![CDATA[$F{subGroupLabel}]]></textFieldExpression>
+                        </textField>
+                        <textField>
+                            <reportElement x="510" y="0" width="290" height="18">
+                                <printWhenExpression><![CDATA[!$F{rowType}.equals("subtotal")]]></printWhenExpression>
+                            </reportElement>
+                            <textElement fontSize="8" textAlignment="Right" verticalAlignment="Middle"/>
+                            <textFieldExpression><![CDATA[$F{formattedValue}]]></textFieldExpression>
+                        </textField>
+                        <textField>
+                            <reportElement x="510" y="0" width="290" height="18" isBold="true">
+                                <printWhenExpression><![CDATA[$F{rowType}.equals("subtotal")]]></printWhenExpression>
+                            </reportElement>
+                            <textElement fontSize="8" textAlignment="Right" verticalAlignment="Middle" isBold="true"/>
+                            <textFieldExpression><![CDATA[$F{formattedValue}]]></textFieldExpression>
+                        </textField>
+                    </jr:listContents>
+                </jr:list>
+            </componentElement>
+        </band>
+    </detail>
+
+    <pageFooter>
+        <band height="25">
+            <textField>
+                <reportElement x="20" y="8" width="200" height="12"/>
+                <textElement style="Footer"/>
+                <textFieldExpression><![CDATA["Page " + $V{PAGE_NUMBER}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="602" y="8" width="200" height="12"/>
+                <textElement textAlignment="Right" style="Footer"/>
+                <textFieldExpression><![CDATA[$P{reportGenerated}]]></textFieldExpression>
+            </textField>
+        </band>
+    </pageFooter>
+</jasperReport>
