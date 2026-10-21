@@ -11,6 +11,8 @@ import net.sf.jasperreports.export.SimplePdfExporterConfiguration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
+import com.pgsa.trailers.service.PivotReportService;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -128,6 +130,78 @@ public class JasperReportService {
             throw new RuntimeException("Failed to generate PDF inventory item report", e);
         }
     }
+
+    public byte[] generatePivotReportPDF(Map<String, Object> data) {
+    try {
+        log.info("📄 Generating PDF pivot report");
+        return generatePDF("pivot_report.jrxml", buildPivotParams(data));
+    } catch (JRException | IOException e) {
+        log.error("❌ Error generating PDF pivot report: {}", e.getMessage(), e);
+        throw new RuntimeException("Failed to generate PDF pivot report", e);
+    }
+}
+
+/**
+ * Flatten a pivot data map into a long-format row list:
+ *   { groupLabel, subGroupLabel, formattedValue, rowType }
+ * Rows: detail / subtotal / grand
+ */
+private Map<String, Object> buildPivotParams(Map<String, Object> data) {
+    Map<String, Object> params = new HashMap<>();
+    params.put("companyName", "Trailers");
+    params.put("reportTitle", getStringOr(data, "title", "Pivot Report"));
+    params.put("logoUrl", LOGO_URL);
+    params.put("subtitle", getStringOr(data, "subtitle", ""));
+    params.put("groupLabel", getStringOr(data, "groupLabel", "Group"));
+    params.put("pivotLabel", getStringOr(data, "pivotLabel", "—"));
+    params.put("metricLabel", getStringOr(data, "metricLabel", "Value"));
+    params.put("hasPivot", getBoolean(data, "hasPivot"));
+    params.put("recordCount", getInt(data, "recordCount"));
+    params.put("rowCount", getInt(data, "rowCount"));
+    params.put("grandTotal", getStringOr(data, "formattedGrandTotal", "0"));
+    params.put("reportGenerated", LocalDateTime.now().format(DATE_FORMATTER));
+
+    // Flatten rows
+    List<Map<String, Object>> flat = new ArrayList<>();
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> rows =
+        data.get("rows") instanceof List ? (List<Map<String, Object>>) data.get("rows") : List.of();
+
+    for (Map<String, Object> row : rows) {
+        String groupLabel = safeStr(row.get("groupLabel"));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> values =
+            row.get("values") instanceof List ? (List<Map<String, Object>>) row.get("values") : List.of();
+        for (Map<String, Object> v : values) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("groupLabel", groupLabel);
+            item.put("subGroupLabel", safeStr(v.get("columnKey")));
+            item.put("formattedValue", safeStr(v.get("formatted")));
+            item.put("rowType", "detail");
+            flat.add(item);
+        }
+        // Subtotal row for the group
+        Map<String, Object> subtotal = new HashMap<>();
+        subtotal.put("groupLabel", groupLabel);
+        subtotal.put("subGroupLabel", "Total");
+        subtotal.put("formattedValue", safeStr(row.get("formattedTotal")));
+        subtotal.put("rowType", "subtotal");
+        flat.add(subtotal);
+    }
+    params.put("rows", flat);
+    return params;
+}
+
+private Boolean getBoolean(Map<String, Object> data, String key) {
+    Object v = data.get(key);
+    if (v instanceof Boolean b) return b;
+    if (v instanceof String s) return Boolean.parseBoolean(s);
+    return false;
+}
+
+private String safeStr(Object v) {
+    return v == null ? "" : v.toString();
+}
 
     // ============================================================
     // GENERIC PDF GENERATION (unchanged)
