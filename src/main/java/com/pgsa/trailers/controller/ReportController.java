@@ -25,6 +25,7 @@ public class ReportController {
 
     private final ReportService reportService;
     private final JasperReportService jasperReportService;
+    private final PivotReportService pivotReportService;
 
     private static final DateTimeFormatter DATE_FORMATTER =
         DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm");
@@ -241,6 +242,32 @@ public class ReportController {
         }
     }
 
+
+    @PostMapping(
+    value = "/analytics/pivot",
+    produces = MediaType.APPLICATION_JSON_VALUE
+)
+public ResponseEntity<Map<String, Object>> generatePivotReportHTML(
+        @RequestParam(required = false) String entity,
+        @RequestParam(required = false) String groupBy,
+        @RequestParam(required = false) String pivotBy,
+        @RequestParam(required = false) String metric,
+        @RequestParam(required = false) String startDate,
+        @RequestParam(required = false) String endDate) {
+
+    log.info("📊 Generating pivot report — {} by {} × {} — {}",
+            entity, groupBy, pivotBy, metric);
+
+    try {
+        Map<String, Object> data = pivotReportService.buildPivotData(
+                entity, groupBy, pivotBy, metric, startDate, endDate);
+        String html = pivotReportService.buildPivotHtml(data);
+        return buildSuccessResponse(html);
+    } catch (Exception e) {
+        log.error("❌ Error generating pivot report: {}", e.getMessage(), e);
+        return buildErrorResponse(e.getMessage());
+    }
+}
     // ============================================================
     // PDF REPORTS — TRIPS / LOADS / FUEL
     // ============================================================
