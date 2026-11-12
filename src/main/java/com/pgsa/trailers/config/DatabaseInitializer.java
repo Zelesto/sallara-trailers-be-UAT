@@ -62,8 +62,7 @@ public class DatabaseInitializer implements CommandLineRunner {
             logger.info("Database initialization completed successfully");
 
         } catch (Exception e) {
-            logger.error("Database initialization failed: {}", e.getMessage());
-            e.printStackTrace();
+            throw new IllegalStateException("Database initialization failed", e);
         }
     }
 
