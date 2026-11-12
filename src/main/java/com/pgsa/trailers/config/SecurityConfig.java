@@ -45,7 +45,8 @@ public class SecurityConfig {
             // Authorization rules
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/api/auth/**", "/error","/api/test/**").permitAll()
+                .requestMatchers("/actuator/health", "/actuator/health/**",
+                    "/api/auth/**", "/error", "/api/test/**").permitAll()
                 .anyRequest().authenticated()
             )
 
@@ -81,6 +82,7 @@ public class SecurityConfig {
 
         config.setAllowedOrigins(List.of(
             "https://trailers-1.onrender.com",
+            "https://trailers-frontend.onrender.com",
             "http://localhost:5173",
             "https://api.openrouteservice.org*",
             "https://sallara-trailers-fe-uat.onrender.com",
